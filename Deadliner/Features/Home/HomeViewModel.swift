@@ -39,9 +39,14 @@ final class HomeViewModel: ObservableObject {
             .sink { [weak self] _ in
                 guard let self else { return }
 
-                if let until = self.suppressReloadUntil, Date() < until {
-                    // 忽略自己刚触发的变更通知，避免覆盖 UI 动画
-                    return
+                if let until = self.suppressReloadUntil {
+                    let now = Date()
+                    if now < until {
+                        // 延后刷新：确保在抑制期结束后，最终能同步来自同步或其他来源的数据
+                        let delayMs = Int(until.timeIntervalSince(now) * 1000) + 100
+                        self.scheduleReload(delay: UInt64(delayMs * 1_000_000))
+                        return
+                    }
                 }
                 
                 self.scheduleReload()
@@ -55,32 +60,37 @@ final class HomeViewModel: ObservableObject {
 
     // MARK: - Page Lifecycle
 
-    /// 页面进入：先同步，再刷新；仅执行一次
+    /// 页面进入：先刷新本地，再后台同步；仅执行一次初始流程
     func initialLoad() async {
         self.progressDir = await LocalValues.shared.getProgressDir()
         
-        guard !didInitialLoad else {
-            await reload()
-            return
-        }
+        // 1. 无论是否已初始化，都先刷一次本地，确保 UI 立即显示
+        await reload()
+        
+        guard !didInitialLoad else { return }
         didInitialLoad = true
 
-        isLoading = true
-        defer { isLoading = false }
-
-        let syncOK = await repo.syncNow()
-        logger.info("initial sync result=\(syncOK, privacy: .public)")
-        await reload()
+        // 2. 后台静默同步，避免阻塞主线程显示
+        Task {
+            let syncOK = await repo.syncNow()
+            logger.info("initial background sync result=\(syncOK, privacy: .public)")
+            // 注意：syncNow 内部成功后会发通知，触发 scheduleReload，所以这里不需要手动 reload
+        }
     }
 
-    /// 下拉刷新：每次都先同步再刷新
+    /// 下拉刷新：先展示本地，同时触发同步
     func pullToRefresh() async {
         isLoading = true
-        defer { isLoading = false }
-
+        // 1. 先确保本地是最新的（以防万一）
+        await reload()
+        
+        // 2. 执行同步
         let syncOK = await repo.syncNow()
         logger.info("pull-to-refresh sync result=\(syncOK, privacy: .public)")
+        
+        // 3. 同步完成后再次刷新
         await reload()
+        isLoading = false
     }
 
     // 保留兼容入口（如果别处还在调这两个）
@@ -120,6 +130,17 @@ final class HomeViewModel: ObservableObject {
         } catch {
             errorText = "更新失败：\(error.localizedDescription)"
             rollbackTo(original)
+        }
+    }
+    
+    func toggleArchiveItem(item: DDLItem) async {
+        var updated = item
+        updated.isArchived.toggle()
+        
+        do {
+            try await repo.updateDDL(updated)
+        } catch {
+            errorText = "更新失败：\(error.localizedDescription)"
         }
     }
 
@@ -175,7 +196,7 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func reload() async {
+    private func reload(force: Bool = false) async {
         if isReloading {
             pendingReload = true
             return
@@ -187,17 +208,16 @@ final class HomeViewModel: ObservableObject {
         }
 
         do {
-            let list = try await repo.getDDLsByType(.task)
+            let sortedList = try await repo.getDDLsByType(.task)
 
-            tasks = list.sorted { lhs, rhs in
-                if lhs.isCompleted != rhs.isCompleted {
-                    return !lhs.isCompleted && rhs.isCompleted
-                }
-                return lhs.endTime < rhs.endTime
+            // 🟢 核心优化：如果内容（ID序列）没变，且不是强制刷新，则跳过
+            if !force && sortedList.map(\.id) == self.tasks.map(\.id) {
+                logger.debug("reload: data unchanged, skipping UI update.")
+            } else {
+                tasks = sortedList
+                logger.info("reload: updated tasks count=\(sortedList.count, privacy: .public)")
             }
 
-            logger.info("reload done. repo.getDDLsByType(.task) count=\(list.count, privacy: .public)")
-            logger.debug("reload ids: \(self.tasks.map(\.id).description, privacy: .public)")
             errorText = nil
         } catch {
             tasks = []

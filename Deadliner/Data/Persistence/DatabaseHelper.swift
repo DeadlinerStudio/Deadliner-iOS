@@ -163,15 +163,16 @@ actor DatabaseHelper {
         return id
     }
 
-    func getAllDDLs() throws -> [DDLItemEntity] {
+    func getAllDDLs() throws -> [DDLItem] {
         guard let context else { throw DBError.notInitialized }
         let fd = FetchDescriptor<DDLItemEntity>(
             predicate: #Predicate { $0.isTombstoned == false }
         )
-        return try context.fetch(fd)
+        let entities = try context.fetch(fd)
+        return entities.map { $0.toDomain() }
     }
 
-    func getDDLsByType(_ type: DeadlineType) throws -> [DDLItemEntity] {
+    func getDDLsByType(_ type: DeadlineType) throws -> [DDLItem] {
         guard let context else { throw DBError.notInitialized }
 
         let typeRaw = type.rawValue
@@ -180,10 +181,12 @@ actor DatabaseHelper {
         )
 
         let items = try context.fetch(fd)
-        return items.sorted {
+        let sorted = items.sorted {
             if $0.isCompleted != $1.isCompleted { return $0.isCompleted == false }
-            return $0.endTime < $1.endTime
+            if $0.endTime != $1.endTime { return $0.endTime < $1.endTime }
+            return $0.legacyId < $1.legacyId
         }
+        return sorted.map { $0.toDomain() }
     }
 
     func updateDDL(legacyId: Int64, mutate: (DDLItemEntity) -> Void) throws {

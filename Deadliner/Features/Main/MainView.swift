@@ -20,6 +20,8 @@ struct MainView: View {
 
     @State private var showAddTaskForm = false
     @State private var showAddOptions = false
+    
+    @State private var showArchiveSheet = false
 
     var body: some View {
         NavigationStack {
@@ -64,6 +66,21 @@ struct MainView: View {
                         .navigationBarTitleDisplayMode(.large)
                     }
                     .presentationDetents([.large])
+                }
+                .sheet(isPresented: $showArchiveSheet) {
+                    NavigationStack {
+                        VStack(spacing: 12) {
+                            Text("归档（TODO）")
+                                .font(.headline)
+                            Text("这里放已完成且隐藏项目的管理列表。")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .navigationTitle("归档")
+                        .navigationBarTitleDisplayMode(.inline)
+                    }
+                    .presentationDetents([.medium, .large])
                 }
         }
     }
@@ -119,10 +136,19 @@ struct MainView: View {
             Button {
                 showSettingsSheet = true
             } label: {
-                Image(systemName: "gear")
+                Image("avatar")
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFill()
+                    .frame(width: 42, height: 42)
+                    .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
+                    .contentShape(Circle())
             }
-            .accessibilityLabel("用户面板")
+            .accessibilityLabel("用户与设置")
+            .accessibilityHint("打开用户面板与设置")
         }
+        .sharedBackgroundVisibility(.hidden)
     }
 
     // MARK: - Bottom Toolbar
@@ -232,5 +258,17 @@ struct MainView: View {
         case .archive:
             return "搜索归档..."
         }
+    }
+}
+
+struct ProfilePicture: View {
+    var body: some View {
+        Image("avatar")
+            .resizable()
+            .scaledToFill()
+            .frame(width: 28, height: 28)
+            .clipShape(Circle())
+            .padding(.horizontal)
+            .accessibilityLabel("用户")
     }
 }

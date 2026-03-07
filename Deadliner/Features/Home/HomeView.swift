@@ -22,6 +22,8 @@ struct HomeView: View {
     @State private var listAnimToken: Int = 0
     @State private var enterAnimToken: Int = 0
     @State private var isStagingRebuild: Bool = false
+    
+    @State private var editSheetItem: DDLItem? = nil
 
     // Habit 暂不接入，先留占位
     private let habitItems = [
@@ -74,17 +76,15 @@ struct HomeView: View {
                             FloatUpRow(index: idx, maxLoad: 15, enable: true, animateToken: enterAnimToken) {
                                 DDLItemCardSwipeable(
                                     title: item.name,
+                                    // ... 其余属性保持不变
                                     remainingTimeAlt: remainingTimeText(for: item),
                                     note: item.note,
                                     progress: progress(for: item),
                                     isStarred: item.isStared,
                                     status: status(for: item),
-                                    onTap: {
-                                        // TODO: push detail page
-                                    },
+                                    onTap: { },
                                     onComplete: {
                                         let wasCompleted = item.isCompleted
-
                                         let isNowCompleted = withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                             listAnimToken += 1
                                             return vm.toggleCompleteLocal(item)
@@ -95,24 +95,30 @@ struct HomeView: View {
                                         if wasCompleted && !isNowCompleted {
                                             Task { @MainActor in
                                                 isStagingRebuild = true
-                                                let snapshot = vm.tasks   // local toggle 后的“新排序”结果
+                                                let snapshot = vm.tasks
                                                 await vm.stageRebuildFromCurrentSnapshot(snapshot: snapshot, blankDelayMs: 90)
-                                                withAnimation(.none) { enterAnimToken += 1 }
+                                                enterAnimToken += 1 // 触发重排后的上浮
                                                 isStagingRebuild = false
                                             }
                                         }
-
                                         Task { await vm.persistToggleComplete(original: item) }
                                     },
                                     onDelete: {
                                         pendingDeleteItem = item
                                         showDeleteConfirm = true
+                                    },
+                                    onArchive: {
+                                        Task { await vm.toggleArchiveItem(item: item) }
+                                    },
+                                    onEdit: {
+                                        editSheetItem = item
                                     }
                                 )
                                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
                             }
+                            .id(item.id) // 🟢 关键修复：确保 List 复用时识别出新行
                         }
                     }
                 } else {
@@ -144,9 +150,19 @@ struct HomeView: View {
         }
         .task {
             await vm.initialLoad()
+            // 初始加载完成后触发一次动画
+            enterAnimToken += 1
         }
         .refreshable {
             await vm.pullToRefresh()
+            // 下拉刷新完成后触发一次动画
+            enterAnimToken += 1
+        }
+        .onChange(of: vm.tasks.count) { old, new in
+            // 如果任务数量真的变了（同步新增/删除），也触发一次动画
+            if old != 0 && old != new {
+                enterAnimToken += 1
+            }
         }
         .alert("提示", isPresented: Binding(
             get: { vm.errorText != nil },
@@ -178,6 +194,9 @@ struct HomeView: View {
         }
         .overlay {
             ConfettiOverlay(controller: confetti)
+        }
+        .sheet(item: $editSheetItem) { item in
+            EditTaskSheetView(repository: TaskRepository.shared, item: item)
         }
     }
 

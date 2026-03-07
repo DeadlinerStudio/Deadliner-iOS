@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import os
+import WidgetKit
 
 actor TaskRepository {
     static let shared = TaskRepository(db: .shared)
@@ -93,11 +94,12 @@ actor TaskRepository {
 
         do {
             guard let syncService = await makeSyncService() else { return }
-            _ = await syncService.syncOnce()
+            let result = await syncService.syncOnce()
 
-            // TODO: 这里后续可加 UI 通知（如 NotificationCenter）
-            // TODO: 这里后续可加 Widget 刷新
-            // TODO: 这里后续可加 Reminder 刷新
+            if result.hasLocalChanges {
+                NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
         }
 
         if hasPendingSync {
@@ -126,7 +128,10 @@ actor TaskRepository {
 
         let result = await syncService.syncOnce()
 
-        // TODO: 如果 result.hasLocalChanges，这里后续可加 UI/Widget/Reminder 联动刷新
+        if result.hasLocalChanges {
+            NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+            WidgetCenter.shared.reloadAllTimelines()
+        }
 
         if hasPendingSync {
             hasPendingSync = false
@@ -143,6 +148,7 @@ actor TaskRepository {
         let id = try await db.insertDDL(params)
         await scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        WidgetCenter.shared.reloadAllTimelines()
         return id
     }
 
@@ -152,6 +158,7 @@ actor TaskRepository {
         }
         await scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func deleteDDL(_ item: DDLItem) async throws {
@@ -159,6 +166,7 @@ actor TaskRepository {
         try await db.deleteDDL(legacyId: item.id)
         await scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func deleteDDL(_ id: Int64) async throws {
@@ -166,20 +174,15 @@ actor TaskRepository {
         try await db.deleteDDL(legacyId: id)
         await scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func getAllDDLs() async throws -> [DDLItem] {
-        let entities = try await db.getAllDDLs()
-        return entities.map { $0.toDomain() }
+        try await db.getAllDDLs()
     }
 
     func getDDLsByType(_ type: DeadlineType) async throws -> [DDLItem] {
-        let all = try await db.getDDLsByType(type)
-        let entities = all.filter {
-            return !$0.isTombstoned && $0.typeRaw == type.rawValue
-        }
-        
-        return entities.map { $0.toDomain() }
+        try await db.getDDLsByType(type)
     }
 
     // MARK: - SubTask

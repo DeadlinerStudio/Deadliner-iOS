@@ -67,6 +67,7 @@ actor SyncServiceV1: SyncService {
     private func isVerNewer(_ a: SnapshotVer, _ b: SnapshotVer) -> Bool {
         if a.ts != b.ts { return a.ts > b.ts }
         if a.ctr != b.ctr { return a.ctr > b.ctr }
+        if a.dev != b.dev { return a.dev > b.dev }
         return false
     }
 
@@ -99,7 +100,9 @@ actor SyncServiceV1: SyncService {
             let local = try await db.findDDLByUID(uid)
             if let local {
                 let localVer = SnapshotVer(ts: local.verTs, ctr: local.verCtr, dev: local.verDev)
-                if isVerNewer(localVer, mergedVer) {
+                // 🟢 核心优化：只有远程/合并后的版本确实更新时，才应用到本地。
+                // 之前是 !isVerNewer(localVer, mergedVer) 就会应用，导致版本相等时也在冗余覆盖。
+                if !isVerNewer(mergedVer, localVer) {
                     continue
                 }
             }

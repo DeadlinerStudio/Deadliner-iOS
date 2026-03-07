@@ -113,7 +113,7 @@ actor WebDAVClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.httpBody = body
-        req.timeoutInterval = 30
+        req.timeoutInterval = 15 // 降低超时到 15s 以适配弱网快速失败状态
 
         if let authHeader {
             req.setValue(authHeader, forHTTPHeaderField: "Authorization")

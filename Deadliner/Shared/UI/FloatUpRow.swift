@@ -14,41 +14,38 @@ struct FloatUpRow<Content: View>: View {
     var animateToken: Int = 0
     @ViewBuilder var content: () -> Content
 
-    // 1. 默认设为 false，避免视图刚滑入屏幕时先闪现一下再消失
     @State private var isVisible: Bool = false
 
     private var delaySeconds: Double {
-        guard maxLoad > 0 else { return 0 }
-        return Double((index % maxLoad) * 50) / 1000.0
+        let safeIndex = max(0, index)
+        return Double((safeIndex % maxLoad)) * 0.05 // 50ms per item
     }
 
     var body: some View {
         content()
-            .opacity(enable ? (isVisible ? 1 : 0) : 1)
-            .offset(y: enable ? (isVisible ? 0 : 20) : 0)
-            // 2. 依然监听 token
-            .task(id: animateToken) {
-                guard enable else { return }
-                
-                // 3. 如果需要重播动画（token改变），先无动画地重置状态
-                if isVisible {
-                    var transaction = Transaction(animation: nil)
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        isVisible = false
-                    }
-                    // 极短暂地让出主线程，确保 false 状态被 UI 渲染引擎接收
-                    try? await Task.sleep(nanoseconds: 10_000_000)
-                }
-                
-                // 4. ✨ 核心修复：把 delay 绑在 Animation 上 ✨
-                // 这样不再需要漫长的 Task.sleep 阻塞主线程
-                let animation = Animation.timingCurve(0.4, 0.0, 0.2, 1.0, duration: 0.4)
-                                         .delay(delaySeconds)
-                
-                withAnimation(animation) {
-                    isVisible = true
-                }
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : 20)
+            .onAppear {
+                triggerAnimation()
             }
+            // 当外部 Token 改变时（例如刷新或重排），重置并重新播放动画
+            .onChange(of: animateToken) { _, _ in
+                isVisible = false
+                triggerAnimation()
+            }
+    }
+
+    private func triggerAnimation() {
+        guard enable else {
+            isVisible = true
+            return
+        }
+        
+        withAnimation(
+            .spring(response: 0.5, dampingFraction: 0.8)
+            .delay(delaySeconds)
+        ) {
+            isVisible = true
+        }
     }
 }

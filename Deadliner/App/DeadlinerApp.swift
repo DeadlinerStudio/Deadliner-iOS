@@ -13,22 +13,7 @@ struct DeadlinerApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("selectedAppIcon") private var selectedAppIconRaw: String = DeadlinerIcon.deadlinerDefault.rawValue
     
-    let sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            DDLItemEntity.self,
-            SubTaskEntity.self,
-            HabitEntity.self,
-            HabitRecordEntity.self,
-            SyncStateEntity.self
-        ])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [config])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    let sharedModelContainer: ModelContainer = SharedModelContainer.shared
 
     var body: some Scene {
         WindowGroup {

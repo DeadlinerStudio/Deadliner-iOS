@@ -1,21 +1,22 @@
 //
-//  AddTaskSheet.swift
+//  EditTaskSheet.swift
 //  Deadliner
 //
-//  Created by Aritx 音唯 on 2026/2/16.
+//  Created by Aritx 音唯 on 2026/3/1.
 //
 
 import SwiftUI
 
-struct AddTaskSheetView: View {
+struct EditTaskSheetView: View {
     let repository: TaskRepository
+    let item: DDLItem
     var onDone: (() -> Void)? = nil
 
     var body: some View {
         TaskEditorSheetView(
             repository: repository,
-            mode: .add,
-            initialDraft: .empty(),
+            mode: .edit(original: item),
+            initialDraft: .fromDDL(item),
             onDone: onDone
         )
     }
