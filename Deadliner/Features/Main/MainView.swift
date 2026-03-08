@@ -165,9 +165,9 @@ struct MainView: View {
                 }
             }
 
-            ToolbarSpacer(.flexible, placement: .bottomBar)
+            ToolbarSpacer(.fixed, placement: .bottomBar)
             DefaultToolbarItem(kind: .search, placement: .bottomBar)
-            ToolbarSpacer(.flexible, placement: .bottomBar)
+            ToolbarSpacer(.fixed, placement: .bottomBar)
 
             ToolbarItem(placement: .bottomBar) {
                 Button {

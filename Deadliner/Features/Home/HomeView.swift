@@ -55,11 +55,7 @@ struct HomeView: View {
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
                         } else {
-                            Text("暂无任务")
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
+                            emptyView(text: "暂无任务", icon: "checklist")
                         }
                     } else {
                         ForEach(Array(filteredTasks.enumerated()), id: \.element.id) { idx, item in
@@ -135,11 +131,7 @@ struct HomeView: View {
                     .padding(.bottom, 8)
 
                     if vm.displayHabits.isEmpty {
-                        Text("暂无待打卡待办")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
+                        emptyView(text: "暂无待打卡习惯", icon: "leaf")
                             .padding(.top, 40)
                     } else {
                         ForEach(Array(vm.displayHabits.enumerated()), id: \.element.id) { idx, item in
@@ -280,6 +272,22 @@ struct HomeView: View {
                 }
             )
         }
+    }
+
+    @ViewBuilder
+    private func emptyView(text: String, icon: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 64))
+                .foregroundStyle(.tertiary)
+            Text(text)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
     // MARK: - Mapping Helpers (基础版)

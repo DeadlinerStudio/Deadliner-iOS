@@ -46,6 +46,7 @@ enum HabitSheetMode: Equatable {
 struct HabitEditorSheetView: View {
     @Environment(\.dismiss) private var dismiss
     
+    @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
     
     let taskRepository: TaskRepository = .shared
@@ -70,6 +71,7 @@ struct HabitEditorSheetView: View {
     
     @State private var alertMessage: String?
     @State private var showAlert: Bool = false
+    @State private var showPaywall: Bool = false
     
     init(
         mode: HabitSheetMode,
@@ -119,10 +121,24 @@ struct HabitEditorSheetView: View {
                                 TextField("例如：每天背20个单词...", text: $aiInputText, axis: .vertical)
                                     .lineLimit(1...3)
                                 
-                                Button("解析") {
-                                    Task { await onAITriggered() }
+                                Button {
+                                    if userTier == .free {
+                                        showPaywall = true
+                                    } else {
+                                        Task { await onAITriggered() }
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text("解析")
+                                        if userTier == .free {
+                                            Image(systemName: "crown.fill")
+                                                .font(.system(size: 10))
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
                                 }
                                 .disabled(isAILoading || aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
                             }
                         }
                     }
@@ -134,11 +150,23 @@ struct HabitEditorSheetView: View {
                     }
                     
                     Section("类型 / 周期") {
-                        Picker("周期", selection: $period) {
+                        Picker("周期", selection: Binding(
+                            get: { period },
+                            set: { newValue in
+                                if newValue == .ebbinghaus && userTier == .free {
+                                    showPaywall = true
+                                } else {
+                                    period = newValue
+                                }
+                            }
+                        )) {
                             Text("每日").tag(HabitPeriod.daily)
                             Text("每周").tag(HabitPeriod.weekly)
                             Text("每月").tag(HabitPeriod.monthly)
-                            Text("艾宾浩斯").tag(HabitPeriod.ebbinghaus)
+                            
+                            // 使用插值语法，这是在 Picker 中渲染图标最稳妥的方式
+                            Text("艾宾浩斯 \(userTier == .free ? Image(systemName: "crown.fill") : Image(systemName: ""))")
+                                .tag(HabitPeriod.ebbinghaus)
                         }
                         .pickerStyle(.segmented)
                     }
@@ -223,6 +251,9 @@ struct HabitEditorSheetView: View {
             }, message: {
                 Text(alertMessage ?? "")
             })
+            .sheet(isPresented: $showPaywall) {
+                ProPaywallView()
+            }
         }
     }
     

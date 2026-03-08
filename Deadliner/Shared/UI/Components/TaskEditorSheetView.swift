@@ -63,6 +63,9 @@ struct TaskEditorSheetView: View {
 
     @State private var alertMessage: String?
     @State private var showAlert: Bool = false
+    
+    @AppStorage("userTier") private var userTier: UserTier = .free
+    @State private var showPaywall: Bool = false
 
     init(
         repository: TaskRepository,
@@ -91,8 +94,21 @@ struct TaskEditorSheetView: View {
                                 TextField("询问 AI 以快速添加任务...", text: $aiInputText, axis: .vertical)
                                     .lineLimit(1...3)
 
-                                Button("解析") {
-                                    Task { await onAITriggered() }
+                                Button {
+                                    if userTier == .free {
+                                        showPaywall = true
+                                    } else {
+                                        Task { await onAITriggered() }
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text("解析")
+                                        if userTier == .free {
+                                            Image(systemName: "crown.fill")
+                                                .font(.system(size: 10))
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
                                 }
                                 .disabled(isAILoading || aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             }
@@ -142,6 +158,9 @@ struct TaskEditorSheetView: View {
             }, message: {
                 Text(alertMessage ?? "")
             })
+            .sheet(isPresented: $showPaywall) {
+                ProPaywallView()
+            }
         }
     }
 
