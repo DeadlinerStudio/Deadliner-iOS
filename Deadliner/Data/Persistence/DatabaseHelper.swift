@@ -172,6 +172,13 @@ actor DatabaseHelper {
         return entities.map { $0.toDomain() }
     }
 
+    func getDDLById(_ legacyId: Int64) throws -> DDLItem? {
+        guard let context else { throw DBError.notInitialized }
+        let targetId = legacyId
+        let fd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.legacyId == targetId })
+        return try context.fetch(fd).first?.toDomain()
+    }
+
     func getDDLsByType(_ type: DeadlineType) throws -> [DDLItem] {
         guard let context else { throw DBError.notInitialized }
 

@@ -19,6 +19,12 @@ struct DeadlinerApp: App {
         WindowGroup {
             MainView()
                 .task {
+                    // 请求通知权限
+                    NotificationManager.shared.requestAuthorization()
+                    
+                    // 刷新习惯提醒
+                    HabitRepository.shared.scheduleReminderRefresh()
+                    
                     do {
                         try await TaskRepository.shared.initializeIfNeeded(container: sharedModelContainer)
                     } catch {
@@ -28,11 +34,13 @@ struct DeadlinerApp: App {
                 .onAppear {
                     // 启动时也跑一次（有时不会立刻触发 scenePhase 变化）
                     applyAutoSeasonIconIfNeeded()
+                    HabitRepository.shared.scheduleReminderRefresh()
                 }
                 .onChange(of: scenePhase) { phase in
                     // 回到前台时刷新一次即可
                     guard phase == .active else { return }
                     applyAutoSeasonIconIfNeeded()
+                    HabitRepository.shared.scheduleReminderRefresh()
                 }
 
             

@@ -59,6 +59,9 @@ struct HabitEditorSheetView: View {
     @State private var timesPerPeriod: String
     @State private var totalTarget: String
     
+    @State private var isReminderEnabled: Bool
+    @State private var reminderTime: Date
+    
     @State private var aiInputText: String = ""
     @State private var isAILoading: Bool = false
     @State private var isSaving: Bool = false
@@ -80,6 +83,28 @@ struct HabitEditorSheetView: View {
         _goalType = State(initialValue: initialDraft.goalType)
         _timesPerPeriod = State(initialValue: initialDraft.timesPerPeriod)
         _totalTarget = State(initialValue: initialDraft.totalTarget)
+        
+        let initialAlarmTime: String? = {
+            if case .edit(let h) = mode { return h.alarmTime }
+            return nil
+        }()
+        
+        if let alarm = initialAlarmTime, !alarm.isEmpty,
+           let date = Self.parseAlarmTime(alarm) {
+            _isReminderEnabled = State(initialValue: true)
+            _reminderTime = State(initialValue: date)
+        } else {
+            _isReminderEnabled = State(initialValue: false)
+            _reminderTime = State(initialValue: Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date())
+        }
+    }
+    
+    private static func parseAlarmTime(_ alarm: String) -> Date? {
+        let parts = alarm.split(separator: ":")
+        guard parts.count == 2,
+              let h = Int(parts[0]),
+              let m = Int(parts[1]) else { return nil }
+        return Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: Date())
     }
     
     var body: some View {
@@ -154,6 +179,14 @@ struct HabitEditorSheetView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.vertical, 4)
+                        }
+                    }
+                    
+                    Section("提醒") {
+                        Toggle("每日打卡提醒", isOn: $isReminderEnabled)
+                        
+                        if isReminderEnabled {
+                            DatePicker("提醒时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
                         }
                     }
                 }
@@ -252,6 +285,15 @@ struct HabitEditorSheetView: View {
         isSaving = true
         defer { isSaving = false }
         
+        let alarmStr: String? = {
+            if isReminderEnabled {
+                let f = DateFormatter()
+                f.dateFormat = "HH:mm"
+                return f.string(from: reminderTime)
+            }
+            return nil
+        }()
+        
         do {
             switch mode {
             case .add:
@@ -279,7 +321,8 @@ struct HabitEditorSheetView: View {
                     timesPerPeriod: Int(timesPerPeriod) ?? 1,
                     goalType: goalType,
                     totalTarget: goalType == .total ? (Int(totalTarget) ?? 100) : nil,
-                    description: description
+                    description: description,
+                    alarmTime: alarmStr
                 )
                 
                 showToast("创建成功")
@@ -295,6 +338,7 @@ struct HabitEditorSheetView: View {
                 updatedHabit.timesPerPeriod = Int(timesPerPeriod) ?? 1
                 updatedHabit.goalType = goalType
                 updatedHabit.totalTarget = goalType == .total ? (Int(totalTarget) ?? 100) : nil
+                updatedHabit.alarmTime = alarmStr
                 
                 try await habitRepository.updateHabit(updatedHabit)
                 

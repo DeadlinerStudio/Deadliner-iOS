@@ -97,8 +97,7 @@ actor TaskRepository {
             let result = await syncService.syncOnce()
 
             if result.hasLocalChanges {
-                NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
-                WidgetCenter.shared.reloadAllTimelines()
+                await handleLocalChanges()
             }
         }
 
@@ -129,8 +128,7 @@ actor TaskRepository {
         let result = await syncService.syncOnce()
 
         if result.hasLocalChanges {
-            NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
-            WidgetCenter.shared.reloadAllTimelines()
+            await handleLocalChanges()
         }
 
         if hasPendingSync {
@@ -140,12 +138,27 @@ actor TaskRepository {
 
         return result.success
     }
+    
+    private func handleLocalChanges() async {
+        NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        WidgetCenter.shared.reloadAllTimelines()
+        
+        do {
+            let allTasks = try await db.getDDLsByType(.task)
+            NotificationManager.shared.refreshAllTaskNotifications(tasks: allTasks)
+        } catch {
+            logger.error("Failed to refresh notifications after sync: \(error.localizedDescription)")
+        }
+    }
 
     // MARK: - DDL CRUD
 
     @discardableResult
     func insertDDL(_ params: DDLInsertParams) async throws -> Int64 {
         let id = try await db.insertDDL(params)
+        if let newItem = try await db.getDDLById(id) {
+            NotificationManager.shared.scheduleTaskNotification(for: newItem)
+        }
         await scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
         WidgetCenter.shared.reloadAllTimelines()
@@ -156,6 +169,7 @@ actor TaskRepository {
         try await db.updateDDL(legacyId: item.id) { e in
             e.apply(domain: item)
         }
+        NotificationManager.shared.scheduleTaskNotification(for: item)
         await scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
         WidgetCenter.shared.reloadAllTimelines()
@@ -163,6 +177,7 @@ actor TaskRepository {
 
     func deleteDDL(_ item: DDLItem) async throws {
         logger.info("deleteDDL(item) id=\(item.id, privacy: .public)")
+        NotificationManager.shared.cancelTaskNotification(for: item.id)
         try await db.deleteDDL(legacyId: item.id)
         await scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
@@ -171,6 +186,7 @@ actor TaskRepository {
 
     func deleteDDL(_ id: Int64) async throws {
         logger.info("deleteDDL(id) id=\(id, privacy: .public)")
+        NotificationManager.shared.cancelTaskNotification(for: id)
         try await db.deleteDDL(legacyId: id)
         await scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
@@ -183,6 +199,10 @@ actor TaskRepository {
 
     func getDDLsByType(_ type: DeadlineType) async throws -> [DDLItem] {
         try await db.getDDLsByType(type)
+    }
+
+    func getDDLById(_ id: Int64) async throws -> DDLItem? {
+        try await db.getDDLById(id)
     }
 
     // MARK: - SubTask

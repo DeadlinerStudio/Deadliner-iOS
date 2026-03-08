@@ -230,7 +230,11 @@ struct TaskEditorSheetView: View {
                     calendarEventId: nil
                 )
 
-                _ = try await repository.insertDDL(params)
+                let ddlId = try await repository.insertDDL(params)
+                if let newItem = try await repository.getDDLById(ddlId) {
+                    NotificationManager.shared.scheduleTaskNotification(for: newItem)
+                }
+                
                 showToast("创建成功")
                 onDone?()
                 dismiss()
@@ -244,6 +248,8 @@ struct TaskEditorSheetView: View {
                 updated.isStared = isStarred
 
                 try await repository.updateDDL(updated)
+                NotificationManager.shared.scheduleTaskNotification(for: updated)
+                
                 showToast("保存成功")
                 onDone?()
                 dismiss()

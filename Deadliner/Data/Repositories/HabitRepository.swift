@@ -91,6 +91,9 @@ class HabitRepository {
     }
     
     func deleteHabitByDdlId(ddlId: Int64) async throws {
+        if let habit = try await getHabitByDDLId(ddlLegacyId: ddlId) {
+            NotificationManager.shared.cancelHabitNotifications(for: habit.id)
+        }
         try await db.deleteHabitByDDLId(ddlLegacyId: ddlId)
         scheduleReminderRefresh()
     }
@@ -245,11 +248,94 @@ class HabitRepository {
     
     private func performReminderRefresh() async {
         do {
-            logger.info("Triggering Habit Reminder Scheduler (placeholder)...")
-            // TODO: ReminderScheduler.refreshHabits(try await getAllHabits())
+            logger.info("Triggering Smart Habit Reminder Scheduler...")
+            
+            // 1. 清理所有旧的习惯通知（防止状态冲突）
+            NotificationManager.shared.cancelAllHabitNotifications()
+            
+            let allHabits = try await getAllHabits()
+            let activeHabits = allHabits.filter { $0.status == .active && $0.alarmTime != nil && !$0.alarmTime!.isEmpty }
+            
+            let calendar = Calendar.current
+            let now = Date()
+            
+            // 2. 遍历每个活动习惯，预测未来 7 天的提醒需求
+            for habit in activeHabits {
+                guard let alarmTime = habit.alarmTime else { continue }
+                let timeParts = alarmTime.split(separator: ":")
+                guard timeParts.count == 2,
+                      let hour = Int(timeParts[0]),
+                      let minute = Int(timeParts[1]) else { continue }
+                
+                // 调度未来 7 天
+                for dayOffset in 0..<7 {
+                    guard let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: now) else { continue }
+                    let startOfDay = calendar.startOfDay(for: targetDate)
+                    
+                    // a. 艾宾浩斯特殊逻辑：检查是否为复习日
+                    if habit.period == .ebbinghaus {
+                        if !isEbbinghausReviewDay(habit: habit, targetDate: startOfDay) {
+                            continue
+                        }
+                    }
+                    
+                    // b. 核心检查：该日期所属的周期是否已经达成目标？
+                    // 注意：对于 Weekly/Monthly，只要该周期还没达成，每天都会在 alarmTime 提醒
+                    if try await isGoalMetForDate(habit: habit, date: startOfDay) {
+                        continue
+                    }
+                    
+                    // c. 构造提醒的具体时间点
+                    var components = calendar.dateComponents([.year, .month, .day], from: startOfDay)
+                    components.hour = hour
+                    components.minute = minute
+                    
+                    if let reminderDate = calendar.date(from: components), reminderDate > now {
+                        NotificationManager.shared.scheduleHabitInstance(
+                            id: habit.id,
+                            name: habit.name,
+                            date: reminderDate
+                        )
+                    }
+                }
+            }
         } catch {
             logger.error("Habit reminder refresh failed: \(error.localizedDescription)")
         }
+    }
+    
+    // MARK: - Smart Schedule Helpers
+    
+    private func isEbbinghausReviewDay(habit: Habit, targetDate: Date) -> Bool {
+        guard let createdAtDate = DeadlineDateParser.safeParseOptional(habit.createdAt) else { return false }
+        let calendar = Calendar.current
+        let sDate = calendar.startOfDay(for: createdAtDate)
+        let tDate = calendar.startOfDay(for: targetDate)
+        
+        let diffDays = calendar.dateComponents([.day], from: sDate, to: tDate).day ?? 0
+        let curve = [0, 1, 2, 4, 7, 15, 30, 60]
+        return curve.contains(diffDays)
+    }
+    
+    private func isGoalMetForDate(habit: Habit, date: Date) async throws -> Bool {
+        let bounds = periodBounds(period: habit.period, date: date)
+        let queryStart = habit.goalType == .total ? Date(timeIntervalSince1970: 0) : bounds.0
+        let queryEnd = habit.goalType == .total ? date : bounds.1
+        
+        let records = try await getRecordsForHabitInRange(
+            habitId: habit.id,
+            startDate: queryStart,
+            endDateInclusive: queryEnd
+        )
+        let done = records.filter { $0.status == .completed }.reduce(0) { $0 + $1.count }
+        
+        var target = max(1, habit.timesPerPeriod)
+        if habit.goalType == .total {
+            target = habit.totalTarget.map { max(1, $0) } ?? max(1, done)
+            return done >= target
+        }
+        
+        return done >= target
     }
 }
 
@@ -295,6 +381,7 @@ extension HabitRepository: HabitWritePort {
     }
     
     func deleteHabit(legacyId: Int64) async throws {
+        NotificationManager.shared.cancelHabitNotifications(for: legacyId)
         try await db.deleteHabit(legacyId: legacyId)
         scheduleReminderRefresh()
     }
