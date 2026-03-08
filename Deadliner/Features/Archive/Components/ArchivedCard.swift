@@ -5,92 +5,96 @@
 //  Created by Aritx 音唯 on 2026/3/1.
 //
 
-
 import SwiftUI
 
-// MARK: - Theme (minimal, replace with your own)
-struct ArchivedCardTheme {
-    var indicatorUndergo: Color = .blue               // 你这里强制 Undergo 指示色
-    var backgroundSecondary: Color = Color(.secondarySystemBackground)
-    var backgroundPrimary: Color = Color(.systemBackground)
-
-    var fontPrimary: Color = .primary
-    var fontSecondary: Color = .secondary
-    var fontTertiary: Color = Color(.tertiaryLabel)
-
-    var warning: Color = .red
-}
-
-// MARK: - Card
 struct ArchivedDDLItemCard: View {
-    // Inputs
     let title: String
     let startTime: String
     let completeTime: String
     let note: String
+    var onUndo: () -> Void = {}
     var onDelete: () -> Void = {}
 
-    // Theme injection
-    var theme: ArchivedCardTheme = .init()
-
-    // Layout constants (matching ArkTS)
+    private let corner: CGFloat = 28
     private let height: CGFloat = 84
-    private let corner: CGFloat = 24
+
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Background base layer (ArkTS: Row().backgroundColor(bgColor))
-            theme.backgroundSecondary
+        // 仿照 DDLItemCard 的配色方案
+        let indicatorColor = Color.blue
+        let backgroundColor = Color(uiColor: .secondarySystemBackground)
+        
+        ZStack(alignment: .leading) {
+            // 卡片背景
+            RoundedRectangle(cornerRadius: corner, style: .continuous)
+                .fill(backgroundColor)
+
+            // 左侧指示条
+            GeometryReader { geo in
+                RoundedRectangle(cornerRadius: 0, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [indicatorColor.opacity(0.15), indicatorColor.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: geo.size.width)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
 
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    // Title
+                    // 标题
                     Text(title)
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(theme.fontPrimary)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // Time: start - complete
+                    // 时间信息 (起始 - 完成)
                     Text("\(startTime) - \(completeTime)")
                         .font(.system(size: 11))
-                        .foregroundStyle(theme.fontTertiary)
+                        .foregroundStyle(.tertiary)
                         .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 4)
 
-                    // Note (optional)
+                    // 备注 (如果有)
                     if !note.isEmpty {
                         Text(note)
                             .font(.system(size: 12))
-                            .foregroundStyle(theme.fontSecondary)
+                            .foregroundStyle(.secondary)
                             .lineLimit(1)
-                            .truncationMode(.tail)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 4)
+                            .padding(.top, 2)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Right: red delete button
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color.white)
-                        .frame(width: 36, height: 36)
-                        .background(theme.warning, in: Circle())
+                HStack(spacing: 10) {
+                    // 撤销归档按钮
+                    Button(action: onUndo) {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 36, height: 36)
+                            .background(Color(uiColor: .systemGray5), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("撤销归档")
+
+                    // 右侧删除按钮 (红色圆形)
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(Color.red, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("永久删除")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("删除")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .padding(.horizontal, 20)
         }
         .frame(height: height)
-        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-        .background(theme.backgroundPrimary) // ArkTS 外层 globalBgColor
     }
 }

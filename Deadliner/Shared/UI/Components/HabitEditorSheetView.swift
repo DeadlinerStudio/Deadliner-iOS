@@ -46,6 +46,8 @@ enum HabitSheetMode: Equatable {
 struct HabitEditorSheetView: View {
     @Environment(\.dismiss) private var dismiss
     
+    @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
+    
     let taskRepository: TaskRepository = .shared
     let habitRepository: HabitRepository = .shared
     let mode: HabitSheetMode
@@ -111,15 +113,17 @@ struct HabitEditorSheetView: View {
         NavigationStack {
             ZStack {
                 Form {
-                    Section("AI 快速添加") {
-                        HStack(spacing: 8) {
-                            TextField("例如：每天背20个单词...", text: $aiInputText, axis: .vertical)
-                                .lineLimit(1...3)
-                            
-                            Button("解析") {
-                                Task { await onAITriggered() }
+                    if aiEnabled {
+                        Section("AI 快速添加") {
+                            HStack(spacing: 8) {
+                                TextField("例如：每天背20个单词...", text: $aiInputText, axis: .vertical)
+                                    .lineLimit(1...3)
+                                
+                                Button("解析") {
+                                    Task { await onAITriggered() }
+                                }
+                                .disabled(isAILoading || aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             }
-                            .disabled(isAILoading || aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
                     

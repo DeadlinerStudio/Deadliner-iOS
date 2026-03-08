@@ -32,6 +32,9 @@ actor LocalValues {
         static let aiApiKey = "settings.ai.api_key"
         static let aiBaseUrl = "settings.ai.base_url"
         static let aiModel = "settings.ai.model"
+        static let aiUseHosted = "settings.ai.use_hosted"
+        static let aiConfigured = "settings.ai.is_configured"
+        static let aiEnabled = "settings.ai.enabled"
         
         static let progressDir = "settings.progress.dir"
     }
@@ -57,6 +60,9 @@ actor LocalValues {
             Key.autoArchiveDays: 7,
             Key.aiBaseUrl: "https://api.deepseek.com",
             Key.aiModel: "deepseek-chat",
+            Key.aiUseHosted: true,
+            Key.aiConfigured: false,
+            Key.aiEnabled: true,
             Key.progressDir: false
         ])
     }
@@ -162,6 +168,30 @@ actor LocalValues {
 
     func setAIModel(_ model: String) {
         defaults.set(model.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.aiModel)
+    }
+    
+    func getAIUseHosted() -> Bool {
+        defaults.bool(forKey: Key.aiUseHosted)
+    }
+    
+    func setAIUseHosted(_ use: Bool) {
+        defaults.set(use, forKey: Key.aiUseHosted)
+    }
+    
+    func getAIConfigured() -> Bool {
+        defaults.bool(forKey: Key.aiConfigured)
+    }
+    
+    func setAIConfigured(_ configured: Bool) {
+        defaults.set(configured, forKey: Key.aiConfigured)
+    }
+    
+    func getAIEnabled() -> Bool {
+        defaults.bool(forKey: Key.aiEnabled)
+    }
+    
+    func setAIEnabled(_ enabled: Bool) {
+        defaults.set(enabled, forKey: Key.aiEnabled)
     }
     
     func getProgressDir() -> Bool {

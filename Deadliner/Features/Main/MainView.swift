@@ -16,6 +16,9 @@ struct MainView: View {
     @State private var showSettingsSheet = false
     @State private var navGradientProgress: CGFloat = 0
     
+    @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
+    @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
+    
     let repo: TaskRepository = TaskRepository.shared
 
     @State private var showAddTaskForm = false
@@ -41,7 +44,7 @@ struct MainView: View {
                                             .ignoresSafeArea()
                                         
                         
-                        TopBarGradientOverlay(progress: navGradientProgress, isAIConfigured: true)
+                        TopBarGradientOverlay(progress: navGradientProgress, isAIConfigured: isAIConfigured)
                     }
                 }
                 .toolbarBackground(.hidden, for: .navigationBar)
@@ -76,21 +79,6 @@ struct MainView: View {
                     }
                     .presentationDetents([.large])
                 }
-                .sheet(isPresented: $showArchiveSheet) {
-                    NavigationStack {
-                        VStack(spacing: 12) {
-                            Text("归档（TODO）")
-                                .font(.headline)
-                            Text("这里放已完成且隐藏项目的管理列表。")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding()
-                        .navigationTitle("归档")
-                        .navigationBarTitleDisplayMode(.inline)
-                    }
-                    .presentationDetents([.medium, .large])
-                }
         }
     }
 
@@ -109,7 +97,9 @@ struct MainView: View {
         case .insights:
             OverviewView()
         case .archive:
-            ArchiveView(query: $query)
+            ArchiveView(query: $query, onScrollProgressChange: { p in
+                navGradientProgress = p
+            })
         }
     }
 
@@ -166,11 +156,13 @@ struct MainView: View {
     private var bottomToolbar: some ToolbarContent {
         switch module {
         case .taskManagement:
-            ToolbarItem(placement: .bottomBar) {
-                Button { showAISheet = true } label: {
-                    Image(systemName: "sparkles")
+            if aiEnabled {
+                ToolbarItem(placement: .bottomBar) {
+                    Button { showAISheet = true } label: {
+                        Image(systemName: "sparkles")
+                    }
+                    .accessibilityLabel("Deadliner AI")
                 }
-                .accessibilityLabel("Deadliner AI")
             }
 
             ToolbarSpacer(.flexible, placement: .bottomBar)
@@ -245,11 +237,16 @@ struct MainView: View {
 
         case .archive:
             ToolbarItem(placement: .bottomBar) {
-                Button {
-                    // TODO: restore
+                Button(role: .destructive) {
+                    NotificationCenter.default.post(name: .ddlDeleteAllArchived, object: nil)
                 } label: {
-                    Label("Restore", systemImage: "arrow.uturn.backward")
+                    HStack(spacing: 8) {
+                        Image(systemName: "trash")
+                        Text("全部删除")
+                            .fontWeight(.medium)
+                    }
                 }
+                .foregroundStyle(.red)
             }
         }
     }

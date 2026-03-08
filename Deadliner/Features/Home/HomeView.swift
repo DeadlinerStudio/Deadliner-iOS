@@ -12,6 +12,8 @@ struct HomeView: View {
     @Binding var query: String
     @Binding var taskSegment: TaskSegment
     var onScrollProgressChange: ((CGFloat) -> Void)? = nil
+    
+    @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
 
     @StateObject private var vm = HomeViewModel()
     @State private var pendingDeleteItem: DDLItem? = nil

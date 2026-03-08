@@ -10,12 +10,15 @@ import SwiftUI
 struct AISettingsView: View {
     // 直接读取全局状态，取代之前传进来的 isProUser
     @AppStorage("userTier") private var userTier: UserTier = .free
+    @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
     
     @State private var useHostedAI = true // 新增：是否使用托管 AI
     @State private var apiKey = ""
     @State private var baseUrl = ""
     @State private var model = ""
     
+    @State private var isLoading = false
+    @State private var errorMessage: String?
     @State private var showToast = false
     @State private var showPaywall = false // 控制付费墙
 
@@ -24,6 +27,17 @@ struct AISettingsView: View {
             // 只要不是 Pro (Free 和 Geek)，都提示可以升级到最高阶
             if userTier != .pro {
                 PlusUpsellSection(showPaywall: $showPaywall)
+            }
+            
+            Section {
+                Toggle("启用 AI 功能", isOn: $aiEnabled)
+                    .disabled(userTier == .free)
+            } footer: {
+                if userTier == .free {
+                    Text("免费版暂不支持关闭 AI 功能。极客版及以上可自由切换。")
+                } else {
+                    Text("关闭后，主页底栏和任务编辑器中的 AI 相关入口将隐藏。")
+                }
             }
             
             // MARK: - 官方托管服务 (Pro 专属)
@@ -65,8 +79,23 @@ struct AISettingsView: View {
             
             if userTier != .free {
                 Section {
-                    Button("保存 AI 设置") {
+                    Button {
                         Task { await saveAIConfig() }
+                    } label: {
+                        if isLoading {
+                            HStack {
+                                Text("正在验证...")
+                                ProgressView()
+                            }
+                        } else {
+                            Text("保存并验证 AI 设置")
+                        }
+                    }
+                    .disabled(isLoading)
+                } footer: {
+                    if let error = errorMessage {
+                        Text(error)
+                            .foregroundColor(.red)
                     }
                 }
             }
@@ -89,16 +118,38 @@ struct AISettingsView: View {
         apiKey = await LocalValues.shared.getAIApiKey()
         baseUrl = await LocalValues.shared.getAIBaseUrl()
         model = await LocalValues.shared.getAIModel()
-        // TODO: 需要在 LocalValues 中新增 getUseHostedAI() 方法
-        // useHostedAI = await LocalValues.shared.getUseHostedAI()
+        useHostedAI = await LocalValues.shared.getAIUseHosted()
     }
     
     @MainActor
     private func saveAIConfig() async {
-        await LocalValues.shared.setAIApiKey(apiKey)
-        await LocalValues.shared.setAIBaseUrl(baseUrl)
-        await LocalValues.shared.setAIModel(model)
-        // await LocalValues.shared.setUseHostedAI(useHostedAI)
-        showToast = true
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            if userTier == .pro && useHostedAI {
+                // 托管模式，暂时默认配置正确（或在此调用官方验证接口）
+                await LocalValues.shared.setAIUseHosted(true)
+                await LocalValues.shared.setAIConfigured(true)
+            } else {
+                // 自定义模式，必须验证
+                try await AIService.shared.validateConfig(
+                    apiKey: apiKey,
+                    baseUrl: baseUrl,
+                    modelId: model
+                )
+                
+                await LocalValues.shared.setAIApiKey(apiKey)
+                await LocalValues.shared.setAIBaseUrl(baseUrl)
+                await LocalValues.shared.setAIModel(model)
+                await LocalValues.shared.setAIUseHosted(false)
+                await LocalValues.shared.setAIConfigured(true)
+            }
+            showToast = true
+        } catch {
+            errorMessage = "验证失败：\(error.localizedDescription)\n请检查 API Key、Base URL 和模型名称是否正确。"
+        }
+        
+        isLoading = false
     }
 }

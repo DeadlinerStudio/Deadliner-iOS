@@ -382,6 +382,7 @@ final class HomeViewModel: ObservableObject {
         updated.isArchived.toggle()
         do {
             try await repo.updateDDL(updated)
+            await reload()
         } catch {
             errorText = "更新失败：\(error.localizedDescription)"
         }
@@ -407,6 +408,7 @@ final class HomeViewModel: ObservableObject {
     func delete(_ item: DDLItem) async {
         do {
             try await repo.deleteDDL(item.id)
+            await reload()
         } catch {
             errorText = "删除失败：\(error.localizedDescription)"
         }
@@ -433,7 +435,7 @@ final class HomeViewModel: ObservableObject {
         defer { isReloading = false }
         do {
             let sortedList = try await repo.getDDLsByType(.task)
-            if !force && sortedList.map(\.id) == self.tasks.map(\.id) {
+            if !force && sortedList == self.tasks {
                 // skip
             } else {
                 tasks = sortedList

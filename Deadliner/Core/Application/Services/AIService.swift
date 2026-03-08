@@ -137,6 +137,36 @@ public final class AIService {
         let resultObj = try makeDecoder().decode(MixedResult.self, from: jsonData)
         return resultObj.habits ?? []
     }
+    
+    public func validateConfig(apiKey: String, baseUrl: String, modelId: String) async throws {
+        let messages = [
+            ChatMessage(role: "user", content: "Ping")
+        ]
+        
+        // 直接使用传入的参数构建请求，不读取 LocalValues
+        let endpoint = normalizeChatCompletionsEndpoint(baseUrl: baseUrl)
+        guard let url = URL(string: endpoint) else {
+            throw AIError.networkError(URLError(.badURL))
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let chatRequest = ChatRequest(model: modelId, messages: messages, temperature: 0.1)
+        request.httpBody = try JSONEncoder().encode(chatRequest)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let httpResponse = response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            print("[AIService] Validation HTTP Error \(httpResponse.statusCode): \(String(data: data, encoding: .utf8) ?? "")")
+            throw AIError.networkError(URLError(.badServerResponse))
+        }
+        
+        _ = try makeDecoder().decode(ChatResponse.self, from: data)
+    }
 
     // MARK: - Networking (基本不动，仅更稳拼接)
     private func fetchFromProvider(messages: [ChatMessage]) async throws -> String {

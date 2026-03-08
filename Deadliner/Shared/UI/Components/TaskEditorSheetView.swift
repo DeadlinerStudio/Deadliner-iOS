@@ -44,6 +44,8 @@ enum TaskSheetMode: Equatable {
 struct TaskEditorSheetView: View {
     @Environment(\.dismiss) private var dismiss
 
+    @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
+
     let repository: TaskRepository
     let mode: TaskSheetMode
     var onDone: (() -> Void)? = nil
@@ -83,15 +85,17 @@ struct TaskEditorSheetView: View {
         NavigationStack {
             ZStack {
                 Form {
-                    Section("AI 快速添加") {
-                        HStack(spacing: 8) {
-                            TextField("询问 AI 以快速添加任务...", text: $aiInputText, axis: .vertical)
-                                .lineLimit(1...3)
+                    if aiEnabled {
+                        Section("AI 快速添加") {
+                            HStack(spacing: 8) {
+                                TextField("询问 AI 以快速添加任务...", text: $aiInputText, axis: .vertical)
+                                    .lineLimit(1...3)
 
-                            Button("解析") {
-                                Task { await onAITriggered() }
+                                Button("解析") {
+                                    Task { await onAITriggered() }
+                                }
+                                .disabled(isAILoading || aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             }
-                            .disabled(isAILoading || aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
 
