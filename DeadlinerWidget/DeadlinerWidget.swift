@@ -13,6 +13,7 @@ import os
 struct DeadlinerEntry: TimelineEntry {
     let date: Date
     let task: DDLItem?
+    let topTasks: [DDLItem]
     let remainingCount: Int
     let totalActiveCount: Int
     let urgentCount: Int
@@ -20,11 +21,11 @@ struct DeadlinerEntry: TimelineEntry {
 
 struct DeadlinerWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> DeadlinerEntry {
-        DeadlinerEntry(date: Date(), task: DDLItem.mock(), remainingCount: 5, totalActiveCount: 7, urgentCount: 2)
+        DeadlinerEntry(date: Date(), task: DDLItem.mock(), topTasks: [DDLItem.mock()], remainingCount: 5, totalActiveCount: 7, urgentCount: 2)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DeadlinerEntry) -> ()) {
-        let entry = DeadlinerEntry(date: Date(), task: DDLItem.mock(), remainingCount: 5, totalActiveCount: 7, urgentCount: 2)
+        let entry = DeadlinerEntry(date: Date(), task: DDLItem.mock(), topTasks: [DDLItem.mock()], remainingCount: 5, totalActiveCount: 7, urgentCount: 2)
         completion(entry)
     }
 
@@ -34,6 +35,7 @@ struct DeadlinerWidgetProvider: TimelineProvider {
             let entry = DeadlinerEntry(
                 date: Date(),
                 task: stats.task,
+                topTasks: stats.topTasks,
                 remainingCount: stats.remaining,
                 totalActiveCount: stats.active,
                 urgentCount: stats.urgent
@@ -45,7 +47,7 @@ struct DeadlinerWidgetProvider: TimelineProvider {
     }
 
     @MainActor
-    private func fetchWidgetData() async -> (task: DDLItem?, remaining: Int, active: Int, urgent: Int) {
+    private func fetchWidgetData() async -> (task: DDLItem?, topTasks: [DDLItem], remaining: Int, active: Int, urgent: Int) {
         let container = SharedModelContainer.shared
         let context = ModelContext(container)
         
@@ -60,7 +62,9 @@ struct DeadlinerWidgetProvider: TimelineProvider {
         let activeTasks = validTasks.filter { !$0.isArchived }
         let remainingTasks = activeTasks.filter { !$0.isCompleted }
         let sortedRemaining = remainingTasks.sorted { $0.endTime < $1.endTime }
-        let nearestTask = sortedRemaining.first?.toDomain()
+        
+        let topTasks = sortedRemaining.prefix(3).map { $0.toDomain() }
+        let nearestTask = topTasks.first
         
         let remaining = remainingTasks.count
         let active = activeTasks.count
@@ -72,7 +76,7 @@ struct DeadlinerWidgetProvider: TimelineProvider {
             return date > now && date <= tomorrow
         }.count
         
-        return (nearestTask, remaining, active, urgent)
+        return (nearestTask, topTasks, remaining, active, urgent)
     }
 }
 
@@ -107,9 +111,9 @@ struct DeadlinerWidgetEntryView : View {
                     .foregroundStyle(.secondary)
             }
         case .systemSmall:
-            if let task = entry.task { SmallHomeWidgetView(task: task) } else { Text("暂无任务") }
+            SmallHomeWidgetView(entry: entry)
         case .systemMedium:
-            if let task = entry.task { MediumHomeWidgetView(task: task) } else { Text("暂无任务") }
+            MediumHomeWidgetView(entry: entry)
         default:
             EmptyView()
         }
@@ -195,31 +199,138 @@ struct CircularWidgetView: View {
 
 // 主屏幕占位组件 (同样同步等宽字体和自定义进度条)
 struct SmallHomeWidgetView: View {
-    let task: DDLItem
+    let entry: DeadlinerEntry
+    
+    private var brandColor: Color {
+        Color(red: 1.0, green: 0.427, blue: 0.427) // #FF6D6D
+    }
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(task.name).font(.headline).lineLimit(2)
-            Spacer()
-            Text(remainingTimeStr(task: task)).font(.system(size: 12, weight: .bold).monospaced())
-            LinearProgressView(value: calculateProgress(task: task), shape: Capsule())
-                .frame(height: 8)
-                .tint(.primary)
+        ZStack {
+            // Background Gradient & Blobs
+            LinearGradient(
+                colors: [Color("WidgetBackground"), Color("WidgetBackground").opacity(0.8)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            ZStack {
+                Circle()
+                    .fill(brandColor)
+                    .opacity(0.04)
+                    .frame(width: 200, height: 200)
+                    .offset(x: 40, y: -60)
+                
+                Circle()
+                    .fill(brandColor)
+                    .opacity(0.08)
+                    .frame(width: 140, height: 140)
+                    .offset(x: 70, y: -20)
+            }
+            
+            VStack(alignment: .leading, spacing: 0) {
+                // Top Bar
+                HStack(spacing: 6) {
+                    Image("AppIcon") // Assuming this is the app icon asset
+                        .resizable()
+                        .frame(width: 18, height: 18)
+                        .cornerRadius(4)
+                    
+                    Text("Deadliner")
+                        .font(.system(size: 13, weight: .bold))
+                    
+                    Spacer()
+                    
+                    if entry.remainingCount > 0 {
+                        Text("\(entry.remainingCount)")
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.primary.opacity(0.05))
+                            .cornerRadius(6)
+                            .foregroundColor(entry.remainingCount > 3 ? brandColor : .primary)
+                    }
+                }
+                .padding(.bottom, 8)
+                
+                // Task List
+                if entry.topTasks.isEmpty {
+                    Spacer()
+                    VStack(spacing: 4) {
+                        Text("🎉").font(.system(size: 30))
+                        Text("全部搞定")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    Spacer()
+                } else {
+                    VStack(spacing: 6) {
+                        ForEach(entry.topTasks.prefix(3)) { task in
+                            CompactTaskRow(task: task)
+                        }
+                    }
+                }
+                
+                Spacer(minLength: 0)
+            }
+            .padding(10)
         }
-        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}
+
+struct CompactTaskRow: View {
+    let task: DDLItem
+    
+    private var brandColor: Color {
+        Color(red: 1.0, green: 0.427, blue: 0.427) // #FF6D6D
+    }
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            // Indicator
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(isUrgent(task) ? brandColor : .primary.opacity(0.6))
+                .frame(width: 3, height: 12)
+            
+            Text(task.name)
+                .font(.system(size: 12, weight: isUrgent(task) ? .medium : .regular))
+                .lineLimit(1)
+            
+            Spacer()
+            
+            Text(remainingTimeStr(task: task))
+                .font(.system(size: 10, weight: isUrgent(task) ? .medium : .regular))
+                .foregroundColor(isUrgent(task) ? brandColor : .secondary)
+        }
+        .padding(.horizontal, 6)
+        .frame(height: 30)
+        .background(Color.primary.opacity(0.03))
+        .cornerRadius(8)
+    }
+    
+    private func isUrgent(_ task: DDLItem) -> Bool {
+        guard let endDate = DeadlineDateParser.safeParseOptional(task.endTime) else { return false }
+        return endDate.timeIntervalSinceNow < 24 * 3600
     }
 }
 
 struct MediumHomeWidgetView: View {
-    let task: DDLItem
+    let entry: DeadlinerEntry
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(task.name).font(.title3.bold()).lineLimit(1)
-            Text(remainingTimeStr(task: task)).font(.subheadline).foregroundStyle(.secondary)
-            LinearProgressView(value: calculateProgress(task: task), shape: Capsule())
-                .frame(height: 8)
-                .tint(.primary)
+        if let task = entry.task {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(task.name).font(.title3.bold()).lineLimit(1)
+                Text(remainingTimeStr(task: task)).font(.subheadline).foregroundStyle(.secondary)
+                LinearProgressView(value: calculateProgress(task: task), shape: Capsule())
+                    .frame(height: 8)
+                    .tint(.primary)
+            }
+            .containerBackground(.fill.tertiary, for: .widget)
+        } else {
+            Text("暂无任务")
+                .containerBackground(.fill.tertiary, for: .widget)
         }
-        .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 

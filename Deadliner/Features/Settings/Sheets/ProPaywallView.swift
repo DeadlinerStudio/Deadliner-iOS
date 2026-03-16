@@ -12,6 +12,7 @@ struct ProPaywallView: View {
     
     @AppStorage("userTier") private var userTier: UserTier = .free
         
+    @StateObject private var storeManager = StoreManager.shared
     @State private var selectedTier: UserTier = .geek
     @State private var isPurchasing = false
     
@@ -32,9 +33,11 @@ struct ProPaywallView: View {
                         
                         // 方案选择卡片
                         HStack(spacing: 16) {
+                            let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID })
+                            
                             TierSelectionCard(
                                 title: "极客版 (Geek)",
-                                price: "￥28",
+                                price: geekProduct?.displayPrice ?? "￥28",
                                 period: "永久买断",
                                 isSelected: selectedTier == .geek
                             ) {
@@ -183,6 +186,8 @@ struct ProPaywallView: View {
     // 底部常驻购买区
     private var footerView: some View {
         VStack(spacing: 12) {
+            let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID })
+            
             Button {
                 Task { await purchaseSelectedTier() }
             } label: {
@@ -190,7 +195,14 @@ struct ProPaywallView: View {
                     if isPurchasing {
                         ProgressView().tint(.white)
                     } else {
-                        Text(selectedTier == .geek ? "支付 ￥28.00 永久解锁" : (isProDisabled ? "暂不可用" : "￥6.00 / 月 立即订阅"))
+                        let buttonText: String = {
+                            if selectedTier == .geek {
+                                return geekProduct != nil ? "支付 \(geekProduct!.displayPrice) 永久解锁" : "支付 ￥28.00 永久解锁"
+                            } else {
+                                return isProDisabled ? "暂不可用" : "￥6.00 / 月 立即订阅"
+                            }
+                        }()
+                        Text(buttonText)
                             .font(.title3)
                             .fontWeight(.bold)
                     }
@@ -214,7 +226,7 @@ struct ProPaywallView: View {
             // 恢复购买与协议
             HStack(spacing: 16) {
                 Button("恢复购买") {
-                    // TODO: 接入 StoreKit 恢复购买逻辑
+                    Task { await storeManager.restorePurchases() }
                 }
                 Text("|").foregroundColor(.secondary.opacity(0.5))
                 Button("服务条款") {
@@ -233,16 +245,25 @@ struct ProPaywallView: View {
         )
     }
 
-    // MARK: - 购买逻辑模拟
+    // MARK: - 购买逻辑
     @MainActor
     private func purchaseSelectedTier() async {
         isPurchasing = true
-        try? await Task.sleep(nanoseconds: 1_500_000_000)
         
-        userTier = selectedTier
+        if selectedTier == .geek {
+            if let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID }) {
+                do {
+                    let success = try await storeManager.purchase(geekProduct)
+                    if success {
+                        dismiss()
+                    }
+                } catch {
+                    print("❌ 购买失败: \(error)")
+                }
+            }
+        }
         
         isPurchasing = false
-        dismiss()
     }
 }
 
