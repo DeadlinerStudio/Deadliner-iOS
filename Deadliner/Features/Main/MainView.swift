@@ -18,6 +18,9 @@ struct MainView: View {
     
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
+    @AppStorage("settings.ai.last_analyzed_month") private var lastAnalyzedMonth: String = ""
+    @AppStorage("userTier") private var userTier: UserTier = .free
+    @AppStorage("userName") private var userName: String = "用户"
     
     let repo: TaskRepository = TaskRepository.shared
 
@@ -26,6 +29,7 @@ struct MainView: View {
     @State private var showAddOptions = false
     
     @State private var showArchiveSheet = false
+    @State private var showPaywall = false
 
     var body: some View {
         NavigationStack {
@@ -79,6 +83,9 @@ struct MainView: View {
                     }
                     .presentationDetents([.large])
                 }
+                .sheet(isPresented: $showPaywall) {
+                    ProPaywallView()
+                }
         }
     }
 
@@ -92,10 +99,10 @@ struct MainView: View {
                      onScrollProgressChange: { p in
                          navGradientProgress = p
                      })
-        case .timeline:
-            DeadlinerTimelineView(query: $query)
         case .insights:
-            OverviewView()
+            OverviewView(onScrollProgressChange: { p in
+                navGradientProgress = p
+            })
         case .archive:
             ArchiveView(query: $query, onScrollProgressChange: { p in
                 navGradientProgress = p
@@ -132,20 +139,33 @@ struct MainView: View {
     @ToolbarContentBuilder
     private var topTrailingToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                showSettingsSheet = true
-            } label: {
-                Image("avatar")
-                    .resizable()
-                    .renderingMode(.original)
+            if module == .taskManagement {
+                Button {
+                    showSettingsSheet = true
+                } label: {
+                    Group {
+                        if let avatar = AvatarManager.shared.avatarImage {
+                            avatar
+                                .resizable()
+                                .renderingMode(.original)
+                        } else {
+                            Image(systemName: "person.crop.circle")
+                                .resizable()
+                                .renderingMode(.original)
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     .scaledToFill()
                     .frame(width: 42, height: 42)
                     .clipShape(Circle())
                     .overlay(Circle().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
                     .contentShape(Circle())
+                }
+                .accessibilityLabel("用户与设置")
+                .accessibilityHint("打开用户面板与设置")
+            } else {
             }
-            .accessibilityLabel("用户与设置")
-            .accessibilityHint("打开用户面板与设置")
         }
         .sharedBackgroundVisibility(.hidden)
     }
@@ -186,53 +206,47 @@ struct MainView: View {
                 }
             }
 
-        case .timeline:
-            ToolbarItem(placement: .bottomBar) {
-                Button {
-                    // TODO: timeline filter
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                }
-            }
-
-            ToolbarSpacer(.flexible, placement: .bottomBar)
-            DefaultToolbarItem(kind: .search, placement: .bottomBar)
-            ToolbarSpacer(.flexible, placement: .bottomBar)
-
-            ToolbarItem(placement: .bottomBar) {
-                Button {
-                    showAddOptions = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(.glassProminent)
-                .tint(Color(hex: "#FFFF6D6D"))
-                .accessibilityLabel("添加选项")
-                
-                .confirmationDialog("选择添加类型", isPresented: $showAddOptions, titleVisibility: .hidden) {
-                    Button("新建任务") { showAddTaskForm = true }
-                    Button("新建习惯") { showAddHabitForm = true }
-                    Button("取消", role: .cancel) { }
-                }
-            }
-
         case .insights:
             ToolbarItem(placement: .bottomBar) {
-                Button {
-                    // TODO: range select
-                } label: {
-                    Label("Range", systemImage: "calendar.badge.clock")
-                }
-            }
+                let calendar = Calendar.current
+                let now = Date()
+                let currentMonthKey: String = {
+                    guard let firstDayOfThisMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)),
+                          let firstDayOfLastMonth = calendar.date(byAdding: .month, value: -1, to: firstDayOfThisMonth) else {
+                        return ""
+                    }
+                    let monthKey = DateFormatter()
+                    monthKey.dateFormat = "yyyy-MM"
+                    return monthKey.string(from: firstDayOfLastMonth)
+                }()
+                
+                let isAlreadyGenerated = lastAnalyzedMonth == currentMonthKey
+                let isFreeUser = userTier == .free
 
-            ToolbarSpacer(.flexible, placement: .bottomBar)
-
-            ToolbarItem(placement: .bottomBar) {
                 Button {
-                    // TODO: export
+                    if isFreeUser {
+                        showPaywall = true
+                    } else {
+                        NotificationCenter.default.post(name: .ddlRequestMonthlyAnalysis, object: nil)
+                    }
                 } label: {
-                    Label("Export", systemImage: "square.and.arrow.up")
+                    HStack(spacing: 4) {
+                        if isFreeUser {
+                            Image(systemName: "lock.fill")
+                                .font(.caption2)
+                        } else {
+                            Image(systemName: isAlreadyGenerated ? "checkmark.circle.fill" : "sparkles")
+                        }
+                        
+                        Text(isAlreadyGenerated && !isFreeUser ? "上月分析已生成" : "AI 月度分析")
+                        
+                        if isFreeUser {
+                            GeekBadge()
+                        }
+                    }
                 }
+                .disabled(!isFreeUser && isAlreadyGenerated)
+                .foregroundColor(isAlreadyGenerated && !isFreeUser ? .secondary : .primary)
             }
 
         case .archive:
@@ -257,8 +271,6 @@ struct MainView: View {
         switch module {
         case .taskManagement:
             return taskSegment == .tasks ? "搜索任务..." : "搜索习惯..."
-        case .timeline:
-            return "搜索待办..."
         case .insights:
             return "搜索模块..."
         case .archive:
@@ -269,12 +281,21 @@ struct MainView: View {
 
 struct ProfilePicture: View {
     var body: some View {
-        Image("avatar")
-            .resizable()
-            .scaledToFill()
-            .frame(width: 28, height: 28)
-            .clipShape(Circle())
-            .padding(.horizontal)
-            .accessibilityLabel("用户")
+        Group {
+            if let avatar = AvatarManager.shared.avatarImage {
+                avatar
+                    .resizable()
+            } else {
+                Image(systemName: "person.crop.circle")
+                    .resizable()
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .scaledToFill()
+        .frame(width: 28, height: 28)
+        .clipShape(Circle())
+        .padding(.horizontal)
+        .accessibilityLabel("用户")
     }
 }

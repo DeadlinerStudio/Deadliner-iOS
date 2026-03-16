@@ -10,8 +10,6 @@ import Foundation
 actor LocalValues {
     static let shared = LocalValues()
 
-    // 如果未来要做 App Group（Widget 共享），把 suiteName 换成你的 group id
-    // private let defaults = UserDefaults(suiteName: "group.com.yourcompany.deadliner")!
     private let defaults = UserDefaults.standard
 
     private init() {
@@ -37,6 +35,11 @@ actor LocalValues {
         static let aiEnabled = "settings.ai.enabled"
         
         static let progressDir = "settings.progress.dir"
+        static let overviewCardOrder = "settings.overview.card_order"
+        static let trendCardOrder = "settings.trend.card_order"
+        
+        static let monthlyAnalysis = "settings.ai.monthly_analysis"
+        static let lastAnalyzedMonth = "settings.ai.last_analyzed_month"
     }
 
     // MARK: - DTO
@@ -200,6 +203,38 @@ actor LocalValues {
     
     func setProgressDir(_ enable: Bool) {
         defaults.set(enable, forKey: Key.progressDir)
+    }
+
+    func getOverviewCardOrder() -> [String] {
+        defaults.stringArray(forKey: Key.overviewCardOrder) ?? []
+    }
+
+    func setOverviewCardOrder(_ order: [String]) {
+        defaults.set(order, forKey: Key.overviewCardOrder)
+    }
+
+    func getTrendCardOrder() -> [String] {
+        defaults.stringArray(forKey: Key.trendCardOrder) ?? []
+    }
+
+    func setTrendCardOrder(_ order: [String]) {
+        defaults.set(order, forKey: Key.trendCardOrder)
+    }
+
+    func getMonthlyAnalysis() -> String? {
+        defaults.string(forKey: Key.monthlyAnalysis)
+    }
+
+    func setMonthlyAnalysis(_ json: String) {
+        defaults.set(json, forKey: Key.monthlyAnalysis)
+    }
+
+    func getLastAnalyzedMonth() -> String {
+        defaults.string(forKey: Key.lastAnalyzedMonth) ?? ""
+    }
+
+    func setLastAnalyzedMonth(_ month: String) {
+        defaults.set(month, forKey: Key.lastAnalyzedMonth)
     }
 
     // MARK: - Debug / Maintenance

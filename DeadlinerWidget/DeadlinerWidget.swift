@@ -142,12 +142,12 @@ struct RectangularWidgetView: View {
                     HStack(alignment: .firstTextBaseline) {
                         HStack(alignment: .firstTextBaseline, spacing: 2) {
                             Text("\(entry.remainingCount)")
-                                .font(.system(size: 18, weight: .heavy).monospaced())
+                                .font(.system(size: 20, weight: .heavy).monospaced())
                             Text("/\(entry.totalActiveCount)")
                                 .font(.system(size: 10, weight: .bold).monospaced())
                                 .foregroundStyle(.secondary)
                             Text("任务")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.secondary)
                         }
                         
@@ -161,7 +161,7 @@ struct RectangularWidgetView: View {
                 }
                 
                 LinearProgressView(value: calculateProgress(task: task), shape: Capsule())
-                    .frame(height: 8)
+                    .frame(height: 7)
                     .tint(.primary)
             }
         }

@@ -7,7 +7,7 @@ import SwiftData
 import Foundation
 
 public enum SharedModelContainer {
-    public static let appGroupId = "group.com.aritx.deadliner" // ⚠️ 请确保在 Xcode 中添加了此 App Group
+    public static let appGroupId = "group.top.aritx.deadliner.group"
 
     public static let shared: ModelContainer = {
         let schema = Schema([

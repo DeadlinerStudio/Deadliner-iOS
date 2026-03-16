@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.aritx.deadliner</string>
+		<string>group.top.aritxonly.deadliner.group</string>
 	</array>
 </dict>
 </plist>

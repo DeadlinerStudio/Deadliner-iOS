@@ -9,8 +9,7 @@ import SwiftUI
 
 enum MainModule: String, CaseIterable, Identifiable {
     case taskManagement = "清单"
-    case timeline = "时间线"
-    case insights = "概览统计"
+    case insights = "概览"
     case archive = "归档"
 
     var id: String { rawValue }
@@ -18,7 +17,6 @@ enum MainModule: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .taskManagement: return "checklist"
-        case .timeline: return "calendar"
         case .insights: return "chart.bar.xaxis"
         case .archive: return "archivebox"
         }

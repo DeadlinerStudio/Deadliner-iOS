@@ -138,6 +138,51 @@ public final class AIService {
         return resultObj.habits ?? []
     }
     
+    public func generateMonthlyAnalysis(
+        monthName: String,
+        metricsSummary: String,
+        completedTaskNames: [String]
+    ) async throws -> MonthlyAnalysisResult {
+        let tasksStr = completedTaskNames.prefix(50).joined(separator: ", ")
+
+        let systemPrompt = """
+        你是 Deadliner AI 数据分析专家。请根据用户上个月（\(monthName)）的任务完成数据，生成一份简短的月度总结和一组关键词标签。
+        
+        要求：
+        1. 总结要口语化、温暖且有洞察力（例如：发现用户在下午最高效，或者月初比较勤奋）。
+        2. 总结字数在 80-120 字左右。
+        3. 提取 5-10 个关键词标签。这些标签必须深度结合“上月完成任务名”所反映的内容（例如：如果是很多学习任务，关键词可以是“学术探索”、“深度学习”；如果是很多健身任务，可以是“自律健身”等）。
+        4. 关键词要有代表性，用于生成词云图。
+        
+        必须输出纯 JSON 格式：
+        {
+          "month": "\(monthName)",
+          "summary": "...",
+          "keywords": ["标签1", "标签2", "标签3", "标签4", "标签5"]
+        }
+        """
+        
+        let userContent = """
+        指标数据：
+        \(metricsSummary)
+        
+        上月完成的部分任务名：
+        \(tasksStr)
+        """
+        
+        let messages = [
+            ChatMessage(role: "system", content: systemPrompt),
+            ChatMessage(role: "user", content: userContent)
+        ]
+        
+        let content = try await fetchFromProvider(messages: messages)
+        let jsonData = try extractJsonData(from: content)
+        
+        let decoder = makeDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(MonthlyAnalysisResult.self, from: jsonData)
+    }
+    
     public func validateConfig(apiKey: String, baseUrl: String, modelId: String) async throws {
         let messages = [
             ChatMessage(role: "user", content: "Ping")
@@ -151,7 +196,14 @@ public final class AIService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        
+        // 兼容 MiMo 的 api-key Header
+        if baseUrl.contains("xiaomimimo.com") {
+            request.addValue(apiKey, forHTTPHeaderField: "api-key")
+        } else {
+            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let chatRequest = ChatRequest(model: modelId, messages: messages, temperature: 0.1)
@@ -183,7 +235,14 @@ public final class AIService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        
+        // 兼容 MiMo 的 api-key Header
+        if baseUrl.contains("xiaomimimo.com") {
+            request.addValue(apiKey, forHTTPHeaderField: "api-key")
+        } else {
+            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let chatRequest = ChatRequest(model: modelId, messages: messages, temperature: 0.1)
@@ -212,8 +271,20 @@ public final class AIService {
     }
 
     private func normalizeChatCompletionsEndpoint(baseUrl: String) -> String {
-        let trimmed = baseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        var trimmed = baseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 确保有协议头
+        if !trimmed.lowercased().hasPrefix("http://") && !trimmed.lowercased().hasPrefix("https://") {
+            trimmed = "https://\(trimmed)"
+        }
+        
         let noTailSlash = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
+        
+        // 如果用户已经填了完整路径，不要重复拼接
+        if noTailSlash.lowercased().hasSuffix("/chat/completions") {
+            return noTailSlash
+        }
+        
         return "\(noTailSlash)/chat/completions"
     }
 

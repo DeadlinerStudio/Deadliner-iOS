@@ -69,15 +69,21 @@ enum DeadlineDateParser {
     /// - 2026-02-16T12:34:56Z
     /// - 2026-02-16T12:34:56.123Z
     /// - 2026-02-16T12:34:56+08:00
+    private static let isoFormatterWithFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let isoFormatterStandard: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
     private static func parseISO8601WithZone(_ s: String) -> Date? {
-        let iso1 = ISO8601DateFormatter()
-        iso1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = iso1.date(from: s) { return d }
-
-        let iso2 = ISO8601DateFormatter()
-        iso2.formatOptions = [.withInternetDateTime]
-        if let d = iso2.date(from: s) { return d }
-
+        if let d = isoFormatterWithFractional.date(from: s) { return d }
+        if let d = isoFormatterStandard.date(from: s) { return d }
         return nil
     }
 

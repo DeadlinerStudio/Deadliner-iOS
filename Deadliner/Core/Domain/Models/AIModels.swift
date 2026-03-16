@@ -152,3 +152,19 @@ public struct TaskSummary: Codable {
     let overdue: Int
     let dueSoon24h: Int
 }
+
+// MARK: - Monthly Analysis
+
+public struct MonthlyAnalysisResult: Codable {
+    public let month: String // e.g. "2024-02"
+    public let summary: String
+    public let keywords: [String]
+    public let generatedAt: Date?
+    
+    public init(month: String, summary: String, keywords: [String], generatedAt: Date = Date()) {
+        self.month = month
+        self.summary = summary
+        self.keywords = keywords
+        self.generatedAt = generatedAt
+    }
+}

@@ -6,33 +6,86 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 struct SettingsView: View {
     // 使用统一的枚举状态管理
     @AppStorage("userTier") private var userTier: UserTier = .free
+    @AppStorage("userName") private var userName: String = "用户"
+    @StateObject private var avatarManager = AvatarManager.shared
     @State private var showProPaywall = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedUIImage: UIImage?
+    @State private var showCropper = false
+    @State private var showNameAlert = false
+    @State private var tempName = ""
 
     var body: some View {
         List {
             // MARK: - 1. 用户信息模块
             VStack(spacing: 4) {
-                Button {
-                    toggleUserTierForTesting()
-                } label: {
-                    Image("avatar")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 84, height: 84)
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 3)
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    Group {
+                        if let avatar = avatarManager.avatarImage {
+                            avatar
+                                .resizable()
+                        } else {
+                            Image(systemName: "person.crop.circle")
+                                .resizable()
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .scaledToFill()
+                    .frame(width: 84, height: 84)
+                    .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 3)
                 }
                 .buttonStyle(.plain)
+                .onChange(of: selectedPhotoItem) { _, newItem in
+                    if let newItem {
+                        Task {
+                            if let data = try? await newItem.loadTransferable(type: Data.self),
+                               let uiImage = UIImage(data: data) {
+                                selectedUIImage = uiImage
+                                showCropper = true
+                                selectedPhotoItem = nil // 重置以允许再次选择同一张图
+                            }
+                        }
+                    }
+                }
+                .fullScreenCover(isPresented: $showCropper) {
+                    if let uiImage = selectedUIImage {
+                        ImageCropper(image: uiImage) { croppedImage in
+                            avatarManager.saveAvatar(uiImage: croppedImage)
+                        }
+                    }
+                }
                 
-                Text("Aritx Zhou") // 占位昵称
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .padding(.top, 4)
+                Button {
+                    tempName = userName
+                    showNameAlert = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(userName)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                        
+                        Image(systemName: "pencil.circle.fill")
+                            .foregroundColor(.secondary.opacity(0.6))
+                    }
+                }
+                .padding(.vertical, 12)
+                .alert("修改昵称", isPresented: $showNameAlert) {
+                    TextField("输入新的昵称", text: $tempName)
+                    Button("取消", role: .cancel) { }
+                    Button("确定") {
+                        if !tempName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            userName = tempName
+                        }
+                    }
+                }
                 
                 // 动态徽章展示
                 Text(userTier.displayName)
@@ -60,7 +113,7 @@ struct SettingsView: View {
             .listRowInsets(EdgeInsets())
             
             // MARK: - 2. Deadliner+ 引导横幅
-            if userTier != .pro {
+            if userTier == .free {
                 PlusUpsellSection(showPaywall: $showProPaywall)
             }
 
@@ -92,15 +145,6 @@ struct SettingsView: View {
                         }
                     }
                 }
-                
-                // 科学记忆：Geek 买断版和 Pro 都能用。所以只对 Free 用户展示 PlusBadge
-                NavigationLink(destination: EfficiencySettingsView()) {
-                    HStack {
-                        Label("科学记忆与复习", systemImage: "chart.line.uptrend.xyaxis")
-                        Spacer()
-                        if userTier == .free { PlusBadge() }
-                    }
-                }
             }
 
             // MARK: - 5. 外观与个性化
@@ -124,8 +168,18 @@ struct SettingsView: View {
 
             // MARK: - 6. 其他
             Section("关于") {
-                Label("版本信息", systemImage: "info.circle")
-                Label("开源与隐私协议", systemImage: "hand.raised")
+                HStack {
+                    Label("版本信息", systemImage: "info.circle")
+                    Spacer()
+                    let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+                    let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+                    Text("\(version) (\(build))")
+                        .foregroundColor(.secondary)
+                }
+                
+                Link(destination: URL(string: "https://github.com/AritxOnly/Deadliner-iOS/blob/main/LICENSE")!) {
+                    Label("开源协议 (GPLv3)", systemImage: "doc.text")
+                }
             }
         }
         .navigationTitle("设置")
