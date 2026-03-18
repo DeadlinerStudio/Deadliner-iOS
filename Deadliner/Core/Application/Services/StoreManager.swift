@@ -24,6 +24,12 @@ final class StoreManager: ObservableObject {
     private var updatesTask: Task<Void, Never>?
     
     private init() {
+        #if DEBUG
+        userTier = .geek
+        purchasedProductIDs = [geekProductID]
+        return
+        #endif
+
         // 启动监听 App Store 外部交易（如在设置中恢复或外部完成）
         updatesTask = Task.detached {
             for await result in StoreKit.Transaction.updates {
@@ -43,6 +49,11 @@ final class StoreManager: ObservableObject {
     
     /// 从 App Store 拉取商品信息
     func fetchProducts() async {
+        #if DEBUG
+        products = []
+        return
+        #endif
+
         do {
             let storeProducts = try await Product.products(for: [geekProductID])
             self.products = storeProducts
@@ -53,6 +64,12 @@ final class StoreManager: ObservableObject {
     
     /// 发起购买
     func purchase(_ product: Product) async throws -> Bool {
+        #if DEBUG
+        userTier = .geek
+        purchasedProductIDs.insert(geekProductID)
+        return true
+        #endif
+
         let result = try await product.purchase()
         
         switch result {
@@ -72,12 +89,24 @@ final class StoreManager: ObservableObject {
     
     /// 恢复购买
     func restorePurchases() async {
+        #if DEBUG
+        userTier = .geek
+        purchasedProductIDs.insert(geekProductID)
+        return
+        #endif
+
         try? await AppStore.sync()
         await updatePurchasedProducts()
     }
     
     /// 检查并同步内购权限到 AppStorage
     func updatePurchasedProducts() async {
+        #if DEBUG
+        userTier = .geek
+        purchasedProductIDs = [geekProductID]
+        return
+        #endif
+
         var purchasedIDs = Set<String>()
         
         for await result in StoreKit.Transaction.currentEntitlements {

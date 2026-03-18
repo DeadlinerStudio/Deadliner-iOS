@@ -12,6 +12,7 @@ import SwiftData
 struct DeadlinerApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("selectedAppIcon") private var selectedAppIconRaw: String = DeadlinerIcon.deadlinerDefault.rawValue
+    @AppStorage("userTier") private var userTier: UserTier = .free
     
     let sharedModelContainer: ModelContainer = SharedModelContainer.shared
 
@@ -19,6 +20,10 @@ struct DeadlinerApp: App {
         WindowGroup {
             MainView()
                 .task {
+                    #if DEBUG
+                    userTier = .geek
+                    #endif
+
                     // 请求通知权限
                     NotificationManager.shared.requestAuthorization()
                     
@@ -27,6 +32,7 @@ struct DeadlinerApp: App {
                     
                     do {
                         try await TaskRepository.shared.initializeIfNeeded(container: sharedModelContainer)
+                        await DeadlinerCoreBridge.shared.initializeIfNeeded()
                     } catch {
                         assertionFailure("DB init failed: \(error)")
                     }

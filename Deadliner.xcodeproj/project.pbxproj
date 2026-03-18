@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C0D3A1023A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A1033A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift */; };
+		C0D3A1043A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A1053A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift */; };
+		C0D3A1003A19000100D34EAA /* Vendor/DeadlinerCore/ffi_uniffi.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0D3A1013A19000100D34EAA /* Vendor/DeadlinerCore/ffi_uniffi.xcframework */; };
 		E52763CF2F42F09F002162DF /* DeadlinerDefault.icon in Resources */ = {isa = PBXBuildFile; fileRef = E52763CE2F42F09F002162DF /* DeadlinerDefault.icon */; };
 		E53876182F5A5AC200E5D81A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E53876172F5A5AC200E5D81A /* WidgetKit.framework */; };
 		E538761A2F5A5AC200E5D81A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E53876192F5A5AC200E5D81A /* SwiftUI.framework */; };
@@ -60,6 +63,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C0D3A1033A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeadlinerCoreBridge.swift; sourceTree = "<group>"; };
+		C0D3A1053A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ffi_uniffi.swift; sourceTree = "<group>"; };
+		C0D3A1013A19000100D34EAA /* Vendor/DeadlinerCore/ffi_uniffi.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/DeadlinerCore/ffi_uniffi.xcframework; sourceTree = "<group>"; };
 		E52762E22F3F6189002162DF /* Deadliner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Deadliner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E52762F12F3F618B002162DF /* DeadlinerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeadlinerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E52762FB2F3F618B002162DF /* DeadlinerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeadlinerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -136,6 +142,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0D3A1003A19000100D34EAA /* Vendor/DeadlinerCore/ffi_uniffi.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -165,9 +172,35 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		C0D3A1063A19000100D34EAA /* DeadlinerCoreSupport */ = {
+			isa = PBXGroup;
+			children = (
+				C0D3A1073A19000100D34EAA /* Bridge */,
+				C0D3A1083A19000100D34EAA /* Generated */,
+			);
+			path = DeadlinerCoreSupport;
+			sourceTree = "<group>";
+		};
+		C0D3A1073A19000100D34EAA /* Bridge */ = {
+			isa = PBXGroup;
+			children = (
+				C0D3A1033A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift */,
+			);
+			path = Bridge;
+			sourceTree = "<group>";
+		};
+		C0D3A1083A19000100D34EAA /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				C0D3A1053A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 		E52762D92F3F6189002162DF = {
 			isa = PBXGroup;
 			children = (
+				C0D3A1063A19000100D34EAA /* DeadlinerCoreSupport */,
 				E53876322F5A5B9400E5D81A /* DeadlinerWidgetExtension.entitlements */,
 				E52762E42F3F6189002162DF /* Deadliner */,
 				E52762F42F3F618B002162DF /* DeadlinerTests */,
@@ -194,6 +227,7 @@
 		E53876042F54411200E5D81A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C0D3A1013A19000100D34EAA /* Vendor/DeadlinerCore/ffi_uniffi.xcframework */,
 				E53876172F5A5AC200E5D81A /* WidgetKit.framework */,
 				E53876192F5A5AC200E5D81A /* SwiftUI.framework */,
 			);
@@ -406,6 +440,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0D3A1023A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift in Sources */,
+				C0D3A1043A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
