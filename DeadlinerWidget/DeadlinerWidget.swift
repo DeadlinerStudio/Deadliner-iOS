@@ -102,13 +102,16 @@ struct DeadlinerWidgetEntryView : View {
         switch family {
         case .accessoryCircular:
             CircularWidgetView(entry: entry)
+                .containerBackground(.clear, for: .widget)
         case .accessoryRectangular:
             if let _ = entry.task {
                 RectangularWidgetView(entry: entry)
+                    .containerBackground(.clear, for: .widget)
             } else {
                 Text("所有任务已完成")
                     .font(.system(size: 14, weight: .medium).monospaced())
                     .foregroundStyle(.secondary)
+                    .containerBackground(.clear, for: .widget)
             }
         case .systemSmall:
             SmallHomeWidgetView(entry: entry)
@@ -206,75 +209,71 @@ struct SmallHomeWidgetView: View {
     }
     
     var body: some View {
-        ZStack {
-            // Background Gradient & Blobs
-            LinearGradient(
-                colors: [Color("WidgetBackground"), Color("WidgetBackground").opacity(0.8)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-            ZStack {
-                Circle()
-                    .fill(brandColor)
-                    .opacity(0.04)
-                    .frame(width: 200, height: 200)
-                    .offset(x: 40, y: -60)
+        VStack(alignment: .leading, spacing: 6) {
+            // Top Bar - Better spacing and alignment
+            HStack(spacing: 6) {
+                Image("AppIcon")
+                    .resizable()
+                    .frame(width: 16, height: 16)
+                    .cornerRadius(4)
                 
-                Circle()
-                    .fill(brandColor)
-                    .opacity(0.08)
-                    .frame(width: 140, height: 140)
-                    .offset(x: 70, y: -20)
-            }
-            
-            VStack(alignment: .leading, spacing: 0) {
-                // Top Bar
-                HStack(spacing: 6) {
-                    Image("AppIcon") // Assuming this is the app icon asset
-                        .resizable()
-                        .frame(width: 18, height: 18)
+                Text("Deadliner")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.primary.opacity(0.9))
+                
+                Spacer()
+                
+                if entry.remainingCount > 0 {
+                    Text("\(entry.remainingCount)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(brandColor.opacity(0.12))
                         .cornerRadius(4)
-                    
-                    Text("Deadliner")
-                        .font(.system(size: 13, weight: .bold))
-                    
-                    Spacer()
-                    
-                    if entry.remainingCount > 0 {
-                        Text("\(entry.remainingCount)")
-                            .font(.system(size: 10, weight: .bold))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(Color.primary.opacity(0.05))
-                            .cornerRadius(6)
-                            .foregroundColor(entry.remainingCount > 3 ? brandColor : .primary)
-                    }
+                        .foregroundColor(brandColor)
                 }
-                .padding(.bottom, 8)
-                
-                // Task List
-                if entry.topTasks.isEmpty {
-                    Spacer()
-                    VStack(spacing: 4) {
-                        Text("🎉").font(.system(size: 30))
-                        Text("全部搞定")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    Spacer()
-                } else {
-                    VStack(spacing: 6) {
-                        ForEach(entry.topTasks.prefix(3)) { task in
-                            CompactTaskRow(task: task)
-                        }
-                    }
-                }
-                
-                Spacer(minLength: 0)
             }
-            .padding(10)
+            .padding(.horizontal, 2)
+            
+            // Task List
+            if entry.topTasks.isEmpty {
+                Spacer()
+                VStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(brandColor.opacity(0.4))
+                    Text("全部搞定")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
+                VStack(spacing: 4) {
+                    ForEach(entry.topTasks.prefix(3)) { task in
+                        CompactTaskRow(task: task)
+                    }
+                }
+            }
+            
+            Spacer(minLength: 0)
+        }
+        .padding(8)
+        .containerBackground(for: .widget) {
+            ZStack {
+                Color("WidgetBackground")
+                
+                // Subtle Decorative Blobs
+                Circle()
+                    .fill(brandColor.opacity(0.04))
+                    .frame(width: 160, height: 160)
+                    .offset(x: 50, y: -60)
+                
+                Circle()
+                    .fill(brandColor.opacity(0.06))
+                    .frame(width: 100, height: 100)
+                    .offset(x: 70, y: 10)
+            }
         }
     }
 }
@@ -288,25 +287,27 @@ struct CompactTaskRow: View {
     
     var body: some View {
         HStack(spacing: 6) {
-            // Indicator
+            // Priority Indicator
             RoundedRectangle(cornerRadius: 1.5)
-                .fill(isUrgent(task) ? brandColor : .primary.opacity(0.6))
-                .frame(width: 3, height: 12)
+                .fill(isUrgent(task) ? brandColor : Color.primary.opacity(0.15))
+                .frame(width: 2.5, height: 12)
             
             Text(task.name)
-                .font(.system(size: 12, weight: isUrgent(task) ? .medium : .regular))
+                .font(.system(size: 11, weight: isUrgent(task) ? .semibold : .medium))
                 .lineLimit(1)
             
             Spacer()
             
             Text(remainingTimeStr(task: task))
-                .font(.system(size: 10, weight: isUrgent(task) ? .medium : .regular))
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundColor(isUrgent(task) ? brandColor : .secondary)
         }
         .padding(.horizontal, 6)
-        .frame(height: 30)
-        .background(Color.primary.opacity(0.03))
-        .cornerRadius(8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isUrgent(task) ? brandColor.opacity(0.05) : Color.primary.opacity(0.03))
+        )
     }
     
     private func isUrgent(_ task: DDLItem) -> Bool {
@@ -368,7 +369,6 @@ struct DeadlinerWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DeadlinerWidgetProvider()) { entry in
             DeadlinerWidgetEntryView(entry: entry)
-                .containerBackground(.clear, for: .widget)
         }
         .supportedFamilies([.accessoryRectangular, .accessoryCircular, .systemSmall, .systemMedium])
     }
