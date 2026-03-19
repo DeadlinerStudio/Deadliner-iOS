@@ -12,6 +12,7 @@ struct DisplayItem: Identifiable {
     enum Kind {
         case userQuery(String)
         case aiChat(String)
+        case aiThinking(String)
         case aiTask(AITask)
         case aiHabit(AIHabit)
         case aiMemory(String)
@@ -68,50 +69,51 @@ struct AIFunctionView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if isExpanded || !displayItems.isEmpty {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 16) {
-                                memoryHintView
+                Group {
+                    if isExpanded || !displayItems.isEmpty {
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                LazyVStack(spacing: 16) {
+                                    memoryHintView
 
-                                ForEach(displayItems) { item in
-                                    renderItem(item)
-                                        .id(item.id)
-                                        .transition(.asymmetric(
-                                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                                            removal: .opacity
-                                        ))
-                                }
-
-                                if isParsing {
-                                    HStack(spacing: 12) {
-                                        ProgressView().tint(.purple)
-                                        Text("Deadliner 正在思考...")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        Spacer()
+                                    ForEach(displayItems) { item in
+                                        renderItem(item)
+                                            .id(item.id)
+                                            .transition(.asymmetric(
+                                                insertion: .move(edge: .bottom).combined(with: .opacity),
+                                                removal: .opacity
+                                            ))
                                     }
-                                    .padding(.leading)
-                                    .id("loading_indicator")
+
+                                    if isParsing {
+                                        HStack(spacing: 12) {
+                                            ProgressView().tint(.purple)
+                                            Text("Deadliner 正在思考...")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                            Spacer()
+                                        }
+                                        .padding(.leading)
+                                        .id("loading_indicator")
+                                    }
+                                }
+                                .padding()
+                            }
+                            .onChange(of: displayItems.count) { _ in
+                                guard let lastId = displayItems.last?.id else { return }
+                                withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
+                            }
+                            .onChange(of: isParsing) { parsing in
+                                if parsing {
+                                    withAnimation { proxy.scrollTo("loading_indicator", anchor: .bottom) }
                                 }
                             }
-                            .padding()
                         }
-                        .onChange(of: displayItems.count) { _ in
-                            guard let lastId = displayItems.last?.id else { return }
-                            withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
-                        }
-                        .onChange(of: isParsing) { parsing in
-                            if parsing {
-                                withAnimation { proxy.scrollTo("loading_indicator", anchor: .bottom) }
-                            }
-                        }
+                    } else {
+                        initialGuideView
                     }
-                } else {
-                    initialGuideView
                 }
-
-                Spacer()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
                 inputSection
             }
@@ -180,6 +182,8 @@ extension AIFunctionView {
             userBubble(text: text)
         case .aiChat(let text):
             chatBubble(text: text)
+        case .aiThinking(let text):
+            thinkingBubble(text: text)
         case .aiTask(let task):
             proposalCard(task: task)
         case .aiHabit(let habit):
@@ -213,6 +217,22 @@ extension AIFunctionView {
                 .cornerRadius(16, corners: [.topLeft, .topRight, .bottomRight])
             Spacer()
         }
+    }
+
+    private func thinkingBubble(text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "point.3.connected.trianglepath.dotted")
+                .foregroundColor(.blue)
+                .font(.caption)
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.blue.opacity(0.06))
+        .cornerRadius(10)
     }
 
     private func memoryCapturedBubble(content: String) -> some View {
@@ -702,8 +722,14 @@ extension AIFunctionView {
     @MainActor
     private func handleCoreEvent(_ event: DeadlinerCoreBridgeEvent) {
         switch event {
-        case .thinking:
+        case .thinking(let agentName):
             isParsing = true
+            let message = collaborationMessage(for: agentName)
+            if shouldAppendThinkingMessage(message) {
+                withAnimation(.spring()) {
+                    displayItems.append(DisplayItem(kind: .aiThinking(message)))
+                }
+            }
         case .textStream:
             break
         case .toolRequest(let req):
@@ -716,6 +742,7 @@ extension AIFunctionView {
             )
 
             withAnimation(.spring()) {
+                displayItems.append(DisplayItem(kind: .aiThinking(toolCollaborationMessage(for: sanitizedReq.tool))))
                 displayItems.append(DisplayItem(kind: .aiToolRequest(sanitizedReq)))
             }
         case .finish(let payload):
@@ -726,6 +753,9 @@ extension AIFunctionView {
             }
 
             withAnimation(.spring()) {
+                for notice in payload.memoryNotices {
+                    displayItems.append(DisplayItem(kind: .aiMemory(notice)))
+                }
                 for task in payload.tasks {
                     displayItems.append(DisplayItem(kind: .aiTask(task)))
                 }
@@ -777,6 +807,40 @@ extension AIFunctionView {
         )
     }
 
+    private func collaborationMessage(for agentName: String) -> String {
+        switch agentName {
+        case "Supervisor":
+            return "总控代理正在分析请求并分派子任务"
+        case "TaskAgent":
+            return "任务代理正在整理待办与时间信息"
+        case "HabitAgent":
+            return "习惯代理正在分析周期性行为"
+        case "ChatAgent":
+            return "聊天代理正在组织回复与记忆"
+        default:
+            return "\(agentName) 正在协作处理中"
+        }
+    }
+
+    private func toolCollaborationMessage(for toolName: String) -> String {
+        switch toolName {
+        case "readTasks", "read_tasks":
+            return "任务代理请求读取本地任务列表"
+        default:
+            return "\(toolName) 工具正在参与协作"
+        }
+    }
+
+    private func shouldAppendThinkingMessage(_ message: String) -> Bool {
+        guard let last = displayItems.last?.kind else { return true }
+        switch last {
+        case .aiThinking(let previous):
+            return previous != message
+        default:
+            return true
+        }
+    }
+    
     private func isGenericTaskListQuery(_ q: String) -> Bool {
         let s = q.lowercased()
         // 典型泛查询词

@@ -37,11 +37,19 @@ final class MemoryBank: ObservableObject {
         loadRevisionFromDisk()
     }
 
+    private func applyOnMain(_ work: @escaping () -> Void) {
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.sync(execute: work)
+        }
+    }
+
     func saveMemory(content: String, category: String = "Auto") {
         let newFrag = MemoryFragment(content: content, category: category, timestamp: Date(), importance: 3)
         guard !fragments.contains(where: { $0.content == content }) else { return }
 
-        DispatchQueue.main.async {
+        applyOnMain {
             self.fragments.append(newFrag)
             self.pruneMemories()
             self.bumpRevision()
@@ -53,7 +61,7 @@ final class MemoryBank: ObservableObject {
         let trimmed = profile.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        DispatchQueue.main.async {
+        applyOnMain {
             self.userProfile = trimmed
             self.bumpRevision()
             self.saveProfileToDisk()
@@ -124,7 +132,7 @@ final class MemoryBank: ObservableObject {
 
     func setUserProfileAllowEmpty(_ profile: String) {
         let trimmed = profile.trimmingCharacters(in: .whitespacesAndNewlines)
-        DispatchQueue.main.async {
+        applyOnMain {
             self.userProfile = trimmed
             self.bumpRevision()
             self.saveProfileToDisk()
@@ -132,7 +140,7 @@ final class MemoryBank: ObservableObject {
     }
 
     func deleteFragment(id: UUID) {
-        DispatchQueue.main.async {
+        applyOnMain {
             self.fragments.removeAll { $0.id == id }
             self.bumpRevision()
             self.saveToDisk()
@@ -141,7 +149,7 @@ final class MemoryBank: ObservableObject {
 
     func updateFragment(id: UUID, newContent: String, newCategory: String? = nil, newImportance: Int? = nil) {
         let trimmed = newContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        DispatchQueue.main.async {
+        applyOnMain {
             guard let idx = self.fragments.firstIndex(where: { $0.id == id }) else { return }
             let old = self.fragments[idx]
             let updated = MemoryFragment(
@@ -158,7 +166,7 @@ final class MemoryBank: ObservableObject {
     }
 
     func replaceAllFragments(_ newList: [MemoryFragment]) {
-        DispatchQueue.main.async {
+        applyOnMain {
             self.fragments = newList
             self.bumpRevision()
             self.saveToDisk()
@@ -178,6 +186,39 @@ final class MemoryBank: ObservableObject {
             return #"{"revision":0,"fragments":[],"userProfile":""}"#
         }
         return json
+    }
+
+    @discardableResult
+    func applySnapshotJson(_ json: String) -> Bool {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        guard let data = json.data(using: .utf8),
+              let snapshot = try? decoder.decode(MemorySnapshotDTO.self, from: data) else {
+            return false
+        }
+
+        if snapshot.revision < revision {
+            return false
+        }
+
+        let applyState = {
+            self.fragments = snapshot.fragments
+            self.userProfile = snapshot.userProfile
+            self.revision = snapshot.revision
+            self.pruneMemories()
+            self.saveToDisk()
+            self.saveProfileToDisk()
+            self.saveRevisionToDisk()
+        }
+
+        if Thread.isMainThread {
+            applyState()
+        } else {
+            DispatchQueue.main.sync(execute: applyState)
+        }
+
+        return true
     }
 
     @discardableResult
@@ -209,7 +250,7 @@ final class MemoryBank: ObservableObject {
             }
         }
 
-        DispatchQueue.main.async {
+        let applyState = {
             self.fragments = updatedFragments
             self.userProfile = updatedProfile
             self.revision = payload.nextRevision
@@ -217,6 +258,12 @@ final class MemoryBank: ObservableObject {
             self.saveToDisk()
             self.saveProfileToDisk()
             self.saveRevisionToDisk()
+        }
+
+        if Thread.isMainThread {
+            applyState()
+        } else {
+            DispatchQueue.main.sync(execute: applyState)
         }
 
         return true
