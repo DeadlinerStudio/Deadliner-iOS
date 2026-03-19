@@ -165,6 +165,19 @@ final class MemoryBank: ObservableObject {
         }
     }
 
+    func upsertFragment(_ fragment: MemoryFragment) {
+        applyOnMain {
+            if let idx = self.fragments.firstIndex(where: { $0.id == fragment.id }) {
+                self.fragments[idx] = fragment
+            } else {
+                self.fragments.append(fragment)
+            }
+            self.pruneMemories()
+            self.bumpRevision()
+            self.saveToDisk()
+        }
+    }
+
     func replaceAllFragments(_ newList: [MemoryFragment]) {
         applyOnMain {
             self.fragments = newList

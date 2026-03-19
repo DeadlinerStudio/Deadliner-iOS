@@ -9,18 +9,19 @@ import SwiftUI
 
 struct MemoryManageSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var memoryBank = MemoryBank.shared
+    @ObservedObject private var memoryBank = MemoryBank.shared
 
     // Profile editor
     @State private var isEditingProfile = false
     @State private var draftProfile = ""
 
     // Fragment editor
-    @State private var editingFragmentId: UUID?
+    @State private var editingOriginalFragment: MemoryFragment?
     @State private var fragDraftContent: String = ""
     @State private var fragDraftCategory: String = ""
     @State private var fragDraftImportance: Int = 3
     @State private var showFragEditor = false
+    @State private var didSaveFragmentEditor = false
 
     @State private var showClearAllConfirm = false
 
@@ -51,7 +52,7 @@ struct MemoryManageSheet: View {
             .onAppear {
                 draftProfile = memoryBank.userProfile
             }
-            .sheet(isPresented: $showFragEditor) {
+            .sheet(isPresented: $showFragEditor, onDismiss: handleFragmentEditorDismiss) {
                 fragmentEditSheet
             }
             .confirmationDialog(
@@ -73,6 +74,21 @@ struct MemoryManageSheet: View {
 
 // MARK: - Sections
 extension MemoryManageSheet {
+    private var displayedFragments: [MemoryFragment] {
+        var fragments = memoryBank.fragments
+
+        if showFragEditor, let original = editingOriginalFragment,
+           !fragments.contains(where: { $0.id == original.id }) {
+            fragments.append(original)
+        }
+
+        return fragments.sorted { lhs, rhs in
+            if lhs.timestamp != rhs.timestamp {
+                return lhs.timestamp > rhs.timestamp
+            }
+            return lhs.id.uuidString > rhs.id.uuidString
+        }
+    }
 
     private var profileSection: some View {
         Section {
@@ -127,11 +143,11 @@ extension MemoryManageSheet {
 
     private var fragmentsSection: some View {
         Section {
-            if memoryBank.fragments.isEmpty {
+            if displayedFragments.isEmpty {
                 Text("暂无碎片记忆")
                     .foregroundColor(.secondary)
             } else {
-                ForEach(memoryBank.fragments) { frag in
+                ForEach(displayedFragments) { frag in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(frag.content)
                             .lineLimit(3)
@@ -174,7 +190,7 @@ extension MemoryManageSheet {
                 }
                 .onDelete { indexSet in
                     // batch delete
-                    let ids = indexSet.map { memoryBank.fragments[$0].id }
+                    let ids = indexSet.map { displayedFragments[$0].id }
                     for id in ids {
                         memoryBank.deleteFragment(id: id)
                     }
@@ -182,7 +198,7 @@ extension MemoryManageSheet {
                 }
             }
         } header: {
-            Text("碎片记忆（\(memoryBank.fragments.count)）")
+            Text("碎片记忆（\(displayedFragments.count)）")
         } footer: {
             Text("建议把碎片记忆写成可复用的事实/偏好/约束，避免情绪化长文本。")
         }
@@ -229,6 +245,7 @@ extension MemoryManageSheet {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("保存") {
+                        didSaveFragmentEditor = true
                         saveFragmentEdit()
                         showFragEditor = false
                     }
@@ -239,30 +256,48 @@ extension MemoryManageSheet {
     }
 
     private func startEditFragment(_ frag: MemoryFragment) {
-        editingFragmentId = frag.id
+        editingOriginalFragment = frag
         fragDraftContent = frag.content
         fragDraftCategory = frag.category
         fragDraftImportance = frag.importance
+        didSaveFragmentEditor = false
         showFragEditor = true
     }
 
     private func saveFragmentEdit() {
-        guard let id = editingFragmentId else { return }
+        guard let original = editingOriginalFragment else { return }
 
         let content = fragDraftContent.trimmingCharacters(in: .whitespacesAndNewlines)
         if content.isEmpty {
             // 空内容视为删除
-            memoryBank.deleteFragment(id: id)
+            memoryBank.deleteFragment(id: original.id)
             syncMemoryBankToCore()
             return
         }
 
-        memoryBank.updateFragment(
-            id: id,
-            newContent: content,
-            newCategory: fragDraftCategory.trimmingCharacters(in: .whitespacesAndNewlines),
-            newImportance: fragDraftImportance
+        let trimmedCategory = fragDraftCategory.trimmingCharacters(in: .whitespacesAndNewlines)
+        let updated = MemoryFragment(
+            id: original.id,
+            content: content,
+            category: trimmedCategory.isEmpty ? original.category : trimmedCategory,
+            timestamp: original.timestamp,
+            importance: fragDraftImportance
         )
+        memoryBank.upsertFragment(updated)
+        syncMemoryBankToCore()
+    }
+
+    private func handleFragmentEditorDismiss() {
+        defer {
+            editingOriginalFragment = nil
+            didSaveFragmentEditor = false
+        }
+
+        guard !didSaveFragmentEditor, let original = editingOriginalFragment else { return }
+        let stillExists = memoryBank.fragments.contains(where: { $0.id == original.id })
+        guard !stillExists else { return }
+
+        memoryBank.upsertFragment(original)
         syncMemoryBankToCore()
     }
 

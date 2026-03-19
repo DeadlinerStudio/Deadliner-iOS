@@ -103,10 +103,6 @@ final class DeadlinerCoreBridge {
         core?.exportMemorySnapshot()
     }
 
-    func getLastMemorySyncJson() -> String? {
-        core?.getLastMemorySyncJson()
-    }
-
     func setEventHandler(_ handler: @escaping (DeadlinerCoreBridgeEvent) -> Void) {
         eventHandler = handler
     }
@@ -146,22 +142,16 @@ final class DeadlinerCoreBridge {
         case .onMemoryCommitted(let addedMemories, let profileUpdated, let newRevision):
             lastEventSummary = "Memory committed: +\(addedMemories.count), profile=\(profileUpdated)"
             let previousProfile = MemoryBank.shared.userProfile
-            let syncJson = getLastMemorySyncJson()
-            if let syncJson, !syncJson.isEmpty {
-                let applied = MemoryBank.shared.applySyncPayloadJson(syncJson)
-                if !applied {
-                    let snapshotJson = currentMemorySnapshotJson()
-                    Task {
-                        await self.replaceMemorySnapshot(snapshotJson)
-                    }
-                }
-            } else {
-                let updatedProfile = profileUpdated ? core?.getUserProfile() : nil
-                MemoryBank.shared.applyCommittedResult(
-                    addedMemories: addedMemories,
-                    updatedProfile: updatedProfile,
-                    newRevision: newRevision
-                )
+            let updatedProfile = profileUpdated ? core?.getUserProfile() : nil
+            MemoryBank.shared.applyCommittedResult(
+                addedMemories: addedMemories,
+                updatedProfile: updatedProfile,
+                newRevision: newRevision
+            )
+
+            let snapshotJson = currentMemorySnapshotJson()
+            Task {
+                await self.replaceMemorySnapshot(snapshotJson)
             }
 
             let currentProfile = MemoryBank.shared.userProfile.trimmingCharacters(in: .whitespacesAndNewlines)

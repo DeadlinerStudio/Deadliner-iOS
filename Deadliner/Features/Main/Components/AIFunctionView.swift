@@ -59,6 +59,7 @@ struct AIFunctionView: View {
     @State private var toolOriginalUserText: String = ""
     @State private var submittedToolRequestIDs: Set<String> = []
     @State private var pendingMemoryNoticeTask: Task<Void, Never>?
+    @State private var inputSectionHeight: CGFloat = 92
 
     @State private var addedTaskKeys: Set<String> = []      // 用于把卡片变“已添加”
     @State private var addedHabitKeys: Set<String> = []
@@ -69,53 +70,56 @@ struct AIFunctionView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Group {
-                    if isExpanded || !displayItems.isEmpty {
-                        ScrollViewReader { proxy in
-                            ScrollView {
-                                LazyVStack(spacing: 16) {
-                                    memoryHintView
+            Group {
+                if isExpanded || !displayItems.isEmpty {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 16) {
+                                memoryHintView
 
-                                    ForEach(displayItems) { item in
-                                        renderItem(item)
-                                            .id(item.id)
-                                            .transition(.asymmetric(
-                                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                                removal: .opacity
-                                            ))
-                                    }
+                                ForEach(displayItems) { item in
+                                    renderItem(item)
+                                        .id(item.id)
+                                        .transition(.asymmetric(
+                                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                                            removal: .opacity
+                                        ))
+                                }
 
-                                    if isParsing {
-                                        HStack(spacing: 12) {
-                                            ProgressView().tint(.purple)
-                                            Text("Deadliner Claw 正在思考...")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                            Spacer()
-                                        }
-                                        .padding(.leading)
-                                        .id("loading_indicator")
+                                if isParsing {
+                                    HStack(spacing: 12) {
+                                        ProgressView().tint(.purple)
+                                        Text("Deadliner Claw 正在思考...")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
                                     }
+                                    .padding(.leading)
+                                    .id("loading_indicator")
                                 }
-                                .padding()
+
+                                Color.clear
+                                    .frame(height: inputSectionHeight + 24)
+                                    .id("bottom_spacing")
                             }
-                            .onChange(of: displayItems.count) { _ in
-                                guard let lastId = displayItems.last?.id else { return }
-                                withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
-                            }
-                            .onChange(of: isParsing) { parsing in
-                                if parsing {
-                                    withAnimation { proxy.scrollTo("loading_indicator", anchor: .bottom) }
-                                }
+                            .padding()
+                        }
+                        .onChange(of: displayItems.count) { _ in
+                            guard let lastId = displayItems.last?.id else { return }
+                            withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
+                        }
+                        .onChange(of: isParsing) { parsing in
+                            if parsing {
+                                withAnimation { proxy.scrollTo("loading_indicator", anchor: .bottom) }
                             }
                         }
-                    } else {
-                        initialGuideView
                     }
+                } else {
+                    initialGuideView
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 inputSection
             }
             .navigationTitle(isExpanded ? "Deadliner Claw" : "")
@@ -412,6 +416,17 @@ extension AIFunctionView {
             .padding(.bottom, 10)
             .padding(.top, 10)
         }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        inputSectionHeight = proxy.size.height
+                    }
+                    .onChange(of: proxy.size.height) { newHeight in
+                        inputSectionHeight = newHeight
+                    }
+            }
+        )
     }
 
     private var memoryHintView: some View {
