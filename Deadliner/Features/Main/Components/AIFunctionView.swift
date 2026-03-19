@@ -58,6 +58,7 @@ struct AIFunctionView: View {
     @State private var pendingToolRequest: AIToolRequest?
     @State private var toolOriginalUserText: String = ""
     @State private var submittedToolRequestIDs: Set<String> = []
+    @State private var pendingMemoryNoticeTask: Task<Void, Never>?
 
     @State private var addedTaskKeys: Set<String> = []      // 用于把卡片变“已添加”
     @State private var addedHabitKeys: Set<String> = []
@@ -88,7 +89,7 @@ struct AIFunctionView: View {
                                     if isParsing {
                                         HStack(spacing: 12) {
                                             ProgressView().tint(.purple)
-                                            Text("Deadliner 正在思考...")
+                                            Text("Deadliner Claw 正在思考...")
                                                 .font(.caption)
                                                 .foregroundColor(.secondary)
                                             Spacer()
@@ -117,7 +118,7 @@ struct AIFunctionView: View {
 
                 inputSection
             }
-            .navigationTitle(isExpanded ? "Deadliner AI" : "")
+            .navigationTitle(isExpanded ? "Deadliner Claw" : "")
             .navigationBarTitleDisplayMode(.inline)
         }
         // 根据是否展开自动调整 Sheet 高度
@@ -391,7 +392,7 @@ extension AIFunctionView {
     private var inputSection: some View {
         GlassEffectContainer(spacing: 12) {
             HStack(alignment: .bottom, spacing: 12) {
-                TextField("告诉 Deadliner 你的计划...", text: $inputText, axis: .vertical)
+                TextField("告诉 Deadliner Claw 你的计划...", text: $inputText, axis: .vertical)
                     .padding(8)
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
                     .lineLimit(1...5)
@@ -456,7 +457,7 @@ extension AIFunctionView {
                     )
             }
 
-            Text("Deadliner Agent")
+            Text("Deadliner Claw")
                 .font(.title3.weight(.semibold))
 
             Text("一句话生成任务 / 习惯 / 记忆")
@@ -722,12 +723,14 @@ extension AIFunctionView {
     @MainActor
     private func handleCoreEvent(_ event: DeadlinerCoreBridgeEvent) {
         switch event {
-        case .thinking(let agentName):
-            isParsing = true
-            let message = collaborationMessage(for: agentName)
-            if shouldAppendThinkingMessage(message) {
+        case .thinking(let agentName, let phase, let message):
+            if phase != "memory" {
+                isParsing = true
+            }
+            let thinkingText = collaborationMessage(for: agentName, phase: phase, fallbackMessage: message)
+            if shouldAppendThinkingMessage(thinkingText) {
                 withAnimation(.spring()) {
-                    displayItems.append(DisplayItem(kind: .aiThinking(message)))
+                    displayItems.append(DisplayItem(kind: .aiThinking(thinkingText)))
                 }
             }
         case .textStream:
@@ -747,15 +750,14 @@ extension AIFunctionView {
             }
         case .finish(let payload):
             isParsing = false
+            pendingMemoryNoticeTask?.cancel()
+            pendingMemoryNoticeTask = nil
 
             if let s = payload.sessionSummary, !s.isEmpty {
                 sessionSummary = String(s.prefix(600))
             }
 
             withAnimation(.spring()) {
-                for notice in payload.memoryNotices {
-                    displayItems.append(DisplayItem(kind: .aiMemory(notice)))
-                }
                 for task in payload.tasks {
                     displayItems.append(DisplayItem(kind: .aiTask(task)))
                 }
@@ -766,8 +768,22 @@ extension AIFunctionView {
                     displayItems.append(DisplayItem(kind: .aiChat(chat)))
                 }
             }
+        case .memoryCommitted(let payload):
+            isParsing = false
+            pendingMemoryNoticeTask?.cancel()
+            pendingMemoryNoticeTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                guard !Task.isCancelled else { return }
+                withAnimation(.spring()) {
+                    for notice in payload.notices {
+                        displayItems.append(DisplayItem(kind: .aiMemory(notice)))
+                    }
+                }
+            }
         case .error(let message):
             isParsing = false
+            pendingMemoryNoticeTask?.cancel()
+            pendingMemoryNoticeTask = nil
             errorMessage = message
             showErrorMessage = true
         }
@@ -807,18 +823,50 @@ extension AIFunctionView {
         )
     }
 
-    private func collaborationMessage(for agentName: String) -> String {
+    private func collaborationMessage(for agentName: String, phase: String, fallbackMessage: String?) -> String {
+        if let fallbackMessage, !fallbackMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return fallbackMessage
+        }
+
         switch agentName {
         case "Supervisor":
-            return "总控代理正在分析请求并分派子任务"
+            switch phase {
+            case "routing":
+                return "总控代理正在分析请求并分派子任务"
+            case "memory":
+                return "总控代理正在整理本轮记忆更新"
+            default:
+                return "总控代理正在协调整体流程"
+            }
         case "TaskAgent":
-            return "任务代理正在整理待办与时间信息"
+            switch phase {
+            case "routing":
+                return "任务代理已接手，准备分析时间与待办"
+            case "tool_wait":
+                return "任务代理正在等待本地任务工具结果"
+            default:
+                return "任务代理正在整理待办与时间信息"
+            }
         case "HabitAgent":
-            return "习惯代理正在分析周期性行为"
+            switch phase {
+            case "routing":
+                return "习惯代理已接手，准备分析周期性行为"
+            case "tool_wait":
+                return "习惯代理正在等待工具结果"
+            default:
+                return "习惯代理正在分析周期性行为"
+            }
         case "ChatAgent":
-            return "聊天代理正在组织回复与记忆"
+            switch phase {
+            case "routing":
+                return "聊天代理已接手，准备组织回复"
+            case "memory":
+                return "聊天代理正在整理回复相关记忆"
+            default:
+                return "聊天代理正在组织回复与记忆"
+            }
         default:
-            return "\(agentName) 正在协作处理中"
+            return "\(agentName) 正在\(phase)阶段协作处理中"
         }
     }
 

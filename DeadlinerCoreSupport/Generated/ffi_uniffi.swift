@@ -415,6 +415,46 @@ fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
+    typealias FfiType = UInt64
+    typealias SwiftType = UInt64
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt64 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterBool : FfiConverter {
+    typealias FfiType = Int8
+    typealias SwiftType = Bool
+
+    public static func lift(_ value: Int8) throws -> Bool {
+        return value != 0
+    }
+
+    public static func lower(_ value: Bool) -> Int8 {
+        return value ? 1 : 0
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Bool, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
@@ -937,13 +977,15 @@ extension CoreError: Foundation.LocalizedError {
 
 public enum CoreEvent {
     
-    case onThinking(agentName: String
+    case onThinking(agentName: String, phase: String, message: String?
     )
     case onTextStream(chunk: String
     )
     case onToolRequest(id: String, toolName: String, argsJson: String
     )
     case onFinish(primaryIntent: String, tasks: [FfiTask]?, habits: [FfiHabit]?, chatResponse: String?, sessionSummary: String?, memorySyncJson: String?
+    )
+    case onMemoryCommitted(addedMemories: [String], profileUpdated: Bool, newRevision: UInt64
     )
     case onError(message: String
     )
@@ -960,7 +1002,7 @@ public struct FfiConverterTypeCoreEvent: FfiConverterRustBuffer {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         
-        case 1: return .onThinking(agentName: try FfiConverterString.read(from: &buf)
+        case 1: return .onThinking(agentName: try FfiConverterString.read(from: &buf), phase: try FfiConverterString.read(from: &buf), message: try FfiConverterOptionString.read(from: &buf)
         )
         
         case 2: return .onTextStream(chunk: try FfiConverterString.read(from: &buf)
@@ -972,7 +1014,10 @@ public struct FfiConverterTypeCoreEvent: FfiConverterRustBuffer {
         case 4: return .onFinish(primaryIntent: try FfiConverterString.read(from: &buf), tasks: try FfiConverterOptionSequenceTypeFFITask.read(from: &buf), habits: try FfiConverterOptionSequenceTypeFFIHabit.read(from: &buf), chatResponse: try FfiConverterOptionString.read(from: &buf), sessionSummary: try FfiConverterOptionString.read(from: &buf), memorySyncJson: try FfiConverterOptionString.read(from: &buf)
         )
         
-        case 5: return .onError(message: try FfiConverterString.read(from: &buf)
+        case 5: return .onMemoryCommitted(addedMemories: try FfiConverterSequenceString.read(from: &buf), profileUpdated: try FfiConverterBool.read(from: &buf), newRevision: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        case 6: return .onError(message: try FfiConverterString.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -983,9 +1028,11 @@ public struct FfiConverterTypeCoreEvent: FfiConverterRustBuffer {
         switch value {
         
         
-        case let .onThinking(agentName):
+        case let .onThinking(agentName,phase,message):
             writeInt(&buf, Int32(1))
             FfiConverterString.write(agentName, into: &buf)
+            FfiConverterString.write(phase, into: &buf)
+            FfiConverterOptionString.write(message, into: &buf)
             
         
         case let .onTextStream(chunk):
@@ -1010,8 +1057,15 @@ public struct FfiConverterTypeCoreEvent: FfiConverterRustBuffer {
             FfiConverterOptionString.write(memorySyncJson, into: &buf)
             
         
-        case let .onError(message):
+        case let .onMemoryCommitted(addedMemories,profileUpdated,newRevision):
             writeInt(&buf, Int32(5))
+            FfiConverterSequenceString.write(addedMemories, into: &buf)
+            FfiConverterBool.write(profileUpdated, into: &buf)
+            FfiConverterUInt64.write(newRevision, into: &buf)
+            
+        
+        case let .onError(message):
+            writeInt(&buf, Int32(6))
             FfiConverterString.write(message, into: &buf)
             
         }
@@ -1237,6 +1291,31 @@ fileprivate struct FfiConverterOptionSequenceTypeFFITask: FfiConverterRustBuffer
         case 1: return try FfiConverterSequenceTypeFFITask.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
+    typealias SwiftType = [String]
+
+    public static func write(_ value: [String], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterString.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [String]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterString.read(from: &buf))
+        }
+        return seq
     }
 }
 

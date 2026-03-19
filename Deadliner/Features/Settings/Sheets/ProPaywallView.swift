@@ -136,7 +136,7 @@ struct ProPaywallView: View {
                 FeatureRow(icon: "chart.line.uptrend.xyaxis", color: .blue, title: "本地艾宾浩斯引擎", description: "解锁离线计算的科学记忆与复习日程规划功能。")
                 FeatureRow(icon: "paintbrush.fill", color: .orange, title: "高级视觉与交互", description: "解锁全部专属主题、交互光效与自定义 App 图标。")
             } else {
-                FeatureRow(icon: "sparkles", color: .purple, title: "开箱即用的 AI 助手", description: "无需配置 Key，零门槛使用官方服务器高速接口拆解任务。")
+                FeatureRow(icon: "sparkles", color: .purple, title: "开箱即用的 Deadliner Claw", description: "无需配置 Key，零门槛使用官方服务器高速接口拆解任务。")
                 FeatureRow(icon: "icloud.fill", color: .cyan, title: "iCloud 无缝同步", description: "原生级云同步体验，免去 WebDAV 的折腾。")
                 FeatureRow(icon: "plus.diamond.fill", color: .orange, title: "包含极客版全部特权", description: "自动享有艾宾浩斯复习、高级视觉等全部核心功能。")
             }

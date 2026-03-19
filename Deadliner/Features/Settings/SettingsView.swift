@@ -136,7 +136,7 @@ struct SettingsView: View {
                 // AI 助手：这是 Deadliner+ 的核心卖点。Free 用户看到 Plus，Geek 用户看到 Pro（吸引他们升级免配置）
                 NavigationLink(destination: AISettingsView()) {
                     HStack {
-                        Label("Deadliner AI", systemImage: "sparkles")
+                        Label("Deadliner Claw", systemImage: "sparkles")
                         Spacer()
                         if userTier == .free {
                             PlusBadge()

@@ -100,7 +100,7 @@ struct AISettingsView: View {
                 }
             }
         }
-        .navigationTitle("Deadliner AI")
+        .navigationTitle("Deadliner Claw")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showPaywall) {
             ProPaywallView().presentationDetents([.large])

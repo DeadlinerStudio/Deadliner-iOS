@@ -20,6 +20,10 @@ enum DeadlineDateParser {
             return nil
         }
 
+        if let d = parse24HourBoundaryDate(s) {
+            return d
+        }
+
         // 1) 优先尝试 ISO8601（含时区，含/不含小数秒）
         if let d = parseISO8601WithZone(s) {
             return d
@@ -133,6 +137,30 @@ enum DeadlineDateParser {
             minute: 59,
             second: 0
         )) ?? date
+    }
+
+    private static func parse24HourBoundaryDate(_ raw: String) -> Date? {
+        let normalized = raw.replacingOccurrences(of: "T", with: " ")
+        let parts = normalized.split(separator: " ")
+        guard parts.count == 2 else { return nil }
+
+        let datePart = String(parts[0])
+        let timePart = String(parts[1])
+        let timeSegments = timePart.split(separator: ":")
+        guard timeSegments.count == 2 || timeSegments.count == 3 else { return nil }
+        guard timeSegments[0] == "24" else { return nil }
+
+        let minute = Int(timeSegments[1]) ?? -1
+        let second = timeSegments.count == 3 ? (Int(timeSegments[2]) ?? -1) : 0
+        guard minute == 0, second == 0 else { return nil }
+        guard let baseDate = localDateOnlyFormatters.lazy.compactMap({ $0.date(from: datePart) }).first else {
+            return nil
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: baseDate) ?? baseDate
+        return calendar.date(bySettingHour: 0, minute: 0, second: 0, of: nextDay)
     }
     
     /// 复刻旧逻辑：用字符串长度选择 yyyy-MM-dd HH:mm 或 yyyy-MM-dd HH:mm:ss

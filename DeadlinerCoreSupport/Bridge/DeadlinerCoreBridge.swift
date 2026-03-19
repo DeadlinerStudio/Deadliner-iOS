@@ -9,10 +9,11 @@ import Foundation
 import Observation
 
 enum DeadlinerCoreBridgeEvent {
-    case thinking(agentName: String)
+    case thinking(agentName: String, phase: String, message: String?)
     case textStream(chunk: String)
     case toolRequest(AIToolRequest)
     case finish(DeadlinerCoreFinishPayload)
+    case memoryCommitted(DeadlinerCoreMemoryCommitPayload)
     case error(String)
 }
 
@@ -23,7 +24,13 @@ struct DeadlinerCoreFinishPayload {
     let chatResponse: String?
     let sessionSummary: String?
     let memorySyncJson: String?
-    let memoryNotices: [String]
+}
+
+struct DeadlinerCoreMemoryCommitPayload {
+    let addedMemories: [String]
+    let profileUpdated: Bool
+    let newRevision: UInt64
+    let notices: [String]
 }
 
 @MainActor
@@ -96,6 +103,10 @@ final class DeadlinerCoreBridge {
         core?.exportMemorySnapshot()
     }
 
+    func getLastMemorySyncJson() -> String? {
+        core?.getLastMemorySyncJson()
+    }
+
     func setEventHandler(_ handler: @escaping (DeadlinerCoreBridgeEvent) -> Void) {
         eventHandler = handler
     }
@@ -106,9 +117,9 @@ final class DeadlinerCoreBridge {
 
     private func handle(event: CoreEvent) {
         switch event {
-        case .onThinking(let agentName):
-            lastEventSummary = "Thinking: \(agentName)"
-            eventHandler?(.thinking(agentName: agentName))
+        case .onThinking(let agentName, let phase, let message):
+            lastEventSummary = "Thinking: \(agentName) [\(phase)]"
+            eventHandler?(.thinking(agentName: agentName, phase: phase, message: message))
         case .onTextStream(let chunk):
             lastEventSummary = "Streaming: \(chunk.prefix(32))"
             eventHandler?(.textStream(chunk: chunk))
@@ -124,27 +135,47 @@ final class DeadlinerCoreBridge {
             )))
         case .onFinish(let primaryIntent, let tasks, let habits, let chatResponse, let sessionSummary, let memorySyncJson):
             lastEventSummary = "Finished: \(primaryIntent)"
-            let previousProfile = MemoryBank.shared.userProfile
-            var memoryNotices: [String] = []
-            if let memorySyncJson, !memorySyncJson.isEmpty {
-                memoryNotices = makeMemoryNotices(from: memorySyncJson, previousProfile: previousProfile)
-                let applied = MemoryBank.shared.applySyncPayloadJson(memorySyncJson)
-                if !applied {
-                    let snapshotJson = currentMemorySnapshotJson()
-                    Task {
-                        await self.replaceMemorySnapshot(snapshotJson)
-                    }
-                }
-            }
-
             eventHandler?(.finish(DeadlinerCoreFinishPayload(
                 primaryIntent: primaryIntent,
                 tasks: (tasks ?? []).map(\.asAppTask),
                 habits: (habits ?? []).map(\.asAppHabit),
                 chatResponse: chatResponse,
                 sessionSummary: sessionSummary,
-                memorySyncJson: memorySyncJson,
-                memoryNotices: memoryNotices
+                memorySyncJson: memorySyncJson
+            )))
+        case .onMemoryCommitted(let addedMemories, let profileUpdated, let newRevision):
+            lastEventSummary = "Memory committed: +\(addedMemories.count), profile=\(profileUpdated)"
+            let previousProfile = MemoryBank.shared.userProfile
+            let syncJson = getLastMemorySyncJson()
+            if let syncJson, !syncJson.isEmpty {
+                let applied = MemoryBank.shared.applySyncPayloadJson(syncJson)
+                if !applied {
+                    let snapshotJson = currentMemorySnapshotJson()
+                    Task {
+                        await self.replaceMemorySnapshot(snapshotJson)
+                    }
+                }
+            } else {
+                let updatedProfile = profileUpdated ? core?.getUserProfile() : nil
+                MemoryBank.shared.applyCommittedResult(
+                    addedMemories: addedMemories,
+                    updatedProfile: updatedProfile,
+                    newRevision: newRevision
+                )
+            }
+
+            let currentProfile = MemoryBank.shared.userProfile.trimmingCharacters(in: .whitespacesAndNewlines)
+            let oldProfile = previousProfile.trimmingCharacters(in: .whitespacesAndNewlines)
+            var notices = addedMemories.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            if profileUpdated && !currentProfile.isEmpty && currentProfile != oldProfile {
+                notices.append("画像已更新")
+            }
+
+            eventHandler?(.memoryCommitted(DeadlinerCoreMemoryCommitPayload(
+                addedMemories: addedMemories,
+                profileUpdated: profileUpdated,
+                newRevision: newRevision,
+                notices: notices
             )))
         case .onError(let message):
             lastEventSummary = "Error: \(message)"
@@ -182,29 +213,6 @@ final class DeadlinerCoreBridge {
         return args
     }
 
-    private func makeMemoryNotices(from memorySyncJson: String, previousProfile: String) -> [String] {
-        guard let data = memorySyncJson.data(using: .utf8),
-              let payload = try? JSONDecoder().decode(MemorySyncPayloadNoticeDTO.self, from: data) else {
-            return []
-        }
-
-        var notices: [String] = []
-        for operation in payload.operations {
-            switch operation {
-            case .upsertFragment(let fragment):
-                notices.append(fragment.content)
-            case .deleteFragment:
-                break
-            case .replaceUserProfile(let profile):
-                let oldProfile = previousProfile.trimmingCharacters(in: .whitespacesAndNewlines)
-                let newProfile = profile.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !newProfile.isEmpty && newProfile != oldProfile {
-                    notices.append("画像已更新")
-                }
-            }
-        }
-        return notices
-    }
 }
 
 private final class DeadlinerCoreCallbackProxy: CoreCallback {
@@ -235,42 +243,4 @@ private extension FfiHabit {
             totalTarget: totalTarget.map(Int.init)
         )
     }
-}
-
-private struct MemorySyncPayloadNoticeDTO: Decodable {
-    let operations: [MemorySyncOperationNoticeDTO]
-}
-
-private enum MemorySyncOperationNoticeDTO: Decodable {
-    case upsertFragment(MemoryFragmentNoticeDTO)
-    case deleteFragment
-    case replaceUserProfile(String)
-
-    private enum CodingKeys: String, CodingKey {
-        case type
-        case fragment
-        case profile
-    }
-
-    private enum OperationType: String, Decodable {
-        case upsertFragment = "UpsertFragment"
-        case deleteFragment = "DeleteFragment"
-        case replaceUserProfile = "ReplaceUserProfile"
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        switch try container.decode(OperationType.self, forKey: .type) {
-        case .upsertFragment:
-            self = .upsertFragment(try container.decode(MemoryFragmentNoticeDTO.self, forKey: .fragment))
-        case .deleteFragment:
-            self = .deleteFragment
-        case .replaceUserProfile:
-            self = .replaceUserProfile(try container.decode(String.self, forKey: .profile))
-        }
-    }
-}
-
-private struct MemoryFragmentNoticeDTO: Decodable {
-    let content: String
 }

@@ -181,7 +181,7 @@ struct MainView: View {
                     Button { showAISheet = true } label: {
                         Image(systemName: "sparkles")
                     }
-                    .accessibilityLabel("Deadliner AI")
+                    .accessibilityLabel("Deadliner Claw")
                 }
             }
 

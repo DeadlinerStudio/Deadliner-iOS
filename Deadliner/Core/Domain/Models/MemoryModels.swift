@@ -188,6 +188,39 @@ final class MemoryBank: ObservableObject {
         return json
     }
 
+    func applyCommittedResult(
+        addedMemories: [String],
+        updatedProfile: String?,
+        newRevision: UInt64
+    ) {
+        applyOnMain {
+            for content in addedMemories {
+                let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                guard !self.fragments.contains(where: { $0.content == trimmed }) else { continue }
+                self.fragments.append(MemoryFragment(
+                    content: trimmed,
+                    category: "Auto",
+                    timestamp: Date(),
+                    importance: 3
+                ))
+            }
+
+            if let updatedProfile {
+                let trimmedProfile = updatedProfile.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedProfile.isEmpty {
+                    self.userProfile = trimmedProfile
+                }
+            }
+
+            self.pruneMemories()
+            self.revision = max(self.revision, newRevision)
+            self.saveToDisk()
+            self.saveProfileToDisk()
+            self.saveRevisionToDisk()
+        }
+    }
+
     @discardableResult
     func applySnapshotJson(_ json: String) -> Bool {
         let decoder = JSONDecoder()

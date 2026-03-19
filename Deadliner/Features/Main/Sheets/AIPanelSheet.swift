@@ -32,7 +32,7 @@ struct DeadlinerAIPanel: View {
                     AIFunctionView(userTier: userTier)
                 }
             }
-            .navigationTitle("Deadliner AI")
+            .navigationTitle("Deadliner Claw")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -75,7 +75,7 @@ struct DeadlinerAIPanel: View {
                     .font(.title2)
                     .fontWeight(.bold)
                 
-                Text("Deadliner AI 能够精准理解你的自然语言。只需随手输入“明天下午三点开会”或“每周跑三次步”，即可瞬间拆解并创建任务与习惯。")
+                Text("Deadliner Claw 能够精准理解你的自然语言。只需随手输入“明天下午三点开会”或“每周跑三次步”，即可瞬间拆解并创建任务与习惯。")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
