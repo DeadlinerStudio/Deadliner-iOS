@@ -12,7 +12,18 @@ public final class AIService {
     public static let shared = AIService()
     private init() {}
 
-    // MARK: - Agent Core (Intent + Content + Memory)
+    // MARK: - Deprecated DeadlinerAgent Pipeline
+    // TODO: Remove this legacy Swift agent pipeline after Rust Core fully absorbs
+    // all remaining editor-side helper capabilities.
+    // Migration target in Rust Core:
+    // - processInput / continueAfterTool orchestration
+    // - agent prompts and tool continuation prompts
+    // - memory filtering and user profile updates
+    // Keep-in-Swift for now:
+    // - extractTasks / extractHabits editor helpers
+    // - generateMonthlyAnalysis
+    // - validateConfig
+    @available(*, deprecated, message: "DeadlinerAgent main flow has moved to DeadlinerCoreBridge.")
     public func processInput(
         text: String,
         preferredLang: String = "zh-CN",
@@ -54,7 +65,7 @@ public final class AIService {
         return result
     }
     
-    // MARK: - Agent Continue (after tool result)
+    @available(*, deprecated, message: "DeadlinerAgent tool continuation has moved to DeadlinerCoreBridge.")
     public func continueAfterTool(
         originalUserText: String,
         toolResult: AIToolResult,
@@ -107,7 +118,7 @@ public final class AIService {
         return result
     }
 
-    // MARK: - Legacy APIs (keep)
+    // MARK: - Legacy Standalone Helpers (keep in Swift for now)
     public func extractTasks(text: String, preferredLang: String = "zh-CN") async throws -> [AITask] {
         let systemPrompt = buildTaskSystemPrompt(preferredLang: preferredLang)
         let messages = [
@@ -220,7 +231,7 @@ public final class AIService {
         _ = try makeDecoder().decode(ChatResponse.self, from: data)
     }
 
-    // MARK: - Networking (基本不动，仅更稳拼接)
+    // MARK: - Shared Networking Helpers
     private func fetchFromProvider(messages: [ChatMessage]) async throws -> String {
         let apiKey = await LocalValues.shared.getAIApiKey()
         let baseUrl = await LocalValues.shared.getAIBaseUrl()
@@ -288,7 +299,7 @@ public final class AIService {
         return "\(noTailSlash)/chat/completions"
     }
 
-    // MARK: - JSON extraction (更鲁棒：支持混杂文本)
+    // MARK: - Shared JSON Helpers
     private func extractJsonData(from raw: String) throws -> Data {
         let cleaned = stripCodeFence(raw)
 
@@ -347,7 +358,8 @@ public final class AIService {
         JSONDecoder()
     }
 
-    // MARK: - Prompt builders (时间精度修复 + Agent规则)
+    // MARK: - Legacy DeadlinerAgent Helpers
+    // TODO: Delete this section after Rust Core fully owns the DeadlinerAgent pipeline.
     private func buildAgentSystemPrompt(
         preferredLang: String,
         longTermContext: String,
@@ -512,8 +524,9 @@ public final class AIService {
         fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return fmt.string(from: Date())
     }
-    
-    // MARK: - Tool Result Encode
+
+    // MARK: - Legacy DeadlinerAgent Tool Helpers
+    // TODO: Move tool result shaping and memory filtering fully to Rust Core.
     private func encodeToolResult(_ toolResult: AIToolResult) throws -> String {
         let enc = JSONEncoder()
         // 统一 ISO8601（否则 Date 默认是 seconds-since-1970，AI 不好读）

@@ -1293,6 +1293,9 @@ private let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
 private let UNIFFI_RUST_FUTURE_POLL_MAYBE_READY: Int8 = 1
 
 fileprivate let uniffiContinuationHandleMap = UniffiHandleMap<UnsafeContinuation<Int8, Never>>()
+fileprivate let uniffiFutureContinuationCallbackFn: UniffiRustFutureContinuationCallback = { handle, pollResult in
+    uniffiFutureContinuationCallback(handle: handle, pollResult: pollResult)
+}
 
 fileprivate func uniffiRustCallAsync<F, T>(
     rustFutureFunc: () -> UInt64,
@@ -1335,11 +1338,6 @@ fileprivate func uniffiFutureContinuationCallback(handle: UInt64, pollResult: In
         print("uniffiFutureContinuationCallback invalid handle")
     }
 }
-
-fileprivate let uniffiFutureContinuationCallbackFn: UniffiRustFutureContinuationCallback = { handle, pollResult in
-    uniffiFutureContinuationCallback(handle: handle, pollResult: pollResult)
-}
-
 public func extractTasks(text: String, preferredLang: String)throws  -> [FfiTask] {
     return try  FfiConverterSequenceTypeFFITask.lift(try rustCallWithError(FfiConverterTypeCoreError.lift) {
     uniffi_ffi_uniffi_fn_func_extract_tasks(

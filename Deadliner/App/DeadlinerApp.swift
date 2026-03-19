@@ -8,6 +8,11 @@
 import SwiftUI
 import SwiftData
 
+private enum AppReleaseGate {
+    // TODO: Turn this off before shipping the post-Rust public build.
+    static let unlockGeekForCurrentRelease = true
+}
+
 @main
 struct DeadlinerApp: App {
     @Environment(\.scenePhase) private var scenePhase
@@ -20,9 +25,9 @@ struct DeadlinerApp: App {
         WindowGroup {
             MainView()
                 .task {
-                    #if DEBUG
-                    userTier = .geek
-                    #endif
+                    if AppReleaseGate.unlockGeekForCurrentRelease {
+                        userTier = .geek
+                    }
 
                     // 请求通知权限
                     NotificationManager.shared.requestAuthorization()

@@ -1,0 +1,4 @@
+module ffi_uniffiFFI {
+    header "ffi_uniffiFFI.h"
+    export *
+}

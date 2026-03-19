@@ -8,6 +8,23 @@
 import Foundation
 import Observation
 
+enum DeadlinerCoreBridgeEvent {
+    case thinking(agentName: String)
+    case textStream(chunk: String)
+    case toolRequest(AIToolRequest)
+    case finish(DeadlinerCoreFinishPayload)
+    case error(String)
+}
+
+struct DeadlinerCoreFinishPayload {
+    let primaryIntent: String
+    let tasks: [AITask]
+    let habits: [AIHabit]
+    let chatResponse: String?
+    let sessionSummary: String?
+    let memorySyncJson: String?
+}
+
 @MainActor
 @Observable
 final class DeadlinerCoreBridge {
@@ -18,6 +35,7 @@ final class DeadlinerCoreBridge {
 
     private var core: DeadlinerCore?
     private var callbackProxy: DeadlinerCoreCallbackProxy?
+    private var eventHandler: ((DeadlinerCoreBridgeEvent) -> Void)?
 
     private init() {}
 
@@ -44,6 +62,7 @@ final class DeadlinerCoreBridge {
         }
 
         core.setCallback(callback: proxy)
+        await core.replaceMemorySnapshot(snapshotJson: MemoryBank.shared.exportSnapshotJson())
 
         self.core = core
         self.callbackProxy = proxy
@@ -70,18 +89,54 @@ final class DeadlinerCoreBridge {
         core?.exportMemorySnapshot()
     }
 
+    func setEventHandler(_ handler: @escaping (DeadlinerCoreBridgeEvent) -> Void) {
+        eventHandler = handler
+    }
+
+    func clearEventHandler() {
+        eventHandler = nil
+    }
+
     private func handle(event: CoreEvent) {
         switch event {
         case .onThinking(let agentName):
             lastEventSummary = "Thinking: \(agentName)"
+            eventHandler?(.thinking(agentName: agentName))
         case .onTextStream(let chunk):
             lastEventSummary = "Streaming: \(chunk.prefix(32))"
-        case .onToolRequest(let id, let toolName, _):
-            lastEventSummary = "Tool request \(toolName) [\(id)]"
-        case .onFinish(let primaryIntent, _, _, _, _, _):
+            eventHandler?(.textStream(chunk: chunk))
+        case .onToolRequest(let id, let toolName, let argsJson):
+            let normalizedToolName = ToolCallExecutor.shared.normalizeToolName(toolName)
+            lastEventSummary = "Tool request \(normalizedToolName) [\(id)]"
+            let args = decodeReadTasksArgs(from: argsJson)
+            eventHandler?(.toolRequest(AIToolRequest(
+                id: id,
+                tool: normalizedToolName,
+                args: args,
+                reason: nil
+            )))
+        case .onFinish(let primaryIntent, let tasks, let habits, let chatResponse, let sessionSummary, let memorySyncJson):
             lastEventSummary = "Finished: \(primaryIntent)"
+            if let memorySyncJson, !memorySyncJson.isEmpty {
+                let applied = MemoryBank.shared.applySyncPayloadJson(memorySyncJson)
+                if !applied {
+                    let snapshotJson = MemoryBank.shared.exportSnapshotJson()
+                    Task {
+                        await self.replaceMemorySnapshot(snapshotJson)
+                    }
+                }
+            }
+            eventHandler?(.finish(DeadlinerCoreFinishPayload(
+                primaryIntent: primaryIntent,
+                tasks: (tasks ?? []).map(\.asAppTask),
+                habits: (habits ?? []).map(\.asAppHabit),
+                chatResponse: chatResponse,
+                sessionSummary: sessionSummary,
+                memorySyncJson: memorySyncJson
+            )))
         case .onError(let message):
             lastEventSummary = "Error: \(message)"
+            eventHandler?(.error(message))
         }
     }
 
@@ -100,6 +155,20 @@ final class DeadlinerCoreBridge {
         }
         return trimmed.isEmpty ? "https://api.deepseek.com/v1" : "\(trimmed)/v1"
     }
+
+    private func decodeReadTasksArgs(from argsJson: String) -> ReadTasksArgs {
+        guard let data = argsJson.data(using: .utf8),
+              let args = try? JSONDecoder().decode(ReadTasksArgs.self, from: data) else {
+            return ReadTasksArgs(
+                timeRangeDays: 7,
+                status: "OPEN",
+                keywords: nil,
+                limit: 20,
+                sort: "DUE_ASC"
+            )
+        }
+        return args
+    }
 }
 
 private final class DeadlinerCoreCallbackProxy: CoreCallback {
@@ -111,5 +180,23 @@ private final class DeadlinerCoreCallbackProxy: CoreCallback {
 
     func onEvent(event: CoreEvent) {
         handler(event)
+    }
+}
+
+private extension FfiTask {
+    var asAppTask: AITask {
+        AITask(name: name, dueTime: dueTime, note: note)
+    }
+}
+
+private extension FfiHabit {
+    var asAppHabit: AIHabit {
+        AIHabit(
+            name: name,
+            period: period,
+            timesPerPeriod: Int(timesPerPeriod),
+            goalType: goalType,
+            totalTarget: totalTarget.map(Int.init)
+        )
     }
 }

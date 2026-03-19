@@ -25,8 +25,8 @@ struct DisplayItem: Identifiable {
     init(kind: Kind) {
         self.kind = kind
         switch kind {
-        case .aiToolRequest(let r): self.id = r.id
-        case .aiToolResult(let r): self.id = r.id
+        case .aiToolRequest(let r): self.id = UUID(uuidString: r.id) ?? UUID()
+        case .aiToolResult(let r): self.id = UUID(uuidString: r.id) ?? UUID()
         default: self.id = UUID()
         }
     }
@@ -56,6 +56,7 @@ struct AIFunctionView: View {
     
     @State private var pendingToolRequest: AIToolRequest?
     @State private var toolOriginalUserText: String = ""
+    @State private var submittedToolRequestIDs: Set<String> = []
 
     @State private var addedTaskKeys: Set<String> = []      // 用于把卡片变“已添加”
     @State private var addedHabitKeys: Set<String> = []
@@ -156,6 +157,15 @@ struct AIFunctionView: View {
         }
         .sheet(isPresented: $showMemoryManageSheet) {
             MemoryManageSheet()
+        }
+        .task {
+            await DeadlinerCoreBridge.shared.initializeIfNeeded()
+            DeadlinerCoreBridge.shared.setEventHandler { event in
+                handleCoreEvent(event)
+            }
+        }
+        .onDisappear {
+            DeadlinerCoreBridge.shared.clearEventHandler()
         }
     }
 }
@@ -331,7 +341,7 @@ extension AIFunctionView {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(repoBusy)
+                .disabled(repoBusy || submittedToolRequestIDs.contains(req.id))
             }
         }
         .padding()
@@ -548,98 +558,8 @@ extension AIFunctionView {
             inputText = ""
         }
 
-        do {
-            let sessionCtx = buildSessionContextString()
-            let result = try await AIService.shared.processInput(
-                text: query,
-                sessionContext: sessionCtx,
-                sessionSummary: sessionSummary
-            )
-
-            if let s = result.sessionSummary, !s.isEmpty {
-                sessionSummary = String(s.prefix(600))
-            }
-            
-            if let calls = result.toolCalls, !calls.isEmpty {
-                isParsing = false
-
-                // 目前只支持 readTasks：取第一个有效 call
-                if let first = calls.first(where: { $0.tool == "readTasks" }) {
-                    toolOriginalUserText = query
-
-                    let req = AIToolRequest(
-                        tool: "readTasks",
-                        args: sanitizeReadTasksArgs(first.args, userQuery: query),
-                        reason: first.reason
-                    )
-
-                    withAnimation(.spring()) {
-                        displayItems.append(DisplayItem(kind: .aiToolRequest(req)))
-                    }
-                } else {
-                    // 不认识的 tool：直接提示
-                    withAnimation(.spring()) {
-                        displayItems.append(DisplayItem(kind: .aiChat("我需要调用一个暂不支持的本地工具。请更新版本或换个问法。")))
-                    }
-                }
-
-                return
-            }
-
-            withAnimation(.spring()) {
-                if let memories = result.newMemories {
-                    for mem in memories { displayItems.append(DisplayItem(kind: .aiMemory(mem))) }
-                }
-                if let tasks = result.tasks {
-                    for task in tasks { displayItems.append(DisplayItem(kind: .aiTask(task))) }
-                }
-                if let habits = result.habits {
-                    for habit in habits { displayItems.append(DisplayItem(kind: .aiHabit(habit))) }
-                }
-                if let chat = result.chatResponse, !chat.isEmpty {
-                    displayItems.append(DisplayItem(kind: .aiChat(chat)))
-                }
-            }
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorMessage = true
-        }
-
-        isParsing = false
-    }
-    
-    private func buildSessionContextString(maxChars: Int = 1200) -> String {
-        // 只取最近窗口（从后往前）
-        var lines: [String] = []
-
-        for item in displayItems.suffix(20).reversed() {   // 先取 20 再筛
-            switch item.kind {
-            case .userQuery(let t):
-                lines.append("User: \(t)")
-            case .aiChat(let t):
-                lines.append("AI: \(t)")
-            case .aiTask(let task):
-                let due = (task.dueTime?.isEmpty == false) ? task.dueTime! : "无"
-                lines.append("PendingTask: \(task.name) | due=\(due)")
-            case .aiHabit(let habit):
-                lines.append("PendingHabit: \(habit.name) | \(habit.period) x\(habit.timesPerPeriod)")
-            case .aiMemory(let m):
-                lines.append("MemoryCaptured: \(m)")
-            case .aiToolRequest(let req):
-                lines.append("ToolRequest: \(req.tool)")
-            case .aiToolResult(let res):
-                lines.append("ToolResult: \(res.tool) count=\(res.payload.summary.count)")
-            }
-
-            // 字符预算（从后往前构建更稳：先 append 再判断）
-            let joined = lines.reversed().joined(separator: "\n")
-            if joined.count > maxChars {
-                // 超了就停止（保留已收集的）
-                break
-            }
-        }
-
-        return lines.reversed().joined(separator: "\n")
+        toolOriginalUserText = query
+        await DeadlinerCoreBridge.shared.processInput(query)
     }
     
     @MainActor
@@ -733,25 +653,28 @@ extension AIFunctionView {
     @MainActor
     private func approveAndRunTool(_ req: AIToolRequest) async {
         if repoBusy { return }
+        if submittedToolRequestIDs.contains(req.id) { return }
+
+        submittedToolRequestIDs.insert(req.id)
         repoBusy = true
         isParsing = true
         defer {
             repoBusy = false
-            isParsing = false
         }
 
         do {
-            guard req.tool == "readTasks" else {
+            guard ToolCallExecutor.shared.supports(req.tool) else {
                 displayItems.append(DisplayItem(kind: .aiChat("暂不支持的工具：\(req.tool)")))
+                isParsing = false
                 return
             }
 
-            // 1) 本地查询（A 方案：拉全部 task 再过滤）
-            let ddlTasks = try await TaskRepository.shared.getDDLsByType(.task)
-            let payload = makeReadTasksPayload(from: ddlTasks, args: req.args)
+            // 1) 本地查询
+            let payload = try await ToolCallExecutor.shared.execute(toolName: req.tool, args: req.args)
 
             let toolResult = AIToolResult(
-                tool: "readTasks",
+                id: req.id,
+                tool: ToolCallExecutor.shared.normalizeToolName(req.tool),
                 appliedArgs: req.args,
                 payload: payload
             )
@@ -760,36 +683,62 @@ extension AIFunctionView {
                 displayItems.append(DisplayItem(kind: .aiToolResult(toolResult)))
             }
 
-            // 2) 二段回灌给 AI，让它输出最终 chat + proposal
-            let sessionCtx = buildSessionContextString()
-            let result2 = try await AIService.shared.continueAfterTool(
-                originalUserText: toolOriginalUserText.isEmpty ? "（用户未提供原始问题）" : toolOriginalUserText,
-                toolResult: toolResult,
-                sessionContext: sessionCtx,
-                sessionSummary: sessionSummary
+            // 2) 二段回灌给 Rust Core，让它继续产出最终 chat + proposal
+            let encoder = JSONEncoder()
+            let payloadData = try encoder.encode(payload)
+            guard let payloadJson = String(data: payloadData, encoding: .utf8) else {
+                throw AIError.parsingFailed
+            }
+            print("[AIFunctionView] submitToolResult id=\(req.id) tool=\(req.tool) payloadJson=\(payloadJson)")
+            await DeadlinerCoreBridge.shared.submitToolResult(id: req.id, resultJson: payloadJson)
+        } catch {
+            submittedToolRequestIDs.remove(req.id)
+            isParsing = false
+            errorMessage = error.localizedDescription
+            showErrorMessage = true
+        }
+    }
+
+    @MainActor
+    private func handleCoreEvent(_ event: DeadlinerCoreBridgeEvent) {
+        switch event {
+        case .thinking:
+            isParsing = true
+        case .textStream:
+            break
+        case .toolRequest(let req):
+            isParsing = false
+            let sanitizedReq = AIToolRequest(
+                id: req.id,
+                tool: req.tool,
+                args: sanitizeReadTasksArgs(req.args, userQuery: toolOriginalUserText),
+                reason: req.reason
             )
 
-            if let s = result2.sessionSummary, !s.isEmpty {
+            withAnimation(.spring()) {
+                displayItems.append(DisplayItem(kind: .aiToolRequest(sanitizedReq)))
+            }
+        case .finish(let payload):
+            isParsing = false
+
+            if let s = payload.sessionSummary, !s.isEmpty {
                 sessionSummary = String(s.prefix(600))
             }
 
             withAnimation(.spring()) {
-                if let memories = result2.newMemories {
-                    for mem in memories { displayItems.append(DisplayItem(kind: .aiMemory(mem))) }
+                for task in payload.tasks {
+                    displayItems.append(DisplayItem(kind: .aiTask(task)))
                 }
-                if let tasks = result2.tasks {
-                    for task in tasks { displayItems.append(DisplayItem(kind: .aiTask(task))) }
+                for habit in payload.habits {
+                    displayItems.append(DisplayItem(kind: .aiHabit(habit)))
                 }
-                if let habits = result2.habits {
-                    for habit in habits { displayItems.append(DisplayItem(kind: .aiHabit(habit))) }
-                }
-                if let chat = result2.chatResponse, !chat.isEmpty {
+                if let chat = payload.chatResponse, !chat.isEmpty {
                     displayItems.append(DisplayItem(kind: .aiChat(chat)))
                 }
             }
-
-        } catch {
-            errorMessage = error.localizedDescription
+        case .error(let message):
+            isParsing = false
+            errorMessage = message
             showErrorMessage = true
         }
     }
@@ -843,85 +792,6 @@ extension AIFunctionView {
         return signals.contains { s.contains($0.lowercased()) }
     }
 
-    private func makeReadTasksPayload(from items: [DDLItem], args: ReadTasksArgs) -> ReadTasksResultPayload {
-        // 过滤：未完成 + 未归档（按你之前的设定）
-        let now = Date()
-        let days = args.timeRangeDays ?? 7
-        let end = now.addingTimeInterval(TimeInterval(days) * 86400)
-
-        let keywords = (args.keywords ?? []).map { $0.lowercased() }
-        let wantStatus = (args.status ?? "OPEN").uppercased()
-
-        var filtered: [(ddl: DDLItem, due: Date)] = []
-
-        for t in items {
-            // 保险：如果 repo 里已经做了过滤，这里也不伤
-            if t.isArchived { continue }
-            if wantStatus == "OPEN", t.isCompleted { continue }
-            if wantStatus == "DONE", !t.isCompleted { continue }
-
-            // due 解析：endTime 为空则不纳入“未来N天”列表（避免无截止混入）
-            let dueDate: Date? = {
-                let s = t.endTime.trimmingCharacters(in: .whitespacesAndNewlines)
-                if s.isEmpty { return nil }
-                return DeadlineDateParser.safeParseOptional(s)
-            }()
-
-            // 时间窗过滤：只有有 due 的才参与
-            guard let due = dueDate else { continue }
-            if due < now.addingTimeInterval(-365*86400) { continue } // 极端脏数据保护
-            if due > end { continue }
-
-            // 关键词过滤（OR）
-            if !keywords.isEmpty {
-                let hay = "\(t.name) \(t.note)".lowercased()
-                let hit = keywords.contains { hay.contains($0) }
-                if !hit { continue }
-            }
-
-            filtered.append((t, due))
-        }
-
-        // 排序
-        let sort = (args.sort ?? "DUE_ASC").uppercased()
-        if sort == "UPDATED_DESC" {
-            // 暂时没有 updated 字段就退化为 due desc
-            filtered.sort { ($0.due ?? .distantPast) > ($1.due ?? .distantPast) }
-        } else {
-            filtered.sort { ($0.due ?? .distantFuture) < ($1.due ?? .distantFuture) }
-        }
-
-        // limit
-        let limit = args.limit ?? 20
-        if filtered.count > limit {
-            filtered = Array(filtered.prefix(limit))
-        }
-
-        // summary
-        var overdue = 0
-        var dueSoon24h = 0
-        for (_, due) in filtered {
-            if due < now { overdue += 1 }
-            if due >= now && due <= now.addingTimeInterval(86400) { dueSoon24h += 1 }
-        }
-
-        let digest: [TaskDigestItem] = filtered.map { (ddl, due) in
-            let dueStr: String = due.toLocalISOString() // 如果你希望 "yyyy-MM-dd HH:mm"，用你自己的 formatter
-            let notePreview = String(ddl.note.prefix(40))
-            return TaskDigestItem(
-                id: ddl.id,
-                name: ddl.name,
-                due: dueStr,
-                status: ddl.isCompleted ? "DONE" : "OPEN",
-                notePreview: notePreview
-            )
-        }
-
-        return ReadTasksResultPayload(
-            tasks: digest,
-            summary: TaskSummary(count: digest.count, overdue: overdue, dueSoon24h: dueSoon24h)
-        )
-    }
 }
 
 // MARK: - 辅助组件

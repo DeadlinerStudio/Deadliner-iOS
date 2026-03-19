@@ -22,9 +22,11 @@ final class MemoryBank: ObservableObject {
     @Published private(set) var fragments: [MemoryFragment] = []
 
     @Published private(set) var userProfile: String = ""
+    @Published private(set) var revision: UInt64 = 0
 
     private let storageKey = "deadliner_local_memories"
     private let storageProfileKey = "deadliner_user_profile"
+    private let storageRevisionKey = "deadliner_memory_revision"
     
     private let maxFragments = 60
     private let maxAgeDays = 120
@@ -32,6 +34,7 @@ final class MemoryBank: ObservableObject {
     private init() {
         loadFromDisk()
         loadProfileFromDisk()
+        loadRevisionFromDisk()
     }
 
     func saveMemory(content: String, category: String = "Auto") {
@@ -41,6 +44,7 @@ final class MemoryBank: ObservableObject {
         DispatchQueue.main.async {
             self.fragments.append(newFrag)
             self.pruneMemories()
+            self.bumpRevision()
             self.saveToDisk()
         }
     }
@@ -51,6 +55,7 @@ final class MemoryBank: ObservableObject {
 
         DispatchQueue.main.async {
             self.userProfile = trimmed
+            self.bumpRevision()
             self.saveProfileToDisk()
         }
     }
@@ -98,11 +103,21 @@ final class MemoryBank: ObservableObject {
         }
     }
 
+    private func saveRevisionToDisk() {
+        UserDefaults.standard.set(revision, forKey: storageRevisionKey)
+    }
+
+    private func loadRevisionFromDisk() {
+        self.revision = UInt64(UserDefaults.standard.integer(forKey: storageRevisionKey))
+    }
+
     func clearAllMemories() {
         fragments.removeAll()
         userProfile = ""
+        revision = 0
         UserDefaults.standard.removeObject(forKey: storageKey)
         UserDefaults.standard.removeObject(forKey: storageProfileKey)
+        UserDefaults.standard.removeObject(forKey: storageRevisionKey)
     }
     
     // MARK: - Editing / Deleting
@@ -111,6 +126,7 @@ final class MemoryBank: ObservableObject {
         let trimmed = profile.trimmingCharacters(in: .whitespacesAndNewlines)
         DispatchQueue.main.async {
             self.userProfile = trimmed
+            self.bumpRevision()
             self.saveProfileToDisk()
         }
     }
@@ -118,6 +134,7 @@ final class MemoryBank: ObservableObject {
     func deleteFragment(id: UUID) {
         DispatchQueue.main.async {
             self.fragments.removeAll { $0.id == id }
+            self.bumpRevision()
             self.saveToDisk()
         }
     }
@@ -135,6 +152,7 @@ final class MemoryBank: ObservableObject {
                 importance: newImportance ?? old.importance
             )
             self.fragments[idx] = updated
+            self.bumpRevision()
             self.saveToDisk()
         }
     }
@@ -142,8 +160,66 @@ final class MemoryBank: ObservableObject {
     func replaceAllFragments(_ newList: [MemoryFragment]) {
         DispatchQueue.main.async {
             self.fragments = newList
+            self.bumpRevision()
             self.saveToDisk()
         }
+    }
+
+    func exportSnapshotJson() -> String {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let snapshot = MemorySnapshotDTO(
+            revision: revision,
+            fragments: fragments,
+            userProfile: userProfile
+        )
+        guard let data = try? encoder.encode(snapshot),
+              let json = String(data: data, encoding: .utf8) else {
+            return #"{"revision":0,"fragments":[],"userProfile":""}"#
+        }
+        return json
+    }
+
+    @discardableResult
+    func applySyncPayloadJson(_ json: String) -> Bool {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        guard let data = json.data(using: .utf8),
+              let payload = try? decoder.decode(MemorySyncPayloadDTO.self, from: data),
+              payload.baseRevision == revision else {
+            return false
+        }
+
+        var updatedFragments = fragments
+        var updatedProfile = userProfile
+
+        for operation in payload.operations {
+            switch operation {
+            case .upsertFragment(let fragment):
+                if let idx = updatedFragments.firstIndex(where: { $0.id == fragment.id }) {
+                    updatedFragments[idx] = fragment
+                } else {
+                    updatedFragments.append(fragment)
+                }
+            case .deleteFragment(let fragmentID):
+                updatedFragments.removeAll { $0.id == fragmentID }
+            case .replaceUserProfile(let profile):
+                updatedProfile = profile
+            }
+        }
+
+        DispatchQueue.main.async {
+            self.fragments = updatedFragments
+            self.userProfile = updatedProfile
+            self.revision = payload.nextRevision
+            self.pruneMemories()
+            self.saveToDisk()
+            self.saveProfileToDisk()
+            self.saveRevisionToDisk()
+        }
+
+        return true
     }
     
     private func pruneMemories() {
@@ -159,6 +235,69 @@ final class MemoryBank: ObservableObject {
                 return $0.timestamp > $1.timestamp
             }
             fragments = Array(fragments.prefix(maxFragments))
+        }
+    }
+
+    private func bumpRevision() {
+        revision += 1
+        saveRevisionToDisk()
+    }
+}
+
+private struct MemorySnapshotDTO: Codable {
+    let revision: UInt64
+    let fragments: [MemoryFragment]
+    let userProfile: String
+}
+
+private struct MemorySyncPayloadDTO: Codable {
+    let baseRevision: UInt64
+    let nextRevision: UInt64
+    let operations: [MemorySyncOperationDTO]
+}
+
+private enum MemorySyncOperationDTO: Codable {
+    case upsertFragment(MemoryFragment)
+    case deleteFragment(UUID)
+    case replaceUserProfile(String)
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case fragment
+        case fragmentID
+        case profile
+    }
+
+    private enum OperationType: String, Codable {
+        case upsertFragment = "UpsertFragment"
+        case deleteFragment = "DeleteFragment"
+        case replaceUserProfile = "ReplaceUserProfile"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(OperationType.self, forKey: .type) {
+        case .upsertFragment:
+            self = .upsertFragment(try container.decode(MemoryFragment.self, forKey: .fragment))
+        case .deleteFragment:
+            self = .deleteFragment(try container.decode(UUID.self, forKey: .fragmentID))
+        case .replaceUserProfile:
+            self = .replaceUserProfile(try container.decode(String.self, forKey: .profile))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .upsertFragment(let fragment):
+            try container.encode(OperationType.upsertFragment, forKey: .type)
+            try container.encode(fragment, forKey: .fragment)
+        case .deleteFragment(let fragmentID):
+            try container.encode(OperationType.deleteFragment, forKey: .type)
+            try container.encode(fragmentID, forKey: .fragmentID)
+        case .replaceUserProfile(let profile):
+            try container.encode(OperationType.replaceUserProfile, forKey: .type)
+            try container.encode(profile, forKey: .profile)
         }
     }
 }

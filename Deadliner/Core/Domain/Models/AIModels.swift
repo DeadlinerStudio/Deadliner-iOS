@@ -90,12 +90,12 @@ public struct ReadTasksArgs: Codable {
 // MARK: - Tool Request / Result (App-side)
 
 public struct AIToolRequest: Identifiable, Codable {
-    public let id: UUID
+    public let id: String
     public let tool: String              // "readTasks"
     public let args: ReadTasksArgs       // 当前只支持 readTasks
     public let reason: String?
 
-    public init(id: UUID = UUID(), tool: String, args: ReadTasksArgs, reason: String? = nil) {
+    public init(id: String = UUID().uuidString, tool: String, args: ReadTasksArgs, reason: String? = nil) {
         self.id = id
         self.tool = tool
         self.args = args
@@ -104,14 +104,14 @@ public struct AIToolRequest: Identifiable, Codable {
 }
 
 public struct AIToolResult: Identifiable, Codable {
-    public let id: UUID
+    public let id: String
     public let tool: String              // "readTasks"
     public let appliedArgs: ReadTasksArgs
     public let payload: ReadTasksResultPayload
     public let generatedAt: Date
 
     public init(
-        id: UUID = UUID(),
+        id: String = UUID().uuidString,
         tool: String,
         appliedArgs: ReadTasksArgs,
         payload: ReadTasksResultPayload,

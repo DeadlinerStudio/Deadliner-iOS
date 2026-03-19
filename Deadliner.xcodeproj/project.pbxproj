@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		C0D3A1023A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A1033A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift */; };
 		C0D3A1043A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A1053A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift */; };
+		C0D3A1093A19000100D34EAA /* DeadlinerCoreSupport/Bridge/ToolCallExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A10A3A19000100D34EAA /* DeadlinerCoreSupport/Bridge/ToolCallExecutor.swift */; };
 		C0D3A1003A19000100D34EAA /* Vendor/DeadlinerCore/ffi_uniffi.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0D3A1013A19000100D34EAA /* Vendor/DeadlinerCore/ffi_uniffi.xcframework */; };
 		E52763CF2F42F09F002162DF /* DeadlinerDefault.icon in Resources */ = {isa = PBXBuildFile; fileRef = E52763CE2F42F09F002162DF /* DeadlinerDefault.icon */; };
 		E53876182F5A5AC200E5D81A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E53876172F5A5AC200E5D81A /* WidgetKit.framework */; };
@@ -65,6 +66,7 @@
 /* Begin PBXFileReference section */
 		C0D3A1033A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeadlinerCoreBridge.swift; sourceTree = "<group>"; };
 		C0D3A1053A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ffi_uniffi.swift; sourceTree = "<group>"; };
+		C0D3A10A3A19000100D34EAA /* DeadlinerCoreSupport/Bridge/ToolCallExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallExecutor.swift; sourceTree = "<group>"; };
 		C0D3A1013A19000100D34EAA /* Vendor/DeadlinerCore/ffi_uniffi.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/DeadlinerCore/ffi_uniffi.xcframework; sourceTree = "<group>"; };
 		E52762E22F3F6189002162DF /* Deadliner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Deadliner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E52762F12F3F618B002162DF /* DeadlinerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeadlinerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -185,6 +187,7 @@
 			isa = PBXGroup;
 			children = (
 				C0D3A1033A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift */,
+				C0D3A10A3A19000100D34EAA /* DeadlinerCoreSupport/Bridge/ToolCallExecutor.swift */,
 			);
 			path = Bridge;
 			sourceTree = "<group>";
@@ -442,6 +445,7 @@
 			files = (
 				C0D3A1023A19000100D34EAA /* DeadlinerCoreSupport/Bridge/DeadlinerCoreBridge.swift in Sources */,
 				C0D3A1043A19000100D34EAA /* DeadlinerCoreSupport/Generated/ffi_uniffi.swift in Sources */,
+				C0D3A1093A19000100D34EAA /* DeadlinerCoreSupport/Bridge/ToolCallExecutor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
