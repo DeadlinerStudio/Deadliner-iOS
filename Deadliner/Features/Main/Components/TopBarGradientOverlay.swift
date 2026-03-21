@@ -62,6 +62,7 @@ private struct AIVibrantGlowView: View {
     private let blueColor  = Color(red: 106/255, green: 169/255, blue: 1.0)      // #6AA9FF
     private let pinkColor  = Color(red: 1.0,     green: 106/255, blue: 230/255)  // #FF6AE6
     private let amberColor = Color(red: 1.0,     green: 195/255, blue: 106/255)  // #FFC36A
+    
 
     var body: some View {
         GeometryReader { proxy in
