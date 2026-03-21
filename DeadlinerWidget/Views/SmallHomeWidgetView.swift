@@ -44,7 +44,7 @@ struct SmallHomeWidgetView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: 4) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(titleText)
                     .font(.system(size: 24, weight: .black))
