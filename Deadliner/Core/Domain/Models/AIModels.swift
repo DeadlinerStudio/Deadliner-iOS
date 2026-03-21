@@ -27,6 +27,8 @@ public struct MixedResult: Codable {
     let primaryIntent: String?
     let tasks: [AITask]?
     let habits: [AIHabit]?
+    let retrievedTasks: [AITask]?
+    let retrievedHabits: [AIHabit]?
     let newMemories: [String]? // 记忆提取
     let chatResponse: String?  // AI 的暖心回复
     let sessionSummary: String? // 会话摘要（短期）

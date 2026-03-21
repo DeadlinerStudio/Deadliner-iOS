@@ -21,6 +21,8 @@ struct DeadlinerCoreFinishPayload {
     let primaryIntent: String
     let tasks: [AITask]
     let habits: [AIHabit]
+    let retrievedTasks: [AITask]
+    let retrievedHabits: [AIHabit]
     let chatResponse: String?
     let sessionSummary: String?
     let memorySyncJson: String?
@@ -129,12 +131,14 @@ final class DeadlinerCoreBridge {
                 args: args,
                 reason: nil
             )))
-        case .onFinish(let primaryIntent, let tasks, let habits, let chatResponse, let sessionSummary, let memorySyncJson):
+        case .onFinish(let primaryIntent, let tasks, let habits, let retrievedTasks, let retrievedHabits, let chatResponse, let sessionSummary, let memorySyncJson):
             lastEventSummary = "Finished: \(primaryIntent)"
             eventHandler?(.finish(DeadlinerCoreFinishPayload(
                 primaryIntent: primaryIntent,
                 tasks: (tasks ?? []).map(\.asAppTask),
                 habits: (habits ?? []).map(\.asAppHabit),
+                retrievedTasks: (retrievedTasks ?? []).map(\.asAppTask),
+                retrievedHabits: (retrievedHabits ?? []).map(\.asAppHabit),
                 chatResponse: chatResponse,
                 sessionSummary: sessionSummary,
                 memorySyncJson: memorySyncJson

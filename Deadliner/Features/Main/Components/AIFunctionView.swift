@@ -20,15 +20,28 @@ struct DisplayItem: Identifiable {
         case aiToolResult(AIToolResult)
     }
 
-    let id: UUID
+    let id: String
     let kind: Kind
 
     init(kind: Kind) {
         self.kind = kind
         switch kind {
-        case .aiToolRequest(let r): self.id = UUID(uuidString: r.id) ?? UUID()
-        case .aiToolResult(let r): self.id = UUID(uuidString: r.id) ?? UUID()
-        default: self.id = UUID()
+        case .userQuery:
+            self.id = "user:\(UUID().uuidString)"
+        case .aiChat:
+            self.id = "chat:\(UUID().uuidString)"
+        case .aiThinking:
+            self.id = "thinking:\(UUID().uuidString)"
+        case .aiTask:
+            self.id = "task:\(UUID().uuidString)"
+        case .aiHabit:
+            self.id = "habit:\(UUID().uuidString)"
+        case .aiMemory:
+            self.id = "memory:\(UUID().uuidString)"
+        case .aiToolRequest(let r):
+            self.id = "tool-request:\(r.id)"
+        case .aiToolResult(let r):
+            self.id = "tool-result:\(r.id)"
         }
     }
 }

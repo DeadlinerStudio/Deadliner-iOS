@@ -983,7 +983,7 @@ public enum CoreEvent {
     )
     case onToolRequest(id: String, toolName: String, argsJson: String
     )
-    case onFinish(primaryIntent: String, tasks: [FfiTask]?, habits: [FfiHabit]?, chatResponse: String?, sessionSummary: String?, memorySyncJson: String?
+    case onFinish(primaryIntent: String, tasks: [FfiTask]?, habits: [FfiHabit]?, retrievedTasks: [FfiTask]?, retrievedHabits: [FfiHabit]?, chatResponse: String?, sessionSummary: String?, memorySyncJson: String?
     )
     case onMemoryCommitted(addedMemories: [String], profileUpdated: Bool, newRevision: UInt64
     )
@@ -1011,7 +1011,7 @@ public struct FfiConverterTypeCoreEvent: FfiConverterRustBuffer {
         case 3: return .onToolRequest(id: try FfiConverterString.read(from: &buf), toolName: try FfiConverterString.read(from: &buf), argsJson: try FfiConverterString.read(from: &buf)
         )
         
-        case 4: return .onFinish(primaryIntent: try FfiConverterString.read(from: &buf), tasks: try FfiConverterOptionSequenceTypeFFITask.read(from: &buf), habits: try FfiConverterOptionSequenceTypeFFIHabit.read(from: &buf), chatResponse: try FfiConverterOptionString.read(from: &buf), sessionSummary: try FfiConverterOptionString.read(from: &buf), memorySyncJson: try FfiConverterOptionString.read(from: &buf)
+        case 4: return .onFinish(primaryIntent: try FfiConverterString.read(from: &buf), tasks: try FfiConverterOptionSequenceTypeFFITask.read(from: &buf), habits: try FfiConverterOptionSequenceTypeFFIHabit.read(from: &buf), retrievedTasks: try FfiConverterOptionSequenceTypeFFITask.read(from: &buf), retrievedHabits: try FfiConverterOptionSequenceTypeFFIHabit.read(from: &buf), chatResponse: try FfiConverterOptionString.read(from: &buf), sessionSummary: try FfiConverterOptionString.read(from: &buf), memorySyncJson: try FfiConverterOptionString.read(from: &buf)
         )
         
         case 5: return .onMemoryCommitted(addedMemories: try FfiConverterSequenceString.read(from: &buf), profileUpdated: try FfiConverterBool.read(from: &buf), newRevision: try FfiConverterUInt64.read(from: &buf)
@@ -1047,11 +1047,13 @@ public struct FfiConverterTypeCoreEvent: FfiConverterRustBuffer {
             FfiConverterString.write(argsJson, into: &buf)
             
         
-        case let .onFinish(primaryIntent,tasks,habits,chatResponse,sessionSummary,memorySyncJson):
+        case let .onFinish(primaryIntent,tasks,habits,retrievedTasks,retrievedHabits,chatResponse,sessionSummary,memorySyncJson):
             writeInt(&buf, Int32(4))
             FfiConverterString.write(primaryIntent, into: &buf)
             FfiConverterOptionSequenceTypeFFITask.write(tasks, into: &buf)
             FfiConverterOptionSequenceTypeFFIHabit.write(habits, into: &buf)
+            FfiConverterOptionSequenceTypeFFITask.write(retrievedTasks, into: &buf)
+            FfiConverterOptionSequenceTypeFFIHabit.write(retrievedHabits, into: &buf)
             FfiConverterOptionString.write(chatResponse, into: &buf)
             FfiConverterOptionString.write(sessionSummary, into: &buf)
             FfiConverterOptionString.write(memorySyncJson, into: &buf)
@@ -1372,9 +1374,6 @@ private let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
 private let UNIFFI_RUST_FUTURE_POLL_MAYBE_READY: Int8 = 1
 
 fileprivate let uniffiContinuationHandleMap = UniffiHandleMap<UnsafeContinuation<Int8, Never>>()
-fileprivate let uniffiFutureContinuationCallbackFn: UniffiRustFutureContinuationCallback = { handle, pollResult in
-    uniffiFutureContinuationCallback(handle: handle, pollResult: pollResult)
-}
 
 fileprivate func uniffiRustCallAsync<F, T>(
     rustFutureFunc: () -> UInt64,
@@ -1410,6 +1409,10 @@ fileprivate func uniffiRustCallAsync<F, T>(
 
 // Callback handlers for an async calls.  These are invoked by Rust when the future is ready.  They
 // lift the return value or error and resume the suspended function.
+fileprivate let uniffiFutureContinuationCallbackFn: UniffiRustFutureContinuationCallback = { handle, pollResult in
+    uniffiFutureContinuationCallback(handle: handle, pollResult: pollResult)
+}
+
 fileprivate func uniffiFutureContinuationCallback(handle: UInt64, pollResult: Int8) {
     if let continuation = try? uniffiContinuationHandleMap.remove(handle: handle) {
         continuation.resume(returning: pollResult)

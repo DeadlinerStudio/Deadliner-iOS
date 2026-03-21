@@ -102,6 +102,7 @@ struct OverviewView: View {
                     Text("上月").tag(2)
                 }
                 .pickerStyle(.segmented)
+                .glassEffect()
                 .textCase(nil)
                 .padding(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
             }

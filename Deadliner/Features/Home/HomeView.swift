@@ -62,7 +62,6 @@ struct HomeView: View {
                             FloatUpRow(index: idx, maxLoad: 15, enable: true, animateToken: enterAnimToken) {
                                 DDLItemCardSwipeable(
                                     title: item.name,
-                                    // ... 其余属性保持不变
                                     remainingTimeAlt: remainingTimeText(for: item),
                                     note: item.note,
                                     progress: progress(for: item),
@@ -193,6 +192,7 @@ struct HomeView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .glassEffect()
                 .textCase(nil)
                 .padding(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
             }
@@ -218,7 +218,7 @@ struct HomeView: View {
             enterAnimToken += 1
         }
         .onChange(of: vm.tasks.count) { old, new in
-            // 如果任务数量真的变了（同步新增/删除），也触发一次动画
+            // 如果数量真的变了（同步新增/删除），也触发一次动画
             if old != 0 && old != new {
                 enterAnimToken += 1
             }

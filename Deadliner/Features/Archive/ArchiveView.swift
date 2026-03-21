@@ -55,10 +55,9 @@ struct ArchiveView: View {
                     Text("习惯").tag(1)
                 }
                 .pickerStyle(.segmented)
+                .glassEffect()
                 .textCase(nil)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-                .listRowInsets(EdgeInsets())
+                .padding(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
             }
         }
         .listStyle(.plain)
