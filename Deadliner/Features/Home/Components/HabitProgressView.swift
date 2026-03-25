@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct HabitProgressView: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     let progress: Double
     var body: some View {
         VStack(spacing: 8) {
@@ -25,7 +27,7 @@ struct HabitProgressView: View {
             
             LinearProgressView(value: progress, shape: Capsule())
                 .frame(height: 8)
-                .tint(.accentColor)
+                .tint(themeStore.accentColor)
         }
         .padding(.horizontal, 16)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: progress)

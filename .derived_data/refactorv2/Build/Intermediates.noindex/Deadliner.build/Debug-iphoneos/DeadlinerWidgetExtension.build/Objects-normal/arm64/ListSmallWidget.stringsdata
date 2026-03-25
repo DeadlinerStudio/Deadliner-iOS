@@ -1,0 +1,24 @@
+{
+  "source": "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/ListSmallWidget.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "任务列表",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 11
+        }
+      },
+      {
+        "comment": "",
+        "key": "用紧凑列表查看最近几项截止任务。",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 12
+        }
+      }
+    ]
+  },
+  "version": 1
+}

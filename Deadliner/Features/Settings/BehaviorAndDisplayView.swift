@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct BehaviorAndDisplayView: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     @State private var autoArchiveDays = 7
     
     @State private var progressDir = false
@@ -41,12 +43,13 @@ struct BehaviorAndDisplayView: View {
             }
             
             Section("界面显示 (开发中)") {
-                Label("默认主页设置", systemImage: "house")
-                Label("列表排序规则", systemImage: "arrow.up.arrow.down")
+                settingsLabel("默认主页设置", systemImage: "house")
+                settingsLabel("列表排序规则", systemImage: "arrow.up.arrow.down")
             }
         }
         .navigationTitle("行为与交互")
         .navigationBarTitleDisplayMode(.inline)
+        .optionalTint(themeStore.switchTint)
         .task {
             autoArchiveDays = await LocalValues.shared.getAutoArchiveDays()
             progressDir = await LocalValues.shared.getProgressDir()
@@ -56,6 +59,17 @@ struct BehaviorAndDisplayView: View {
         }
         .onChange(of: progressDir) { newValue in
             Task { await LocalValues.shared.setProgressDir(newValue) }
+        }
+    }
+
+    private func settingsLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(themeStore.accentColor)
+                .frame(width: 22)
+
+            Text(title)
+                .foregroundStyle(.primary)
         }
     }
 }

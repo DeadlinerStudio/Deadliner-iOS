@@ -27,8 +27,8 @@ struct DDLStatusStyle {
         switch status {
         case .undergo:
             return .init(
-                indicator: .accentColor.opacity(0.55),
-                background: Color.accentColor.opacity(0.18)
+                indicator: .blue.opacity(0.55),
+                background: Color.blue.opacity(0.18)
             )
         case .near:
             return .init(

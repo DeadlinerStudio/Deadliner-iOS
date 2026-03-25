@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct EfficiencySettingsView: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     @AppStorage("userTier") private var userTier: UserTier = .free
     
     @State private var enableEbbinghaus = false
@@ -47,6 +49,7 @@ struct EfficiencySettingsView: View {
         }
         .navigationTitle("科学记忆")
         .navigationBarTitleDisplayMode(.inline)
+        .optionalTint(themeStore.switchTint)
         .sheet(isPresented: $showPaywall) {
             ProPaywallView().presentationDetents([.large])
         }

@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct WeekRow: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     // 数据源
     let weekOverview: [DayOverview]
     let selectedDate: Date
@@ -87,7 +89,7 @@ struct WeekRow: View {
                         .font(.system(size: 16, weight: .medium))
                     Text("/")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(themeStore.accentColor)
                     Text(title.1)
                         .font(.system(size: 16, weight: .medium))
                 }
@@ -146,19 +148,19 @@ struct WeekRow: View {
         VStack(spacing: 4) {
             Text(getDayLabel(day.date))
                 .font(.system(size: 12))
-                .foregroundStyle(isToday ? Color.accentColor : .secondary)
+                .foregroundStyle(isToday ? themeStore.accentColor : .secondary)
                 .fontWeight(isToday ? .bold : .regular)
             
             Text("\(calendar.component(.day, from: day.date))")
                 .font(.system(size: 16, weight: (isToday || isSelected) ? .bold : .medium))
-                .foregroundStyle(isToday ? Color.accentColor : (isSelected ? .primary : .secondary))
+                .foregroundStyle(isToday ? themeStore.accentColor : (isSelected ? .primary : .secondary))
                 .frame(width: 36, height: 36)
-                .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                .background(isSelected ? themeStore.accentColor.opacity(0.15) : Color.clear)
                 .clipShape(Circle())
             
             if day.completionRatio > 0 {
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(themeStore.accentColor)
                     .frame(width: 5, height: 5)
             } else {
                 Spacer().frame(height: 5)

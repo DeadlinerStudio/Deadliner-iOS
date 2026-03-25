@@ -1,0 +1,23 @@
+{
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Core/Persistence/SharedModelContainer.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.dia",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.swiftdeps"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Core/Shared/DateParsing/DeadlineDateParser.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.dia",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.swiftdeps"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Data/Persistence/Mappers/DDLItemEntity+Mapping.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.dia",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.swiftdeps"
+  }
+}

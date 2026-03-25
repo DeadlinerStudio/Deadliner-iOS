@@ -125,11 +125,13 @@ final class DeadlinerCoreBridge {
             let normalizedToolName = ToolCallExecutor.shared.normalizeToolName(toolName)
             lastEventSummary = "Tool request \(normalizedToolName) [\(id)]"
             let args = decodeReadTasksArgs(from: argsJson)
+            let executionMode = decodeToolExecutionMode(from: argsJson)
             eventHandler?(.toolRequest(AIToolRequest(
                 id: id,
                 tool: normalizedToolName,
                 args: args,
-                reason: nil
+                reason: nil,
+                executionMode: executionMode
             )))
         case .onFinish(let primaryIntent, let tasks, let habits, let retrievedTasks, let retrievedHabits, let chatResponse, let sessionSummary, let memorySyncJson):
             lastEventSummary = "Finished: \(primaryIntent)"
@@ -205,6 +207,16 @@ final class DeadlinerCoreBridge {
             )
         }
         return args
+    }
+
+    private func decodeToolExecutionMode(from argsJson: String) -> String? {
+        guard let data = argsJson.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let meta = object["_meta"] as? [String: Any],
+              let executionMode = meta["executionMode"] as? String else {
+            return nil
+        }
+        return executionMode
     }
 
 }

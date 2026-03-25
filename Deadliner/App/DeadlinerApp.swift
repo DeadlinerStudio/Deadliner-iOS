@@ -18,12 +18,14 @@ struct DeadlinerApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("selectedAppIcon") private var selectedAppIconRaw: String = DeadlinerIcon.deadlinerDefault.rawValue
     @AppStorage("userTier") private var userTier: UserTier = .free
+    @StateObject private var themeStore = ThemeStore()
     
     let sharedModelContainer: ModelContainer = SharedModelContainer.shared
 
     var body: some Scene {
         WindowGroup {
             MainView()
+                .environmentObject(themeStore)
                 .task {
                     if AppReleaseGate.unlockGeekForCurrentRelease {
                         userTier = .geek

@@ -96,12 +96,14 @@ public struct AIToolRequest: Identifiable, Codable {
     public let tool: String              // "readTasks"
     public let args: ReadTasksArgs       // 当前只支持 readTasks
     public let reason: String?
+    public let executionMode: String?
 
-    public init(id: String = UUID().uuidString, tool: String, args: ReadTasksArgs, reason: String? = nil) {
+    public init(id: String = UUID().uuidString, tool: String, args: ReadTasksArgs, reason: String? = nil, executionMode: String? = nil) {
         self.id = id
         self.tool = tool
         self.args = args
         self.reason = reason
+        self.executionMode = executionMode
     }
 }
 

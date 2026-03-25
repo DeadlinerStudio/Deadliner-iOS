@@ -646,11 +646,11 @@ extension AIFunctionView {
                 name: habit.name,
                 startTime: Date().toLocalISOString(),
                 endTime: "", // 习惯通常没有明确截止时间
-                isCompleted: false,
+                state: .active,
                 completeTime: "",
                 note: "",
-                isArchived: false,
                 isStared: false,
+                subTasks: [],
                 type: .habit,
                 calendarEventId: nil
             )
@@ -769,8 +769,18 @@ extension AIFunctionView {
                 id: req.id,
                 tool: req.tool,
                 args: sanitizeReadTasksArgs(req.args, userQuery: toolOriginalUserText),
-                reason: req.reason
+                reason: req.reason,
+                executionMode: req.executionMode
             )
+
+            if (sanitizedReq.executionMode ?? "").uppercased() == "AUTO" {
+                withAnimation(.spring()) {
+                    displayItems.append(DisplayItem(kind: .aiThinking(toolCollaborationMessage(for: sanitizedReq.tool))))
+                }
+                pendingToolRequest = sanitizedReq
+                Task { await approveAndRunTool(sanitizedReq) }
+                return
+            }
 
             withAnimation(.spring()) {
                 displayItems.append(DisplayItem(kind: .aiThinking(toolCollaborationMessage(for: sanitizedReq.tool))))

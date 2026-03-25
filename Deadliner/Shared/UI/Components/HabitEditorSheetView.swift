@@ -45,6 +45,7 @@ enum HabitSheetMode: Equatable {
 
 struct HabitEditorSheetView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var themeStore: ThemeStore
     
     @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
@@ -231,6 +232,7 @@ struct HabitEditorSheetView: View {
             }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .optionalTint(themeStore.switchTint)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -244,6 +246,7 @@ struct HabitEditorSheetView: View {
                     } label: { Image(systemName: "checkmark") }
                     .disabled(isSaving || isAILoading || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .buttonStyle(.glassProminent)
+                    .tint(themeStore.accentColor)
                 }
             }
             .alert("提示", isPresented: $showAlert, actions: {
@@ -337,11 +340,11 @@ struct HabitEditorSheetView: View {
                     name: trimmedName,
                     startTime: Date().toLocalISOString(),
                     endTime: "", // 习惯通常没有明确截止时间
-                    isCompleted: false,
+                    state: .active,
                     completeTime: "",
                     note: description,
-                    isArchived: false,
                     isStared: false,
+                    subTasks: [],
                     type: .habit,
                     calendarEventId: nil
                 )

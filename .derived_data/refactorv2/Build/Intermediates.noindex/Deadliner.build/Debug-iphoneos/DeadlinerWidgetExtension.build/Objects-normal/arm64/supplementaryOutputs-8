@@ -1,0 +1,23 @@
+{
+  "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Data/Persistence/Entities.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.dia",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.swiftdeps"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Shared/UI/Components/LinearProgressView.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.dia",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.derived_data/refactorv2/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.swiftdeps"
+  }
+}

@@ -13,11 +13,11 @@ struct DDLInsertParams {
     let name: String
     let startTime: String
     let endTime: String
-    let isCompleted: Bool
+    let state: DDLState
     let completeTime: String
     let note: String
-    let isArchived: Bool
     let isStared: Bool
+    let subTasks: [InnerTodo]
     let type: DeadlineType
     let calendarEventId: Int64?
 }
@@ -43,6 +43,11 @@ actor DatabaseHelper {
     
     private let logger = Logger(subsystem: "Deadliner", category: "DatabaseHelper")
 
+    private func trace(_ message: String) {
+        logger.info("\(message, privacy: .public)")
+        SyncDebugLog.log(message)
+    }
+
     private init() {}
 
     func isReady() -> Bool { context != nil }
@@ -54,6 +59,7 @@ actor DatabaseHelper {
 
         try bootstrapSyncStateIfNeeded()
         try bootstrapSequences()
+        try migrateDDLStateAndEmbeddedSubTasksIfNeeded()
     }
 
     // MARK: - Bootstrap
@@ -112,7 +118,7 @@ actor DatabaseHelper {
         let fd = FetchDescriptor<SyncStateEntity>(predicate: #Predicate { $0.singletonId == 1 })
         guard let s = try context.fetch(fd).first else { throw DBError.syncStateMissing }
 
-        let now = Date().toLocalISOString()
+        let now = Self.makeVersionTimestampUTC()
         let newer: Ver
         if now > s.lastLocalTs {
             newer = Ver(ts: now, ctr: 0, dev: s.deviceId)
@@ -142,11 +148,13 @@ actor DatabaseHelper {
             name: item.name,
             startTime: item.startTime,
             endTime: item.endTime,
-            isCompleted: item.isCompleted,
+            stateRaw: item.state.rawValue,
+            isCompleted: item.state.isCompletedLike,
             completeTime: item.completeTime,
             note: item.note,
-            isArchived: item.isArchived,
+            isArchived: item.state.isArchivedLike,
             isStared: item.isStared,
+            subTasksJSON: try Self.encodeSubTasks(item.subTasks),
             typeRaw: item.type.rawValue,
             habitCount: 0,
             habitTotalCount: 0,
@@ -189,7 +197,9 @@ actor DatabaseHelper {
 
         let items = try context.fetch(fd)
         let sorted = items.sorted {
-            if $0.isCompleted != $1.isCompleted { return $0.isCompleted == false }
+            let lhsState = $0.resolvedState()
+            let rhsState = $1.resolvedState()
+            if lhsState.isCompletedLike != rhsState.isCompletedLike { return lhsState.isCompletedLike == false }
             if $0.endTime != $1.endTime { return $0.endTime < $1.endTime }
             return $0.legacyId < $1.legacyId
         }
@@ -229,7 +239,9 @@ actor DatabaseHelper {
 
         // 关键字段一次性明确写入
         e.isTombstoned = true
+        e.stateRaw = DDLState.archived.rawValue
         e.isArchived = true
+        e.isCompleted = true
         if e.completeTime.isEmpty {
             e.completeTime = Date().toLocalISOString()
         }
@@ -248,54 +260,64 @@ actor DatabaseHelper {
     @discardableResult
     func insertSubTask(_ item: SubTaskInsertParams) throws -> Int64 {
         guard let context else { throw DBError.notInitialized }
-
         let targetId = item.ddlLegacyId
         let ddlFd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.legacyId == targetId })
         guard let ddl = try context.fetch(ddlFd).first else { throw DBError.notFound("DDL \(targetId)") }
 
-        let v = try nextVersionUTC()
         let id = nextId(.subTask)
-        let uid = "\(v.dev):st:\(id)"
-
-        let st = SubTaskEntity(
-            legacyId: id,
-            content: item.content,
-            isCompleted: item.isCompleted,
-            sortOrder: item.sortOrder,
-            uid: uid,
-            deleted: false,
-            verTs: v.ts,
-            verCtr: v.ctr,
-            verDev: v.dev,
-            ddl: ddl
+        var subTasks = try ddl.decodedSubTasks()
+        subTasks.append(
+            InnerTodo(
+                id: String(id),
+                content: item.content,
+                isCompleted: item.isCompleted,
+                sortOrder: item.sortOrder,
+                createdAt: Date().toLocalISOString(),
+                updatedAt: Date().toLocalISOString()
+            )
         )
-        context.insert(st)
+        ddl.subTasksJSON = try Self.encodeSubTasks(subTasks)
+        let v = try nextVersionUTC()
+        ddl.verTs = v.ts
+        ddl.verCtr = v.ctr
+        ddl.verDev = v.dev
+        ddl.timestamp = Self.formatLocalDateTime(Date())
         try context.save()
         return id
     }
 
-    func getSubTasksByDDL(ddlLegacyId: Int64) throws -> [SubTaskEntity] {
+    func getSubTasksByDDL(ddlLegacyId: Int64) throws -> [InnerTodo] {
         guard let context else { throw DBError.notInitialized }
 
         let targetId = ddlLegacyId
-        let fd = FetchDescriptor<SubTaskEntity>(
-            predicate: #Predicate { $0.deleted == false && $0.ddl?.legacyId == targetId }
+        let fd = FetchDescriptor<DDLItemEntity>(
+            predicate: #Predicate { $0.legacyId == targetId }
         )
-
-        let items = try context.fetch(fd)
-        return items.sorted { $0.sortOrder < $1.sortOrder }
+        guard let ddl = try context.fetch(fd).first else { throw DBError.notFound("DDL \(ddlLegacyId)") }
+        return try ddl.decodedSubTasks().sorted { lhs, rhs in
+            if lhs.sortOrder != rhs.sortOrder { return lhs.sortOrder < rhs.sortOrder }
+            return lhs.id < rhs.id
+        }
     }
 
-    func updateSubTaskStatus(subTaskLegacyId: Int64, isCompleted: Bool) throws {
+    func updateSubTaskStatus(ddlLegacyId: Int64, subTaskId: String, isCompleted: Bool) throws {
         guard let context else { throw DBError.notInitialized }
-        let fd = FetchDescriptor<SubTaskEntity>(predicate: #Predicate { $0.legacyId == subTaskLegacyId })
-        guard let st = try context.fetch(fd).first else { throw DBError.notFound("SubTask \(subTaskLegacyId)") }
+        let fd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.legacyId == ddlLegacyId })
+        guard let ddl = try context.fetch(fd).first else { throw DBError.notFound("DDL \(ddlLegacyId)") }
+
+        var subTasks = try ddl.decodedSubTasks()
+        guard let index = subTasks.firstIndex(where: { $0.id == subTaskId }) else {
+            throw DBError.notFound("SubTask \(subTaskId)")
+        }
 
         let v = try nextVersionUTC()
-        st.isCompleted = isCompleted
-        st.verTs = v.ts
-        st.verCtr = v.ctr
-        st.verDev = v.dev
+        subTasks[index].isCompleted = isCompleted
+        subTasks[index].updatedAt = Date().toLocalISOString()
+        ddl.subTasksJSON = try Self.encodeSubTasks(subTasks)
+        ddl.verTs = v.ts
+        ddl.verCtr = v.ctr
+        ddl.verDev = v.dev
+        ddl.timestamp = Self.formatLocalDateTime(Date())
 
         try context.save()
     }
@@ -385,6 +407,171 @@ actor DatabaseHelper {
         }
     }
 
+    func getHabitEntityByDDLUID(_ ddlUID: String) throws -> HabitEntity? {
+        guard let context else { throw DBError.notInitialized }
+        let uid = ddlUID
+        let fd = FetchDescriptor<HabitEntity>(predicate: #Predicate { $0.ddl?.uid == uid })
+        return try context.fetch(fd).first
+    }
+
+    func upsertHabitFromSnapshotV2(
+        ddlUID: String,
+        payload: HabitSnapshotV2Payload
+    ) throws -> HabitEntity {
+        guard let context else { throw DBError.notInitialized }
+        try Self.validateHabitSnapshotPayload(payload)
+
+        let uid = ddlUID
+        let ddlFD = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.uid == uid })
+        guard let ddl = try context.fetch(ddlFD).first else {
+            throw DBError.notFound("Habit carrier DDL for uid \(ddlUID)")
+        }
+        guard ddl.typeRaw == DeadlineType.habit.rawValue else {
+            throw DBError.invalidData("DDL \(ddlUID) is not a habit carrier")
+        }
+
+        if let existing = ddl.habit {
+            trace("upsertHabitFromSnapshotV2 update uid=\(ddlUID) habitId=\(existing.legacyId) oldUpdatedAt=\(existing.updatedAt) newUpdatedAt=\(payload.updated_at)")
+            existing.name = payload.name
+            existing.descText = payload.description
+            existing.color = payload.color
+            existing.iconKey = payload.icon_key
+            existing.periodRaw = payload.period
+            existing.timesPerPeriod = payload.times_per_period
+            existing.goalTypeRaw = payload.goal_type
+            existing.totalTarget = payload.total_target
+            existing.createdAt = payload.created_at
+            existing.updatedAt = payload.updated_at
+            existing.statusRaw = payload.status
+            existing.sortOrder = payload.sort_order
+            existing.alarmTime = payload.alarm_time
+            existing.ddl = ddl
+            try context.save()
+            return existing
+        }
+
+        let habit = HabitEntity(
+            legacyId: nextId(.habit),
+            name: payload.name,
+            descText: payload.description,
+            color: payload.color,
+            iconKey: payload.icon_key,
+            periodRaw: payload.period,
+            timesPerPeriod: payload.times_per_period,
+            goalTypeRaw: payload.goal_type,
+            totalTarget: payload.total_target,
+            createdAt: payload.created_at,
+            updatedAt: payload.updated_at,
+            statusRaw: payload.status,
+            sortOrder: payload.sort_order,
+            alarmTime: payload.alarm_time,
+            ddl: ddl
+        )
+        trace("upsertHabitFromSnapshotV2 insert uid=\(ddlUID) habitId=\(habit.legacyId) updatedAt=\(payload.updated_at)")
+        context.insert(habit)
+        ddl.habit = habit
+        try context.save()
+        return habit
+    }
+
+    func replaceHabitRecordsFromSnapshotV2(
+        habitLegacyId: Int64,
+        records: [HabitRecordSnapshotV2Payload]
+    ) throws {
+        guard let context else { throw DBError.notInitialized }
+        try records.forEach { try Self.validateHabitRecordSnapshotPayload($0) }
+        let habitId = habitLegacyId
+
+        let hFD = FetchDescriptor<HabitEntity>(predicate: #Predicate { $0.legacyId == habitId })
+        guard let habit = try context.fetch(hFD).first else {
+            throw DBError.notFound("Habit \(habitLegacyId)")
+        }
+
+        let rFD = FetchDescriptor<HabitRecordEntity>(predicate: #Predicate { $0.habit?.legacyId == habitId })
+        let existing = try context.fetch(rFD)
+        trace("replaceHabitRecordsFromSnapshotV2 begin habitId=\(habitLegacyId) existing=\(existing.count) incoming=\(records.count)")
+        for record in existing {
+            context.delete(record)
+        }
+
+        for record in records {
+            let entity = HabitRecordEntity(
+                legacyId: nextId(.habitRecord),
+                date: record.date,
+                count: record.count,
+                statusRaw: record.status,
+                createdAt: record.created_at,
+                habit: habit
+            )
+            context.insert(entity)
+        }
+
+        try context.save()
+        trace("replaceHabitRecordsFromSnapshotV2 end habitId=\(habitLegacyId) final=\(records.count)")
+    }
+
+    func touchDDLVersion(legacyId: Int64) throws {
+        guard let context else { throw DBError.notInitialized }
+        let targetId = legacyId
+        let fd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.legacyId == targetId })
+        guard let ddl = try context.fetch(fd).first else {
+            throw DBError.notFound("DDL \(legacyId)")
+        }
+
+        let v = try nextVersionUTC()
+        ddl.verTs = v.ts
+        ddl.verCtr = v.ctr
+        ddl.verDev = v.dev
+        ddl.timestamp = Self.formatLocalDateTime(Date())
+        try context.save()
+    }
+
+    func setDDLVersionByUID(uid: String, ver: SnapshotVer) throws {
+        guard let context else { throw DBError.notInitialized }
+        let targetUID = uid
+        let fd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.uid == targetUID })
+        guard let ddl = try context.fetch(fd).first else {
+            throw DBError.notFound("DDL uid \(uid)")
+        }
+
+        ddl.verTs = ver.ts
+        ddl.verCtr = ver.ctr
+        ddl.verDev = ver.dev
+        ddl.timestamp = Self.formatLocalDateTime(Date())
+        try context.save()
+    }
+
+    func setHabitAppliedVersionByUID(uid: String, ver: SnapshotVer) throws {
+        guard let context else { throw DBError.notInitialized }
+        let targetUID = uid
+        let fd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.uid == targetUID })
+        guard let ddl = try context.fetch(fd).first else {
+            throw DBError.notFound("DDL uid \(uid)")
+        }
+
+        trace("setHabitAppliedVersionByUID uid=\(uid) ver=\(ver.ts)#\(ver.ctr)#\(ver.dev)")
+        ddl.setHabitAppliedSnapshotVersion(ts: ver.ts, ctr: ver.ctr, dev: ver.dev)
+        try context.save()
+    }
+
+    func touchHabitCarrierVersionByHabitId(habitLegacyId: Int64) throws {
+        guard let context else { throw DBError.notInitialized }
+        let habitId = habitLegacyId
+        let fd = FetchDescriptor<HabitEntity>(predicate: #Predicate { $0.legacyId == habitId })
+        guard let habit = try context.fetch(fd).first, let ddl = habit.ddl else {
+            throw DBError.notFound("Habit carrier for habit \(habitLegacyId)")
+        }
+
+        let v = try nextVersionUTC()
+        trace("touchHabitCarrierVersionByHabitId habitId=\(habitLegacyId) ddlId=\(ddl.legacyId) uid=\(ddl.uid ?? "") newVer=\(v.ts)#\(v.ctr)#\(v.dev) oldUpdatedAt=\(habit.updatedAt)")
+        habit.updatedAt = v.ts
+        ddl.verTs = v.ts
+        ddl.verCtr = v.ctr
+        ddl.verDev = v.dev
+        ddl.timestamp = Self.formatLocalDateTime(Date())
+        try context.save()
+    }
+
     // MARK: - Habit Record
 
     @discardableResult
@@ -393,6 +580,10 @@ actor DatabaseHelper {
 
         let hFd = FetchDescriptor<HabitEntity>(predicate: #Predicate { $0.legacyId == habitLegacyId })
         guard let habit = try context.fetch(hFd).first else { throw DBError.notFound("Habit \(habitLegacyId)") }
+
+        let beforeCount = try context.fetch(
+            FetchDescriptor<HabitRecordEntity>(predicate: #Predicate { $0.habit?.legacyId == habitLegacyId })
+        ).count
 
         let id = nextId(.habitRecord)
         let entity = HabitRecordEntity(
@@ -406,6 +597,7 @@ actor DatabaseHelper {
 
         context.insert(entity)
         try context.save()
+        trace("insertHabitRecord habitId=\(habitLegacyId) recordId=\(id) date=\(record.date) count=\(record.count) before=\(beforeCount) after=\(beforeCount + 1)")
         return id
     }
 
@@ -472,6 +664,7 @@ actor DatabaseHelper {
             predicate: #Predicate { $0.habit?.legacyId == hId && $0.date == d }
         )
         let targets = try context.fetch(fd)
+        trace("deleteHabitRecordsForHabitOnDate habitId=\(habitLegacyId) date=\(date) deleteCount=\(targets.count)")
         for t in targets {
             context.delete(t)
         }
@@ -486,12 +679,12 @@ actor DatabaseHelper {
 
         let threshold = Date().addingTimeInterval(TimeInterval(-days * 24 * 3600))
         let thresholdStr = threshold.toLocalISOString()
+        let completedStateRaw = DDLState.completed.rawValue
 
         let fd = FetchDescriptor<DDLItemEntity>(
             predicate: #Predicate {
                 $0.isTombstoned == false
-                && $0.isCompleted == true
-                && $0.isArchived == false
+                && $0.stateRaw == completedStateRaw
                 && $0.completeTime != ""
                 && $0.completeTime <= thresholdStr
             }
@@ -501,7 +694,9 @@ actor DatabaseHelper {
 
         let v = try nextVersionUTC()
         for e in list {
+            e.stateRaw = DDLState.archived.rawValue
             e.isArchived = true
+            e.isCompleted = true
             e.verTs = v.ts
             e.verCtr = v.ctr
             e.verDev = v.dev
@@ -516,6 +711,46 @@ actor DatabaseHelper {
     private static func generateRandomHex(bytes: Int) -> String {
         let chars = Array("0123456789ABCDEF")
         return String((0..<(bytes * 2)).map { _ in chars.randomElement()! })
+    }
+
+    private static func makeVersionTimestampUTC() -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: Date())
+    }
+
+    private static func validateHabitSnapshotPayload(_ payload: HabitSnapshotV2Payload) throws {
+        guard !payload.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw DBError.invalidData("Habit snapshot name must not be empty")
+        }
+        guard HabitPeriod(rawValue: payload.period) != nil else {
+            throw DBError.invalidData("Invalid habit period '\(payload.period)'")
+        }
+        guard payload.times_per_period > 0 else {
+            throw DBError.invalidData("Habit times_per_period must be greater than 0")
+        }
+        guard HabitGoalType(rawValue: payload.goal_type) != nil else {
+            throw DBError.invalidData("Invalid habit goal_type '\(payload.goal_type)'")
+        }
+        guard HabitStatus(rawValue: payload.status) != nil else {
+            throw DBError.invalidData("Invalid habit status '\(payload.status)'")
+        }
+    }
+
+    private static func validateHabitRecordSnapshotPayload(_ payload: HabitRecordSnapshotV2Payload) throws {
+        guard !payload.date.isEmpty else {
+            throw DBError.invalidData("Habit record date must not be empty")
+        }
+        guard payload.count > 0 else {
+            throw DBError.invalidData("Habit record count must be greater than 0")
+        }
+        guard HabitRecordStatus(rawValue: payload.status) != nil else {
+            throw DBError.invalidData("Invalid habit record status '\(payload.status)'")
+        }
+        guard !payload.created_at.isEmpty else {
+            throw DBError.invalidData("Habit record created_at must not be empty")
+        }
     }
 
     private static func formatLocalDateTime(_ date: Date) -> String {
@@ -574,6 +809,7 @@ actor DatabaseHelper {
         // 如果已存在同 uid，直接改墓碑状态即可（幂等）
         if let existing = try findDDLByUID(uid) {
             existing.isTombstoned = true
+            existing.stateRaw = DDLState.archived.rawValue
             existing.isArchived = true
             existing.isCompleted = true
             existing.verTs = verTs
@@ -589,11 +825,13 @@ actor DatabaseHelper {
             name: "(deleted)",
             startTime: "",
             endTime: "",
+            stateRaw: DDLState.archived.rawValue,
             isCompleted: true,
             completeTime: "",
             note: "",
             isArchived: true,
             isStared: false,
+            subTasksJSON: try Self.encodeSubTasks([]),
             typeRaw: DeadlineType.task.rawValue,
             habitCount: 0,
             habitTotalCount: 0,
@@ -628,6 +866,7 @@ actor DatabaseHelper {
         }
 
         e.isTombstoned = true
+        e.stateRaw = DDLState.archived.rawValue
         e.isArchived = true
         e.isCompleted = true
         e.verTs = verTs
@@ -650,10 +889,12 @@ actor DatabaseHelper {
         e.name = doc.name
         e.startTime = doc.start_time
         e.endTime = doc.end_time
-        e.isCompleted = (doc.is_completed != 0)
+        let state = Self.stateFromV1Flags(isCompleted: doc.is_completed != 0, isArchived: doc.is_archived != 0)
+        e.stateRaw = state.rawValue
+        e.isCompleted = state.isCompletedLike
         e.completeTime = doc.complete_time
         e.note = doc.note
-        e.isArchived = (doc.is_archived != 0)
+        e.isArchived = state.isArchivedLike
         e.isStared = (doc.is_stared != 0)
         e.typeRaw = doc.type
         e.habitCount = doc.habit_count
@@ -666,6 +907,117 @@ actor DatabaseHelper {
         e.verDev = verDev
 
         try context!.save()
+    }
+
+    func overwriteDDLFromSnapshot(
+        legacyId: Int64,
+        doc: SnapshotDoc,
+        verTs: String,
+        verCtr: Int,
+        verDev: String
+    ) throws {
+        guard let context else { throw DBError.notInitialized }
+        let fd = FetchDescriptor<DDLItemEntity>(
+            predicate: #Predicate { $0.legacyId == legacyId }
+        )
+        guard let entity = try context.fetch(fd).first else {
+            throw DBError.notFound("DDL \(legacyId)")
+        }
+        try overwriteDDLFromSnapshotEntity(
+            entity: entity,
+            doc: doc,
+            verTs: verTs,
+            verCtr: verCtr,
+            verDev: verDev
+        )
+    }
+
+    func overwriteDDLFromSnapshotV2Entity(
+        entity e: DDLItemEntity,
+        doc: SnapshotV2Doc,
+        verTs: String,
+        verCtr: Int,
+        verDev: String
+    ) throws {
+        guard context != nil else { throw DBError.notInitialized }
+        guard let state = DDLState(rawValue: doc.state) else {
+            throw DBError.invalidData("Invalid V2 state '\(doc.state)'")
+        }
+
+        e.isTombstoned = false
+        e.name = doc.name
+        e.startTime = doc.start_time
+        e.endTime = doc.end_time
+        e.stateRaw = state.rawValue
+        e.isCompleted = state.isCompletedLike
+        e.completeTime = doc.complete_time
+        e.note = doc.note
+        e.isArchived = state.isArchivedLike
+        e.isStared = (doc.is_stared != 0)
+        e.subTasksJSON = try Self.encodeSubTasks(doc.sub_tasks.map { $0.toDomain() })
+        e.typeRaw = doc.type
+        e.habitCount = doc.habit_count
+        e.habitTotalCount = doc.habit_total_count
+        e.calendarEventId = doc.calendar_event
+        e.timestamp = doc.timestamp
+
+        e.verTs = verTs
+        e.verCtr = verCtr
+        e.verDev = verDev
+
+        try context!.save()
+    }
+
+    func insertDDLFromSnapshotV2(
+        uid: String,
+        doc: SnapshotV2Doc,
+        verTs: String,
+        verCtr: Int,
+        verDev: String
+    ) throws {
+        guard let context else { throw DBError.notInitialized }
+        guard let state = DDLState(rawValue: doc.state) else {
+            throw DBError.invalidData("Invalid V2 state '\(doc.state)'")
+        }
+
+        if let existing = try findDDLByUID(uid) {
+            try overwriteDDLFromSnapshotV2Entity(
+                entity: existing,
+                doc: doc,
+                verTs: verTs,
+                verCtr: verCtr,
+                verDev: verDev
+            )
+            return
+        }
+
+        let newLocalId = nextId(.ddl)
+        let entity = DDLItemEntity(
+            legacyId: newLocalId,
+            name: doc.name,
+            startTime: doc.start_time,
+            endTime: doc.end_time,
+            stateRaw: state.rawValue,
+            isCompleted: state.isCompletedLike,
+            completeTime: doc.complete_time,
+            note: doc.note,
+            isArchived: state.isArchivedLike,
+            isStared: (doc.is_stared != 0),
+            subTasksJSON: try Self.encodeSubTasks(doc.sub_tasks.map { $0.toDomain() }),
+            typeRaw: doc.type,
+            habitCount: doc.habit_count,
+            habitTotalCount: doc.habit_total_count,
+            calendarEventId: doc.calendar_event,
+            timestamp: doc.timestamp,
+            uid: uid,
+            deleted: false,
+            verTs: verTs,
+            verCtr: verCtr,
+            verDev: verDev
+        )
+
+        context.insert(entity)
+        try context.save()
     }
 
     func insertDDLFromSnapshot(
@@ -691,16 +1043,23 @@ actor DatabaseHelper {
 
         let newLocalId = nextId(.ddl)
 
+        let state = Self.stateFromV1Flags(
+            isCompleted: doc.is_completed != 0,
+            isArchived: doc.is_archived != 0
+        )
+
         let entity = DDLItemEntity(
             legacyId: newLocalId,
             name: doc.name,
             startTime: doc.start_time,
             endTime: doc.end_time,
-            isCompleted: (doc.is_completed != 0),
+            stateRaw: state.rawValue,
+            isCompleted: state.isCompletedLike,
             completeTime: doc.complete_time,
             note: doc.note,
-            isArchived: (doc.is_archived != 0),
+            isArchived: state.isArchivedLike,
             isStared: (doc.is_stared != 0),
+            subTasksJSON: try Self.encodeSubTasks([]),
             typeRaw: doc.type,
             habitCount: doc.habit_count,
             habitTotalCount: doc.habit_total_count,
@@ -719,6 +1078,65 @@ actor DatabaseHelper {
     
     private func bumpDDLSeqIfNeeded(_ id: Int64) {
         if id > ddlSeq { ddlSeq = id }
+    }
+
+    private func migrateDDLStateAndEmbeddedSubTasksIfNeeded() throws {
+        guard let context else { throw DBError.notInitialized }
+
+        let ddlFD = FetchDescriptor<DDLItemEntity>()
+        let ddls = try context.fetch(ddlFD)
+
+        let subTaskFD = FetchDescriptor<SubTaskEntity>()
+        let subTaskEntities = try context.fetch(subTaskFD)
+        let groupedSubTasks = Dictionary(grouping: subTaskEntities.filter { $0.deleted == false }) { entity in
+            entity.ddl?.legacyId
+        }
+
+        var hasChanges = false
+
+        for ddl in ddls {
+            let expectedState = Self.stateFromLegacy(isCompleted: ddl.isCompleted, isArchived: ddl.isArchived)
+            if ddl.stateRaw != expectedState.rawValue {
+                ddl.stateRaw = expectedState.rawValue
+                hasChanges = true
+            }
+
+            if ddl.subTasksJSON == nil {
+                let migrated = (groupedSubTasks[ddl.legacyId] ?? []).sorted { lhs, rhs in
+                    if lhs.sortOrder != rhs.sortOrder { return lhs.sortOrder < rhs.sortOrder }
+                    return lhs.legacyId < rhs.legacyId
+                }.map { entity in
+                    InnerTodo(
+                        id: String(entity.legacyId),
+                        content: entity.content,
+                        isCompleted: entity.isCompleted,
+                        sortOrder: entity.sortOrder
+                    )
+                }
+                ddl.subTasksJSON = try Self.encodeSubTasks(migrated)
+                hasChanges = true
+            } else {
+                _ = try ddl.decodedSubTasks()
+            }
+        }
+
+        if hasChanges {
+            try context.save()
+        }
+    }
+
+    private static func stateFromLegacy(isCompleted: Bool, isArchived: Bool) -> DDLState {
+        if isArchived { return .archived }
+        if isCompleted { return .completed }
+        return .active
+    }
+
+    private static func stateFromV1Flags(isCompleted: Bool, isArchived: Bool) -> DDLState {
+        stateFromLegacy(isCompleted: isCompleted, isArchived: isArchived)
+    }
+
+    private static func encodeSubTasks(_ subTasks: [InnerTodo]) throws -> Data {
+        try DDLItemEntity.encodeSubTasks(subTasks)
     }
     
     // MARK: - Repair Corrupted Data
@@ -774,4 +1192,18 @@ enum DBError: Error {
     case notInitialized
     case syncStateMissing
     case notFound(String)
+    case invalidData(String)
+}
+
+private extension SnapshotV2InnerTodo {
+    func toDomain() -> InnerTodo {
+        InnerTodo(
+            id: id,
+            content: content,
+            isCompleted: is_completed != 0,
+            sortOrder: sort_order,
+            createdAt: created_at,
+            updatedAt: updated_at
+        )
+    }
 }

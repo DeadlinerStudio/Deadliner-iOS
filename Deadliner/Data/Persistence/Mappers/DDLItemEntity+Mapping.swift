@@ -9,16 +9,25 @@ import Foundation
 
 extension DDLItemEntity {
     func toDomain() -> DDLItem {
-        DDLItem(
+        let state = resolvedState()
+
+        let subTasks: [InnerTodo]
+        do {
+            subTasks = try decodedSubTasks()
+        } catch {
+            preconditionFailure("Failed to decode subTasks for legacyId \(legacyId): \(error)")
+        }
+
+        return DDLItem(
             id: legacyId,
             name: name,
             startTime: startTime,
             endTime: endTime,
-            isCompleted: isCompleted,
+            state: state,
             completeTime: completeTime,
             note: note,
-            isArchived: isArchived,
             isStared: isStared,
+            subTasks: subTasks,
             type: DeadlineType(rawValue: typeRaw) ?? .task,
             habitCount: habitCount,
             habitTotalCount: habitTotalCount,
@@ -33,15 +42,70 @@ extension DDLItemEntity {
         name = domain.name
         startTime = domain.startTime
         endTime = domain.endTime
+        stateRaw = domain.state.rawValue
         isCompleted = domain.isCompleted
         completeTime = domain.completeTime
         note = domain.note
         isArchived = domain.isArchived
         isStared = domain.isStared
+        do {
+            subTasksJSON = try Self.encodeSubTasks(domain.subTasks)
+        } catch {
+            preconditionFailure("Failed to encode subTasks for legacyId \(legacyId): \(error)")
+        }
         typeRaw = domain.type.rawValue
         habitCount = domain.habitCount
         habitTotalCount = domain.habitTotalCount
         calendarEventId = domain.calendarEvent
         timestamp = domain.timestamp
+    }
+}
+
+extension DDLItemEntity {
+    static func encodeSubTasks(_ subTasks: [InnerTodo]) throws -> Data {
+        try JSONEncoder().encode(subTasks.sorted { lhs, rhs in
+            if lhs.sortOrder != rhs.sortOrder { return lhs.sortOrder < rhs.sortOrder }
+            return lhs.id < rhs.id
+        })
+    }
+
+    func decodedSubTasks() throws -> [InnerTodo] {
+        guard let subTasksJSON else { return [] }
+        return try JSONDecoder().decode([InnerTodo].self, from: subTasksJSON)
+    }
+
+    func currentState() -> DDLState? {
+        guard let stateRaw else { return nil }
+        return DDLState(rawValue: stateRaw)
+    }
+
+    func resolvedState() -> DDLState {
+        if let state = currentState() {
+            return state
+        }
+        if isArchived {
+            return .archived
+        }
+        if isCompleted {
+            return .completed
+        }
+        return .active
+    }
+
+    func habitAppliedSnapshotVersionRaw() -> (ts: String, ctr: Int, dev: String)? {
+        guard let ts = habitAppliedVerTs,
+              let ctr = habitAppliedVerCtr,
+              let dev = habitAppliedVerDev,
+              !ts.isEmpty,
+              !dev.isEmpty else {
+            return nil
+        }
+        return (ts: ts, ctr: ctr, dev: dev)
+    }
+
+    func setHabitAppliedSnapshotVersion(ts: String, ctr: Int, dev: String) {
+        habitAppliedVerTs = ts
+        habitAppliedVerCtr = ctr
+        habitAppliedVerDev = dev
     }
 }

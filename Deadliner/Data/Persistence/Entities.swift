@@ -37,16 +37,21 @@ final class DDLItemEntity {
     var name: String
     var startTime: String
     var endTime: String
+    var stateRaw: String?
     var isCompleted: Bool
     var completeTime: String
     var note: String
     var isArchived: Bool
     var isStared: Bool
+    var subTasksJSON: Data?
     var typeRaw: String
     var habitCount: Int
     var habitTotalCount: Int
     var calendarEventId: Int64
     var timestamp: String
+    var habitAppliedVerTs: String?
+    var habitAppliedVerCtr: Int?
+    var habitAppliedVerDev: String?
 
     // Sync fields
     @Attribute(.unique) var uid: String?
@@ -67,16 +72,21 @@ final class DDLItemEntity {
         name: String,
         startTime: String,
         endTime: String,
+        stateRaw: String? = DDLState.active.rawValue,
         isCompleted: Bool,
         completeTime: String,
         note: String,
         isArchived: Bool,
         isStared: Bool,
+        subTasksJSON: Data? = nil,
         typeRaw: String,
         habitCount: Int = 0,
         habitTotalCount: Int = 0,
         calendarEventId: Int64 = -1,
         timestamp: String,
+        habitAppliedVerTs: String? = nil,
+        habitAppliedVerCtr: Int? = nil,
+        habitAppliedVerDev: String? = nil,
         uid: String? = nil,
         deleted: Bool = false,
         verTs: String = "1970-01-01T00:00:00Z",
@@ -87,16 +97,21 @@ final class DDLItemEntity {
         self.name = name
         self.startTime = startTime
         self.endTime = endTime
+        self.stateRaw = stateRaw
         self.isCompleted = isCompleted
         self.completeTime = completeTime
         self.note = note
         self.isArchived = isArchived
         self.isStared = isStared
+        self.subTasksJSON = subTasksJSON
         self.typeRaw = typeRaw
         self.habitCount = habitCount
         self.habitTotalCount = habitTotalCount
         self.calendarEventId = calendarEventId
         self.timestamp = timestamp
+        self.habitAppliedVerTs = habitAppliedVerTs
+        self.habitAppliedVerCtr = habitAppliedVerCtr
+        self.habitAppliedVerDev = habitAppliedVerDev
         self.uid = uid
         self.isTombstoned = deleted
         self.verTs = verTs

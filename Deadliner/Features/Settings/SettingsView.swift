@@ -9,6 +9,8 @@ import SwiftUI
 import PhotosUI
 
 struct SettingsView: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     // 使用统一的枚举状态管理
     @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("userName") private var userName: String = "用户"
@@ -120,14 +122,12 @@ struct SettingsView: View {
             // MARK: - 3. 通用与基础设置
             Section("通用") {
                 NavigationLink(destination: BehaviorAndDisplayView()) {
-                    Label("行为、交互与显示", systemImage: "hand.tap")
+                    settingsLabel("行为、交互与显示", systemImage: "hand.tap")
                 }
                 
                 // 云同步：如果是 Pro 用户，里面会多出一个 iCloud 选项
                 NavigationLink(destination: AccountAndSyncView()) {
-                    HStack {
-                        Label("账号与云同步", systemImage: "cloud")
-                    }
+                    settingsLabel("账号与云同步", systemImage: "cloud")
                 }
             }
 
@@ -136,7 +136,7 @@ struct SettingsView: View {
                 // AI 助手：这是 Deadliner+ 的核心卖点。Free 用户看到 Plus，Geek 用户看到 Pro（吸引他们升级免配置）
                 NavigationLink(destination: AISettingsView()) {
                     HStack {
-                        Label("Deadliner Claw", systemImage: "sparkles")
+                        settingsLabel("Deadliner Claw", systemImage: "sparkles")
                         Spacer()
                         if userTier == .free {
                             PlusBadge()
@@ -150,16 +150,16 @@ struct SettingsView: View {
             // MARK: - 5. 外观与个性化
             // 个性化：只要是 Deadliner+ 计划（Geek 或 Pro）都能解锁
             Section("个性化") {
-                NavigationLink(destination: Text("主题设置开发中...")) {
+                NavigationLink(destination: ThemeSettingsView()) {
                     HStack {
-                        Label("App 主题", systemImage: "paintbrush")
+                        settingsLabel("App 主题", systemImage: "paintbrush")
                         Spacer()
                         if userTier == .free { PlusBadge() }
                     }
                 }
                 NavigationLink(destination: IconSettingsView()) {
                     HStack {
-                        Label("自定义图标", systemImage: "app.dashed")
+                        settingsLabel("自定义图标", systemImage: "app.dashed")
                         Spacer()
                         if userTier == .free { PlusBadge() }
                     }
@@ -169,7 +169,7 @@ struct SettingsView: View {
             // MARK: - 6. 其他
             Section("关于") {
                 HStack {
-                    Label("版本信息", systemImage: "info.circle")
+                    settingsLabel("版本信息", systemImage: "info.circle")
                     Spacer()
                     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
                     let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
@@ -178,7 +178,7 @@ struct SettingsView: View {
                 }
                 
                 Link(destination: URL(string: "https://github.com/AritxOnly/Deadliner-iOS/blob/main/LICENSE")!) {
-                    Label("开源协议 (GPLv3)", systemImage: "doc.text")
+                    settingsLabel("开源协议 (GPLv3)", systemImage: "doc.text")
                 }
             }
         }
@@ -196,6 +196,17 @@ struct SettingsView: View {
         case .free: userTier = .geek
         case .geek: userTier = .pro
         case .pro: userTier = .free
+        }
+    }
+
+    private func settingsLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(themeStore.accentColor)
+                .frame(width: 24)
+
+            Text(title)
+                .foregroundStyle(.primary)
         }
     }
 }

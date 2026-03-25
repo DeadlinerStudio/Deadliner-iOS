@@ -1,0 +1,16 @@
+{
+  "source": "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Views/MediumHomeWidgetView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "暂无任务",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 22
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct AccountAndSyncView: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     @AppStorage("userTier") private var userTier: UserTier = .free
     
     @State private var cloudSyncEnabled = true
@@ -21,6 +23,8 @@ struct AccountAndSyncView: View {
     @State private var showMessage = false
     
     @State private var showPaywall = false
+    @State private var showLogShare = false
+    @State private var logURL: URL?
 
     var body: some View {
         Form {
@@ -57,7 +61,8 @@ struct AccountAndSyncView: View {
             Section("原生云服务") {
                 HStack {
                     Image(systemName: "icloud")
-                        .foregroundColor(.blue)
+                        .foregroundStyle(themeStore.accentColor)
+                        .frame(width: 22)
                     Text("iCloud 无缝同步")
                     Spacer()
                     if userTier == .pro {
@@ -82,12 +87,48 @@ struct AccountAndSyncView: View {
                 }
                 .disabled(isSaving || isLoading)
             }
+
+            Section {
+                Button("导出同步日志") {
+                    Task {
+                        logURL = await SyncDebugLog.exportURL()
+                        showLogShare = true
+                    }
+                }
+
+                Button("清空同步日志", role: .destructive) {
+                    Task {
+                        try? await SyncDebugLog.clear()
+                        message = "同步日志已清空"
+                        showMessage = true
+                    }
+                }
+
+                if let logURL {
+                    HStack {
+                        Text("日志文件")
+                        Spacer()
+                        Text(logURL.lastPathComponent)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("同步日志")
+            } footer: {
+                Text("问题出现后，导出 `deadliner-sync.log` 并反馈。")
+            }
         }
         .navigationTitle("账号与云同步")
         .navigationBarTitleDisplayMode(.inline)
+        .optionalTint(themeStore.switchTint)
         .task { await load() }
         .sheet(isPresented: $showPaywall) {
             ProPaywallView().presentationDetents([.large])
+        }
+        .sheet(isPresented: $showLogShare) {
+            if let logURL {
+                ActivityView(activityItems: [logURL])
+            }
         }
         .alert("提示", isPresented: $showMessage) {
             Button("确定", role: .cancel) {}

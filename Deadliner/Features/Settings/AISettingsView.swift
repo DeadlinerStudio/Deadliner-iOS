@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct AISettingsView: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     // 直接读取全局状态，取代之前传进来的 isProUser
     @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
@@ -43,7 +45,7 @@ struct AISettingsView: View {
             // MARK: - 官方托管服务 (Pro 专属)
             Section {
                 HStack {
-                    Label("使用官方托管 AI 服务", systemImage: "server.rack")
+                    settingsLabel("使用官方托管 AI 服务", systemImage: "server.rack")
                     Spacer()
                     if userTier == .pro {
                         Toggle("", isOn: $useHostedAI)
@@ -102,6 +104,7 @@ struct AISettingsView: View {
         }
         .navigationTitle("Deadliner Claw")
         .navigationBarTitleDisplayMode(.inline)
+        .optionalTint(themeStore.switchTint)
         .sheet(isPresented: $showPaywall) {
             ProPaywallView().presentationDetents([.large])
         }
@@ -151,5 +154,16 @@ struct AISettingsView: View {
         }
         
         isLoading = false
+    }
+
+    private func settingsLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(themeStore.accentColor)
+                .frame(width: 22)
+
+            Text(title)
+                .foregroundStyle(.primary)
+        }
     }
 }

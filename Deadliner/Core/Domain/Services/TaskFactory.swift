@@ -26,11 +26,11 @@ func makeDDLInsertParams(from task: AITask) throws -> DDLInsertParams {
         name: task.name,
         startTime: startISO,
         endTime: finalEndDate.toLocalISOString(),
-        isCompleted: false,
+        state: .active,
         completeTime: "",
         note: task.note ?? "",
-        isArchived: false,
         isStared: false,
+        subTasks: [],
         type: .task,
         calendarEventId: nil
     )

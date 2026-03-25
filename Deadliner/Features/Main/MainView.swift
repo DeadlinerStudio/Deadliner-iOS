@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct MainView: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     @State private var module: MainModule = .taskManagement
     @State private var taskSegment: TaskSegment = .tasks
     @State private var query: String = ""
@@ -196,7 +198,8 @@ struct MainView: View {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.glassProminent)
-                .tint(Color(hex: "#FFFF6D6D"))
+                .tint(themeStore.fabColor)
+                .id("main-fab-\(themeStore.accentOption.rawValue)")
                 .accessibilityLabel("添加选项")
                 
                 .confirmationDialog("选择添加类型", isPresented: $showAddOptions, titleVisibility: .hidden) {

@@ -43,6 +43,7 @@ enum TaskSheetMode: Equatable {
 
 struct TaskEditorSheetView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var themeStore: ThemeStore
 
     @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
 
@@ -137,6 +138,7 @@ struct TaskEditorSheetView: View {
             }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .optionalTint(themeStore.switchTint)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -151,6 +153,7 @@ struct TaskEditorSheetView: View {
                     } label: { Image(systemName: "checkmark") }
                     .disabled(isSaving || isAILoading || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .buttonStyle(.glassProminent)
+                    .tint(themeStore.accentColor)
                 }
             }
             .alert("提示", isPresented: $showAlert, actions: {
@@ -244,11 +247,11 @@ struct TaskEditorSheetView: View {
                     name: trimmed,
                     startTime: startTime.toLocalISOString(),
                     endTime: endTime.toLocalISOString(),
-                    isCompleted: false,
+                    state: .active,
                     completeTime: "",
                     note: note,
-                    isArchived: false,
                     isStared: isStarred,
+                    subTasks: [],
                     type: .task,
                     calendarEventId: nil
                 )

@@ -356,7 +356,12 @@ final class HomeViewModel: ObservableObject {
     func toggleCompleteLocal(_ item: DDLItem) -> Bool {
         beginSuppressReload()
         var updated = item
-        updated.isCompleted.toggle()
+        do {
+            try updated.transition(to: item.isCompleted ? .active : .completed)
+        } catch {
+            logger.error("toggleCompleteLocal transition failed: \(error.localizedDescription)")
+            return item.isCompleted
+        }
         updated.completeTime = updated.isCompleted ? Date().toLocalISOString() : ""
         if let idx = tasks.firstIndex(where: { $0.id == item.id }) {
             tasks[idx] = updated
@@ -367,7 +372,13 @@ final class HomeViewModel: ObservableObject {
 
     func persistToggleComplete(original: DDLItem) async {
         var updated = original
-        updated.isCompleted.toggle()
+        do {
+            try updated.transition(to: original.isCompleted ? .active : .completed)
+        } catch {
+            errorText = "状态流转失败：\(error.localizedDescription)"
+            rollbackTo(original)
+            return
+        }
         updated.completeTime = updated.isCompleted ? Date().toLocalISOString() : ""
         do {
             try await repo.updateDDL(updated)
@@ -379,7 +390,12 @@ final class HomeViewModel: ObservableObject {
     
     func toggleArchiveItem(item: DDLItem) async {
         var updated = item
-        updated.isArchived.toggle()
+        do {
+            try updated.transition(to: item.isArchived ? .completed : .archived)
+        } catch {
+            errorText = "状态流转失败：\(error.localizedDescription)"
+            return
+        }
         do {
             try await repo.updateDDL(updated)
             await reload()

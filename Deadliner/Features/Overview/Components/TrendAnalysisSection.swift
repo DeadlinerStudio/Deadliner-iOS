@@ -106,6 +106,8 @@ private struct StatsCardContainer<Content: View>: View {
 }
 
 private struct DailyCompletedCard: View {
+    @EnvironmentObject private var themeStore: ThemeStore
+
     let dailyStats: [DailyStat]
     @State private var isOverdueShow: Bool = true
     
@@ -122,6 +124,7 @@ private struct DailyCompletedCard: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                .optionalTint(themeStore.switchTint)
                 .toggleStyle(CheckboxToggleStyle(color: .red))
             }
             .padding(.bottom, 10)

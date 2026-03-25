@@ -12,6 +12,11 @@ class HabitRepository {
     static let shared = HabitRepository()
     private let db = DatabaseHelper.shared
     private let logger = Logger(subsystem: "Deadliner", category: "HabitRepository")
+
+    private func trace(_ message: String) {
+        logger.info("\(message, privacy: .public)")
+        SyncDebugLog.log(message)
+    }
     
     private var reminderUpdateTimer: Timer?
     
@@ -67,6 +72,8 @@ class HabitRepository {
             alarmTime: alarmTime
         )
         let id = try await db.insertHabit(ddlLegacyId: ddlId, habit: habit)
+        try await db.touchDDLVersion(legacyId: ddlId)
+        await SyncCoordinator.shared.scheduleSync()
         scheduleReminderRefresh()
         return id
     }
@@ -87,6 +94,8 @@ class HabitRepository {
         var updated = habit
         updated.updatedAt = nowISO()
         try await db.updateHabit(updated)
+        try await db.touchDDLVersion(legacyId: updated.ddlId)
+        await SyncCoordinator.shared.scheduleSync()
         scheduleReminderRefresh()
     }
     
@@ -94,7 +103,9 @@ class HabitRepository {
         if let habit = try await getHabitByDDLId(ddlLegacyId: ddlId) {
             NotificationManager.shared.cancelHabitNotifications(for: habit.id)
         }
+        try await db.touchDDLVersion(legacyId: ddlId)
         try await db.deleteHabitByDDLId(ddlLegacyId: ddlId)
+        await SyncCoordinator.shared.scheduleSync()
         scheduleReminderRefresh()
     }
     
@@ -139,19 +150,26 @@ class HabitRepository {
         count: Int = 1,
         status: HabitRecordStatus = .completed
     ) async throws -> Int64 {
+        trace("insertRecord request habitId=\(habitId) date=\(self.formatDate(date)) count=\(count) status=\(status.rawValue)")
         let record = HabitRecord(
             id: -1,
             habitId: habitId,
-            date: formatDate(date),
+            date: self.formatDate(date),
             count: count,
             status: status,
             createdAt: nowISO()
         )
-        return try await db.insertHabitRecord(habitLegacyId: habitId, record: record)
+        let id = try await db.insertHabitRecord(habitLegacyId: habitId, record: record)
+        try await db.touchHabitCarrierVersionByHabitId(habitLegacyId: habitId)
+        await SyncCoordinator.shared.scheduleSync()
+        return id
     }
     
     func deleteRecordsForHabitOnDate(habitId: Int64, date: Date) async throws {
+        trace("deleteRecordsForHabitOnDate request habitId=\(habitId) date=\(self.formatDate(date))")
         try await db.deleteHabitRecordsForHabitOnDate(habitLegacyId: habitId, date: formatDate(date))
+        try await db.touchHabitCarrierVersionByHabitId(habitLegacyId: habitId)
+        await SyncCoordinator.shared.scheduleSync()
     }
     
     func getCompletedIdsForDate(date: Date) async throws -> Set<Int64> {
@@ -197,11 +215,12 @@ class HabitRepository {
         let recordsToday = (try await db.getHabitRecordsForHabitOnDate(habitLegacyId: habitId, date: dateStr))
             .filter { $0.status == .completed }
         let todayCount = recordsToday.reduce(0) { $0 + $1.count }
+        trace("toggleRecord habitId=\(habitId) date=\(dateStr) todayCount=\(todayCount) period=\(habit.period.rawValue)")
         
         if habit.period == .daily || habit.period == .once || habit.period == .ebbinghaus {
             // === 简单模式 (0/1) ===
             if todayCount > 0 {
-                try await db.deleteHabitRecordsForHabitOnDate(habitLegacyId: habitId, date: dateStr)
+                try await deleteRecordsForHabitOnDate(habitId: habitId, date: date)
             } else {
                 try await insertRecord(habitId: habitId, date: date, count: 1, status: .completed)
             }
@@ -219,7 +238,7 @@ class HabitRepository {
             let totalInPeriod = recordsInPeriod.reduce(0) { $0 + $1.count }
             
             if todayCount > 0 {
-                try await db.deleteHabitRecordsForHabitOnDate(habitLegacyId: habitId, date: dateStr)
+                try await deleteRecordsForHabitOnDate(habitId: habitId, date: date)
             } else {
                 if totalInPeriod >= target && habit.goalType == .perPeriod {
                     logger.info("Habit goal reached for period. No-op.")
@@ -229,7 +248,6 @@ class HabitRepository {
             }
         }
         
-        // 触发提醒更新
         scheduleReminderRefresh()
     }
     
@@ -382,7 +400,11 @@ extension HabitRepository: HabitWritePort {
     
     func deleteHabit(legacyId: Int64) async throws {
         NotificationManager.shared.cancelHabitNotifications(for: legacyId)
+        if let habit = try await db.getHabitById(id: legacyId) {
+            try await db.touchDDLVersion(legacyId: habit.ddlId)
+        }
         try await db.deleteHabit(legacyId: legacyId)
+        await SyncCoordinator.shared.scheduleSync()
         scheduleReminderRefresh()
     }
     
@@ -394,6 +416,15 @@ extension HabitRepository: HabitWritePort {
     }
     
     func deleteRecord(recordLegacyId: Int64) async throws {
+        let records = try await db.getHabitRecordsInRange(
+            startDate: "0000-01-01",
+            endDate: "9999-12-31"
+        )
+        guard let target = records.first(where: { $0.id == recordLegacyId }) else {
+            throw DBError.notFound("HabitRecord \(recordLegacyId)")
+        }
         try await db.deleteHabitRecord(legacyId: recordLegacyId)
+        try await db.touchHabitCarrierVersionByHabitId(habitLegacyId: target.habitId)
+        await SyncCoordinator.shared.scheduleSync()
     }
 }

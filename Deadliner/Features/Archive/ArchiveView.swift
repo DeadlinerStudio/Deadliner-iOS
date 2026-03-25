@@ -220,7 +220,7 @@ struct ArchiveView: View {
         do {
             switch target {
             case .task(var item):
-                item.isArchived = false
+                try item.transition(to: .completed)
                 try await taskRepo.updateDDL(item)
                 archivedTasks.removeAll { $0.id == item.id }
             case .habit(var habit):

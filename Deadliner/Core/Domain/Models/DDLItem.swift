@@ -15,12 +15,12 @@ struct DDLItem: Identifiable, Equatable, Sendable {
     var startTime: String
     var endTime: String
 
-    var isCompleted: Bool
+    var state: DDLState
     var completeTime: String
 
     var note: String
-    var isArchived: Bool
     var isStared: Bool
+    var subTasks: [InnerTodo]
 
     var type: DeadlineType
 
@@ -33,9 +33,22 @@ struct DDLItem: Identifiable, Equatable, Sendable {
     // 业务时间戳（你当前是字符串）
     var timestamp: String
 
+    var isCompleted: Bool {
+        state.isCompletedLike
+    }
+
+    var isArchived: Bool {
+        state.isArchivedLike
+    }
+
     // 可选：给 UI/Repo 用的便捷字段
     var progress: Double {
         guard habitTotalCount > 0 else { return 0 }
         return min(max(Double(habitCount) / Double(habitTotalCount), 0), 1)
+    }
+
+    mutating func transition(to newState: DDLState) throws {
+        try DDLStateMachine.validateTransition(from: state, to: newState)
+        state = newState
     }
 }
