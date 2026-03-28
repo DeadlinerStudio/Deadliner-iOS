@@ -21,7 +21,7 @@ actor ToolCallExecutor {
 
     nonisolated func normalizeToolName(_ toolName: String) -> String {
         switch toolName {
-        case "read_tasks", "readTasks":
+        case "read_tasks", "readTasks", "ReadTaskContext":
             return "readTasks"
         default:
             return toolName

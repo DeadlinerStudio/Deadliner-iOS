@@ -14,7 +14,7 @@ enum UserTier: String {
         switch self {
         case .free: return "FREE 用户"
         case .geek: return "GEEK 极客"
-        case .pro: return "PRO 会员"
+        case .pro: return "GEEK 极客"
         }
     }
 }

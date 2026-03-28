@@ -18,7 +18,7 @@ struct TopBarGradientOverlay: View {
         let p = min(max(progress, 0), 1)
 
         // 高度随滚动缩短
-        let h: CGFloat = max(0, 280 - 240 * p)
+        let h: CGFloat = max(0, 340 - 340 * p)
 
         let baseAlpha: CGFloat = colorScheme == .dark ? 0.60 : 0.95
         let topAlpha: CGFloat = max(0, baseAlpha - 0.50 * p)

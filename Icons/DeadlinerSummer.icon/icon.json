@@ -26,22 +26,80 @@
   ],
   "groups" : [
     {
+      "blur-material" : 0.5,
       "layers" : [
         {
-          "glass" : false,
-          "image-name" : "summer1.png",
-          "name" : "summer1",
-          "position" : {
-            "scale" : 1.15,
-            "translation-in-points" : [
-              30,
-              0
-            ]
-          }
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Details_pencil_summer.png",
+          "name" : "Details_pencil_summer"
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.25
+      }
+    },
+    {
+      "blend-mode" : "normal",
+      "blur-material" : null,
+      "layers" : [
+        {
+          "image-name" : "Details_summer.png",
+          "name" : "Details_summer"
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.3
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Base3_spring.png",
+          "name" : "Base3_spring"
+        },
+        {
+          "fill" : {
+            "solid" : "display-p3:0.12443,0.42585,0.89654,1.00000"
+          },
+          "image-name" : "Base2_spring.png",
+          "name" : "Base2_spring"
         }
       ],
       "shadow" : {
         "kind" : "neutral",
+        "opacity" : 0
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "Base1_spring.png",
+          "name" : "Base1_spring"
+        }
+      ],
+      "shadow" : {
+        "kind" : "layer-color",
         "opacity" : 0.5
       },
       "translucency" : {

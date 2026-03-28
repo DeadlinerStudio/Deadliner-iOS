@@ -29,6 +29,8 @@ struct DeadlinerApp: App {
                 .task {
                     if AppReleaseGate.unlockGeekForCurrentRelease {
                         userTier = .geek
+                    } else if userTier == .pro {
+                        userTier = .geek
                     }
 
                     // 请求通知权限

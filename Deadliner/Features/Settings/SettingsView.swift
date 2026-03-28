@@ -9,9 +9,6 @@ import SwiftUI
 import PhotosUI
 
 struct SettingsView: View {
-    @EnvironmentObject private var themeStore: ThemeStore
-
-    // 使用统一的枚举状态管理
     @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("userName") private var userName: String = "用户"
     @StateObject private var avatarManager = AvatarManager.shared
@@ -21,6 +18,7 @@ struct SettingsView: View {
     @State private var showCropper = false
     @State private var showNameAlert = false
     @State private var tempName = ""
+    @State private var animateRows = false
 
     var body: some View {
         List {
@@ -100,10 +98,8 @@ struct SettingsView: View {
                             switch userTier {
                             case .free:
                                 Color.gray.opacity(0.15)
-                            case .geek:
+                            case .geek, .pro:
                                 LinearGradient(colors: [.cyan, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-                            case .pro:
-                                LinearGradient(colors: [.orange, .red], startPoint: .topLeading, endPoint: .bottomTrailing)
                             }
                         }
                     )
@@ -113,38 +109,40 @@ struct SettingsView: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets())
+            .settingsRowEntrance(isVisible: animateRows, index: 0)
             
             // MARK: - 2. Deadliner+ 引导横幅
             if userTier == .free {
                 PlusUpsellSection(showPaywall: $showProPaywall)
+                    .settingsRowEntrance(isVisible: animateRows, index: 1)
             }
 
             // MARK: - 3. 通用与基础设置
             Section("通用") {
                 NavigationLink(destination: BehaviorAndDisplayView()) {
-                    settingsLabel("行为、交互与显示", systemImage: "hand.tap")
+                    settingsLabel("行为、交互与显示", systemImage: "hand.tap.fill", tintColors: [.gray, .gray.opacity(0.7)])
                 }
+                .settingsRowEntrance(isVisible: animateRows, index: 2)
                 
                 // 云同步：如果是 Pro 用户，里面会多出一个 iCloud 选项
                 NavigationLink(destination: AccountAndSyncView()) {
-                    settingsLabel("账号与云同步", systemImage: "cloud")
+                    settingsLabel("账号与云同步", systemImage: "cloud.fill", tintColors: [.blue, .blue.opacity(0.7)])
                 }
+                .settingsRowEntrance(isVisible: animateRows, index: 3)
             }
 
             // MARK: - 4. 效率引擎
             Section("效率引擎") {
-                // AI 助手：这是 Deadliner+ 的核心卖点。Free 用户看到 Plus，Geek 用户看到 Pro（吸引他们升级免配置）
                 NavigationLink(destination: AISettingsView()) {
                     HStack {
-                        settingsLabel("Deadliner Claw", systemImage: "sparkles")
+                        settingsLabel("Deadliner Claw", systemImage: "sparkles", tintColors: [.indigo, .indigo.opacity(0.7)])
                         Spacer()
                         if userTier == .free {
                             PlusBadge()
-                        } else if userTier == .geek {
-                            ProBadge()
                         }
                     }
                 }
+                .settingsRowEntrance(isVisible: animateRows, index: 4)
             }
 
             // MARK: - 5. 外观与个性化
@@ -152,34 +150,38 @@ struct SettingsView: View {
             Section("个性化") {
                 NavigationLink(destination: ThemeSettingsView()) {
                     HStack {
-                        settingsLabel("App 主题", systemImage: "paintbrush")
+                        settingsLabel("App 主题", systemImage: "paintbrush.fill", tintColors: [.orange, .orange.opacity(0.7)])
                         Spacer()
                         if userTier == .free { PlusBadge() }
                     }
                 }
+                .settingsRowEntrance(isVisible: animateRows, index: 5)
                 NavigationLink(destination: IconSettingsView()) {
                     HStack {
-                        settingsLabel("自定义图标", systemImage: "app.dashed")
+                        settingsLabel("自定义图标", systemImage: "app.fill", tintColors: [.mint, .mint.opacity(0.7)])
                         Spacer()
                         if userTier == .free { PlusBadge() }
                     }
                 }
+                .settingsRowEntrance(isVisible: animateRows, index: 6)
             }
 
             // MARK: - 6. 其他
             Section("关于") {
                 HStack {
-                    settingsLabel("版本信息", systemImage: "info.circle")
+                    settingsLabel("版本信息", systemImage: "info.circle.fill", tintColors: [.gray, .gray.opacity(0.7)])
                     Spacer()
                     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
                     let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
                     Text("\(version) (\(build))")
                         .foregroundColor(.secondary)
                 }
+                .settingsRowEntrance(isVisible: animateRows, index: 7)
                 
                 Link(destination: URL(string: "https://github.com/AritxOnly/Deadliner-iOS/blob/main/LICENSE")!) {
-                    settingsLabel("开源协议 (GPLv3)", systemImage: "doc.text")
+                    settingsLabel("开源协议 (GPLv3)", systemImage: "doc.text.fill", tintColors: [.pink, .pink.opacity(0.7)])
                 }
+                .settingsRowEntrance(isVisible: animateRows, index: 8)
             }
         }
         .navigationTitle("设置")
@@ -188,25 +190,21 @@ struct SettingsView: View {
             ProPaywallView()
                 .presentationDetents([.large])
         }
+        .task {
+            guard !animateRows else { return }
+            animateRows = true
+        }
     }
     
     // 测试用快捷方法
     private func toggleUserTierForTesting() {
         switch userTier {
         case .free: userTier = .geek
-        case .geek: userTier = .pro
-        case .pro: userTier = .free
+        case .geek, .pro: userTier = .free
         }
     }
 
-    private func settingsLabel(_ title: String, systemImage: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .foregroundStyle(themeStore.accentColor)
-                .frame(width: 24)
-
-            Text(title)
-                .foregroundStyle(.primary)
-        }
+    private func settingsLabel(_ title: String, systemImage: String, tintColors: [Color]) -> some View {
+        SettingsListLabel(title: title, systemImage: systemImage, tintColors: tintColors, style: .main)
     }
 }

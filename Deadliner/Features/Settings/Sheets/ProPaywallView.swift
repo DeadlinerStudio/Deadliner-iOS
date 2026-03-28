@@ -16,8 +16,6 @@ struct ProPaywallView: View {
     @StateObject private var storeManager = StoreManager.shared
     @State private var selectedTier: UserTier = .geek
     @State private var isPurchasing = false
-    
-    private let isProDisabled = true
 
     var body: some View {
         NavigationStack {
@@ -40,25 +38,10 @@ struct ProPaywallView: View {
                                 title: "极客版 (Geek)",
                                 price: geekProduct?.displayPrice ?? "￥28",
                                 period: "永久买断",
-                                isSelected: selectedTier == .geek
+                                isSelected: true
                             ) {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                     selectedTier = .geek
-                                }
-                            }
-                            
-                            TierSelectionCard(
-                                title: "托管版 (Pro)",
-                                price: "￥6",
-                                period: "每月",
-                                isSelected: selectedTier == .pro,
-                                badge: "施工中",
-                                isDisabled: isProDisabled
-                            ) {
-                                if !isProDisabled {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        selectedTier = .pro
-                                    }
                                 }
                             }
                         }
@@ -67,24 +50,6 @@ struct ProPaywallView: View {
 
                         // 动态权益列表
                         featuresList
-                        
-                        if selectedTier == .pro && isProDisabled {
-                            VStack(spacing: 8) {
-                                Image(systemName: "hammer.fill")
-                                    .font(.title)
-                                    .foregroundColor(.orange)
-                                Text("Pro 功能正在施工中")
-                                    .font(.headline)
-                                Text("托管版暂不支持购买，敬请期待。")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.orange.opacity(0.1))
-                            .cornerRadius(12)
-                            .padding(.horizontal, 24)
-                        }
                         
                         // MARK: 新增：开发者的一封信
                         developerLetterCard
@@ -123,7 +88,7 @@ struct ProPaywallView: View {
                 .font(.largeTitle)
                 .fontWeight(.heavy)
 
-            Text("加入赞助计划，选择最适合你的效率方案")
+            Text("加入赞助计划，解锁 Deadliner 的 Geek 能力")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -131,15 +96,10 @@ struct ProPaywallView: View {
     
     private var featuresList: some View {
         VStack(spacing: 24) {
-            if selectedTier == .geek {
-                FeatureRow(icon: "key.horizontal", color: .purple, title: "自带密钥 (BYOK) AI", description: "填入自定义 DeepSeek API Key，本地直连，数据绝对私密。")
-                FeatureRow(icon: "chart.line.uptrend.xyaxis", color: .blue, title: "本地艾宾浩斯引擎", description: "解锁离线计算的科学记忆与复习日程规划功能。")
-                FeatureRow(icon: "paintbrush.fill", color: .orange, title: "高级视觉与交互", description: "解锁全部专属主题、交互光效与自定义 App 图标。")
-            } else {
-                FeatureRow(icon: "sparkles", color: .purple, title: "开箱即用的 Deadliner Claw", description: "无需配置 Key，零门槛使用官方服务器高速接口拆解任务。")
-                FeatureRow(icon: "icloud.fill", color: .cyan, title: "iCloud 无缝同步", description: "原生级云同步体验，免去 WebDAV 的折腾。")
-                FeatureRow(icon: "plus.diamond.fill", color: .orange, title: "包含极客版全部特权", description: "自动享有艾宾浩斯复习、高级视觉等全部核心功能。")
-            }
+            FeatureRow(icon: "key.horizontal", color: .purple, title: "自带密钥 (BYOK) AI", description: "填入自定义 DeepSeek API Key，本地直连，数据绝对私密。")
+            FeatureRow(icon: "icloud.fill", color: .cyan, title: "iCloud 与 WebDAV 同步", description: "解锁更完整的同步能力，按你的使用习惯自由选择。")
+            FeatureRow(icon: "chart.line.uptrend.xyaxis", color: .blue, title: "本地艾宾浩斯引擎", description: "解锁离线计算的科学记忆与复习日程规划功能。")
+            FeatureRow(icon: "paintbrush.fill", color: .orange, title: "高级视觉与交互", description: "解锁全部专属主题、交互光效与自定义 App 图标。")
         }
         .padding(.horizontal, 24)
         .frame(minHeight: 220, alignment: .top)
@@ -196,13 +156,7 @@ struct ProPaywallView: View {
                     if isPurchasing {
                         ProgressView().tint(.white)
                     } else {
-                        let buttonText: String = {
-                            if selectedTier == .geek {
-                                return geekProduct != nil ? "支付 \(geekProduct!.displayPrice) 永久解锁" : "支付 ￥28.00 永久解锁"
-                            } else {
-                                return isProDisabled ? "暂不可用" : "￥6.00 / 月 立即订阅"
-                            }
-                        }()
+                        let buttonText = geekProduct != nil ? "支付 \(geekProduct!.displayPrice) 永久解锁" : "支付 ￥28.00 永久解锁"
                         Text(buttonText)
                             .font(.title3)
                             .fontWeight(.bold)
@@ -212,7 +166,7 @@ struct ProPaywallView: View {
                 .padding(.vertical, 12)
                 .background(
                     LinearGradient(
-                        colors: selectedTier == .geek ? [.blue, .cyan] : (isProDisabled && selectedTier == .pro ? [.gray, .gray.opacity(0.8)] : [.orange, .red]),
+                        colors: [.blue, .cyan],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -220,9 +174,9 @@ struct ProPaywallView: View {
                 .foregroundColor(.white)
                 // 关键点：使用 Capsule() 实现两端完全半圆，等同于 cornerRadius(48)
                 .clipShape(Capsule())
-                .shadow(color: (selectedTier == .geek ? Color.blue : (isProDisabled && selectedTier == .pro ? Color.gray : Color.red)).opacity(0.3), radius: 12, x: 0, y: 6)
+                .shadow(color: Color.blue.opacity(0.3), radius: 12, x: 0, y: 6)
             }
-            .disabled(isPurchasing || (isProDisabled && selectedTier == .pro))
+            .disabled(isPurchasing)
 
             // 恢复购买与协议
             HStack(spacing: 16) {
@@ -250,17 +204,15 @@ struct ProPaywallView: View {
     @MainActor
     private func purchaseSelectedTier() async {
         isPurchasing = true
-        
-        if selectedTier == .geek {
-            if let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID }) {
-                do {
-                    let success = try await storeManager.purchase(geekProduct)
-                    if success {
-                        dismiss()
-                    }
-                } catch {
-                    print("❌ 购买失败: \(error)")
+
+        if let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID }) {
+            do {
+                let success = try await storeManager.purchase(geekProduct)
+                if success {
+                    dismiss()
                 }
+            } catch {
+                print("❌ 购买失败: \(error)")
             }
         }
         
@@ -274,8 +226,6 @@ struct TierSelectionCard: View {
     let price: String
     let period: String
     let isSelected: Bool
-    var badge: String? = nil
-    var isDisabled: Bool = false
     let action: () -> Void
     
     var body: some View {
@@ -290,7 +240,7 @@ struct TierSelectionCard: View {
                 Text(price)
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(isDisabled ? .secondary : .primary)
+                    .foregroundColor(.primary)
                 
                 Text(period)
                     .font(.caption)
@@ -304,22 +254,8 @@ struct TierSelectionCard: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? (isDisabled ? Color.gray : (badge != nil ? Color.orange : Color.blue)) : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
+                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
             )
-            .opacity(isDisabled && !isSelected ? 0.6 : 1.0)
-            // 关键点：使用 overlay(alignment: .top) 把角标悬浮在边框上，脱离 VStack 的文档流，不会改变卡片自身的高度
-            .overlay(alignment: .top) {
-                if let badge = badge {
-                    Text(badge)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.red)
-                        .clipShape(Capsule())
-                        .offset(y: -12) // 向上偏移出一半
-                }
-            }
         }
         .buttonStyle(.plain)
     }

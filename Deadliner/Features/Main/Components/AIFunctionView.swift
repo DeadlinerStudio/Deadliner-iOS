@@ -910,7 +910,7 @@ extension AIFunctionView {
 
     private func toolCollaborationMessage(for toolName: String) -> String {
         switch toolName {
-        case "readTasks", "read_tasks":
+        case "readTasks", "read_tasks", "ReadTaskContext":
             return "任务代理请求读取本地任务列表"
         default:
             return "\(toolName) 工具正在参与协作"

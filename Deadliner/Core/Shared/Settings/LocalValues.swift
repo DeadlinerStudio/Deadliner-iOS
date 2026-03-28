@@ -63,7 +63,7 @@ actor LocalValues {
             Key.autoArchiveDays: 7,
             Key.aiBaseUrl: "https://api.deepseek.com",
             Key.aiModel: "deepseek-chat",
-            Key.aiUseHosted: true,
+            Key.aiUseHosted: false,
             Key.aiConfigured: false,
             Key.aiEnabled: true,
             Key.progressDir: false
@@ -250,6 +250,9 @@ actor LocalValues {
             Key.aiApiKey,
             Key.aiBaseUrl,
             Key.aiModel,
+            Key.aiUseHosted,
+            Key.aiConfigured,
+            Key.aiEnabled,
             Key.progressDir
         ]
         keys.forEach { defaults.removeObject(forKey: $0) }

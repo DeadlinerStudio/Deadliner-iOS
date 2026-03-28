@@ -43,8 +43,8 @@ struct BehaviorAndDisplayView: View {
             }
             
             Section("界面显示 (开发中)") {
-                settingsLabel("默认主页设置", systemImage: "house")
-                settingsLabel("列表排序规则", systemImage: "arrow.up.arrow.down")
+                settingsLabel("默认主页设置", systemImage: "house.fill", palette: .ocean)
+                settingsLabel("列表排序规则", systemImage: "arrow.up.arrow.down.circle.fill", palette: .sunrise)
             }
         }
         .navigationTitle("行为与交互")
@@ -62,14 +62,7 @@ struct BehaviorAndDisplayView: View {
         }
     }
 
-    private func settingsLabel(_ title: String, systemImage: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .foregroundStyle(themeStore.accentColor)
-                .frame(width: 22)
-
-            Text(title)
-                .foregroundStyle(.primary)
-        }
+    private func settingsLabel(_ title: String, systemImage: String, palette: SettingsIconPalette) -> some View {
+        SettingsListLabel(title: title, systemImage: systemImage, palette: palette, style: .detail)
     }
 }

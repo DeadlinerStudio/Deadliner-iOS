@@ -28,8 +28,7 @@ struct AccountAndSyncView: View {
 
     var body: some View {
         Form {
-            // 云同步的高阶方案是 Pro，所以如果不是 Pro，都可以推一下
-            if userTier != .pro {
+            if userTier == .free {
                 PlusUpsellSection(showPaywall: $showPaywall)
             }
             
@@ -57,21 +56,24 @@ struct AccountAndSyncView: View {
                 }
             }
 
-            // 小白省心选项 (Pro 专属)
-            Section("原生云服务") {
+            Section {
                 HStack {
-                    Image(systemName: "icloud")
-                        .foregroundStyle(themeStore.accentColor)
-                        .frame(width: 22)
+                    SettingsGradientSymbolIcon(systemName: "icloud.fill", palette: .sky)
                     Text("iCloud 无缝同步")
                     Spacer()
-                    if userTier == .pro {
+                    if userTier != .free {
                         Toggle("", isOn: .constant(true)) // 占位
                     } else {
-                        ProBadge()
+                        GeekBadge()
                     }
                 }
-                .disabled(userTier != .pro)
+                .disabled(userTier == .free)
+            } header: {
+                Text("原生云服务")
+            } footer: {
+                Text(userTier == .free
+                     ? "Geek 可解锁 iCloud 无缝同步。"
+                     : "已归入 Geek 权益。当前为占位入口，后续会在这里补齐原生同步细节。")
             }
             
             Section {

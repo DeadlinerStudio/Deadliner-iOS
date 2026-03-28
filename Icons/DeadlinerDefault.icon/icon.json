@@ -28,6 +28,39 @@
     {
       "layers" : [
         {
+          "image-name" : "Details_pencil_base.png",
+          "name" : "Details_pencil_base"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "Base.png",
+          "name" : "Base"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "hidden" : true,
+      "layers" : [
+        {
           "blend-mode" : "normal",
           "fill" : "none",
           "glass" : false,

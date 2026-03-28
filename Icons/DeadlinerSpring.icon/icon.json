@@ -28,6 +28,58 @@
     {
       "layers" : [
         {
+          "blend-mode" : "soft-light",
+          "fill" : "none",
+          "glass" : false,
+          "image-name" : "Details_pencil_spring.png",
+          "name" : "Details_pencil_spring"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "Details_spring.png",
+          "name" : "Details_spring"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "Base_spring.png",
+          "name" : "Base_spring"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "hidden" : true,
+      "layers" : [
+        {
           "glass" : false,
           "image-name" : "spring 2.png",
           "name" : "spring 2",
