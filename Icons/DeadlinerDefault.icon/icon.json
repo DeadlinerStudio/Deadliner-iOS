@@ -26,15 +26,39 @@
   ],
   "groups" : [
     {
+      "blur-material" : 0.5,
       "layers" : [
         {
-          "image-name" : "Details_pencil_base.png",
-          "name" : "Details_pencil_base"
+          "image-name" : "Details_pencil_summer.png",
+          "name" : "Details_pencil_summer"
         }
       ],
+      "name" : "Pencil",
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.5
+        "opacity" : 0.1
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.25
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "Base1_spring.png",
+          "name" : "Base1_spring"
+        },
+        {
+          "fill" : "automatic",
+          "image-name" : "Base2.png",
+          "name" : "Base2"
+        }
+      ],
+      "name" : "Calendar",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.1
       },
       "translucency" : {
         "enabled" : true,
@@ -44,42 +68,14 @@
     {
       "layers" : [
         {
-          "image-name" : "Base.png",
-          "name" : "Base"
+          "image-name" : "Base1.png",
+          "name" : "Base1"
         }
       ],
+      "name" : "Bg",
       "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
-      },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
-      }
-    },
-    {
-      "hidden" : true,
-      "layers" : [
-        {
-          "blend-mode" : "normal",
-          "fill" : "none",
-          "glass" : false,
-          "hidden" : false,
-          "image-name" : "foreground_1024.png",
-          "name" : "foreground_1024",
-          "opacity" : 1,
-          "position" : {
-            "scale" : 1.2,
-            "translation-in-points" : [
-              0,
-              0
-            ]
-          }
-        }
-      ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+        "kind" : "layer-color",
+        "opacity" : 0.1
       },
       "translucency" : {
         "enabled" : true,

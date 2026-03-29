@@ -1,0 +1,279 @@
+{
+  "" : {
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetExtension-primary.dia",
+    "emit-module-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetExtension-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetExtension-primary-emit-module.dia",
+    "pch" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetExtension-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetExtension-primary.swiftdeps"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Core/Domain/Enums/DeadlineEnums.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineEnums.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineEnums.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineEnums.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineEnums.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineEnums.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineEnums.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineEnums.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineEnums~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Core/Domain/Models/DDLItem.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Core/Domain/Models/DDLState.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLState.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLState.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLState.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLState.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLState.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLState.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLState.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLState~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Core/Domain/Models/InnerTodo.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/InnerTodo.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/InnerTodo.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/InnerTodo.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/InnerTodo.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/InnerTodo.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/InnerTodo.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/InnerTodo.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/InnerTodo~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Core/Persistence/SharedModelContainer.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SharedModelContainer~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Core/Shared/DateParsing/DeadlineDateParser.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlineDateParser~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Data/Persistence/Entities.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/Entities~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Data/Persistence/Mappers/DDLItemEntity+Mapping.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItemEntity+Mapping~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/Deadliner/Shared/UI/Components/LinearProgressView.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LinearProgressView~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/AppIntent.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/AppIntent.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/AppIntent.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/AppIntent.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/AppIntent.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/AppIntent.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/AppIntent.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/AppIntent.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/AppIntent~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/DeadlinerWidget.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidget.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidget.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidget.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidget.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidget.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidget.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidget.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidget~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/DeadlinerWidgetBundle.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetBundle.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetBundle.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetBundle.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetBundle.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetBundle.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetBundle.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetBundle.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetBundle~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/DeadlinerWidgetControl.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetControl.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetControl.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetControl.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetControl.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetControl.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetControl.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetControl.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetControl~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/DeadlinerWidgetLiveActivity.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetLiveActivity.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetLiveActivity.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetLiveActivity.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetLiveActivity.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetLiveActivity.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetLiveActivity.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetLiveActivity.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetLiveActivity~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/ListSmallWidget.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/ListSmallWidget.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/ListSmallWidget.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/ListSmallWidget.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/ListSmallWidget.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/ListSmallWidget.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/ListSmallWidget.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/ListSmallWidget.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/ListSmallWidget~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Models/DDLItem+WidgetMock.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem+WidgetMock.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem+WidgetMock.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem+WidgetMock.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem+WidgetMock.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem+WidgetMock.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem+WidgetMock.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem+WidgetMock.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DDLItem+WidgetMock~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Models/DeadlinerEntry.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerEntry.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerEntry.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerEntry.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerEntry.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerEntry.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerEntry.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerEntry.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerEntry~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Providers/DeadlinerWidgetProvider.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetProvider.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetProvider.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetProvider.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetProvider.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetProvider.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetProvider.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetProvider.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetProvider~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Utilities/DeadlinerWidgetHelpers.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetHelpers.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetHelpers.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetHelpers.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetHelpers.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetHelpers.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetHelpers.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetHelpers.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetHelpers~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Views/CompactTaskRow.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/CompactTaskRow.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/CompactTaskRow.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/CompactTaskRow.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/CompactTaskRow.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/CompactTaskRow.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/CompactTaskRow.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/CompactTaskRow.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/CompactTaskRow~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Views/DeadlinerWidgetEntryView.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetEntryView.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetEntryView.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetEntryView.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetEntryView.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetEntryView.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetEntryView.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetEntryView.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/DeadlinerWidgetEntryView~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Views/LockScreenCircularWidgetView.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenCircularWidgetView.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenCircularWidgetView.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenCircularWidgetView.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenCircularWidgetView.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenCircularWidgetView.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenCircularWidgetView.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenCircularWidgetView.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenCircularWidgetView~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Views/LockScreenRectangularWidgetView.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenRectangularWidgetView.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenRectangularWidgetView.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenRectangularWidgetView.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenRectangularWidgetView.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenRectangularWidgetView.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenRectangularWidgetView.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenRectangularWidgetView.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/LockScreenRectangularWidgetView~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Views/MediumHomeWidgetView.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/MediumHomeWidgetView.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/MediumHomeWidgetView.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/MediumHomeWidgetView.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/MediumHomeWidgetView.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/MediumHomeWidgetView.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/MediumHomeWidgetView.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/MediumHomeWidgetView.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/MediumHomeWidgetView~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Views/SmallHomeWidgetView.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallHomeWidgetView.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallHomeWidgetView.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallHomeWidgetView.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallHomeWidgetView.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallHomeWidgetView.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallHomeWidgetView.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallHomeWidgetView.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallHomeWidgetView~partial.swiftmodule"
+  },
+  "/Users/aritxonly/Codes/iOS/Deadliner/DeadlinerWidget/Views/SmallListWidgetView.swift" : {
+    "const-values" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallListWidgetView.swiftconstvalues",
+    "dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallListWidgetView.d",
+    "diagnostics" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallListWidgetView.dia",
+    "index-unit-output-path" : "/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallListWidgetView.o",
+    "llvm-bc" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallListWidgetView.bc",
+    "object" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallListWidgetView.o",
+    "swift-dependencies" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallListWidgetView.swiftdeps",
+    "swiftmodule" : "/Users/aritxonly/Codes/iOS/Deadliner/.DerivedData/Build/Intermediates.noindex/Deadliner.build/Debug-iphoneos/DeadlinerWidgetExtension.build/Objects-normal/arm64/SmallListWidgetView~partial.swiftmodule"
+  }
+}

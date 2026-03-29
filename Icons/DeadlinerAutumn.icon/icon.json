@@ -26,37 +26,53 @@
   ],
   "groups" : [
     {
+      "blur-material" : 0.5,
       "layers" : [
         {
-          "blend-mode" : "normal",
-          "fill" : "automatic",
-          "glass" : true,
           "image-name" : "Details_pencil_autumn.png",
-          "name" : "Details_pencil_autumn",
-          "opacity" : 1
+          "name" : "Details_pencil_autumn"
         }
       ],
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.5
+        "opacity" : 0.1
       },
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
+        "value" : 0.25
       }
     },
     {
+      "blur-material" : 0.5,
       "layers" : [
         {
-          "glass" : true,
-          "hidden" : false,
           "image-name" : "Details_autumn.png",
           "name" : "Details_autumn"
         }
       ],
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.5
+        "opacity" : 0.3
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "Base3_autumn.png",
+          "name" : "Base3_autumn"
+        },
+        {
+          "image-name" : "Base2_autumn.png",
+          "name" : "Base2_autumn"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.1
       },
       "translucency" : {
         "enabled" : true,
@@ -66,39 +82,13 @@
     {
       "layers" : [
         {
-          "glass" : true,
-          "image-name" : "Base_autumn.png",
-          "name" : "Base_autumn"
+          "image-name" : "Base1_autumn.png",
+          "name" : "Base1_autumn"
         }
       ],
       "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
-      },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
-      }
-    },
-    {
-      "hidden" : true,
-      "layers" : [
-        {
-          "glass" : false,
-          "image-name" : "autumn.png",
-          "name" : "autumn",
-          "position" : {
-            "scale" : 1.15,
-            "translation-in-points" : [
-              0,
-              0
-            ]
-          }
-        }
-      ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+        "kind" : "layer-color",
+        "opacity" : 0.1
       },
       "translucency" : {
         "enabled" : true,

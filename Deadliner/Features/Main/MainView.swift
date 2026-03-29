@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject private var themeStore: ThemeStore
+    @Namespace private var toolbarTransition
 
     @State private var module: MainModule = .taskManagement
     @State private var taskSegment: TaskSegment = .tasks
@@ -120,8 +121,10 @@ struct MainView: View {
             Menu {
                 ForEach(MainModule.allCases) { m in
                     Button {
-                        module = m
-                        query = ""
+                        withAnimation(.smooth(duration: 0.32, extraBounce: 0)) {
+                            module = m
+                            query = ""
+                        }
                     } label: {
                         Label(m.title, systemImage: m.systemImage)
                     }
@@ -136,8 +139,8 @@ struct MainView: View {
             }
             .accessibilityLabel("切换模块")
         }
+        .matchedTransitionSource(id: "main-toolbar-leading", in: toolbarTransition)
     }
-
     @ToolbarContentBuilder
     private var topTrailingToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
@@ -169,6 +172,7 @@ struct MainView: View {
             } else {
             }
         }
+        .matchedTransitionSource(id: "main-toolbar-trailing", in: toolbarTransition)
         .sharedBackgroundVisibility(.hidden)
     }
 
@@ -178,94 +182,118 @@ struct MainView: View {
     private var bottomToolbar: some ToolbarContent {
         switch module {
         case .taskManagement:
-            if aiEnabled {
-                ToolbarItem(placement: .bottomBar) {
-                    Button { showAISheet = true } label: {
-                        Image(systemName: "sparkles")
-                    }
-                    .accessibilityLabel("Deadliner Claw")
-                }
-            }
-
-            ToolbarSpacer(.fixed, placement: .bottomBar)
-            DefaultToolbarItem(kind: .search, placement: .bottomBar)
-            ToolbarSpacer(.fixed, placement: .bottomBar)
-
-            ToolbarItem(placement: .bottomBar) {
-                Button {
-                    showAddOptions = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(.glassProminent)
-                .tint(themeStore.fabColor)
-                .id("main-fab-\(themeStore.accentOption.rawValue)")
-                .accessibilityLabel("添加选项")
-                
-                .confirmationDialog("选择添加类型", isPresented: $showAddOptions, titleVisibility: .hidden) {
-                    Button("新建任务") { showAddTaskForm = true }
-                    Button("新建习惯") { showAddHabitForm = true }
-                    Button("取消", role: .cancel) { }
-                }
-            }
-
+            taskManagementBottomToolbar
         case .insights:
-            ToolbarItem(placement: .bottomBar) {
-                let calendar = Calendar.current
-                let now = Date()
-                let currentMonthKey: String = {
-                    guard let firstDayOfThisMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)),
-                          let firstDayOfLastMonth = calendar.date(byAdding: .month, value: -1, to: firstDayOfThisMonth) else {
-                        return ""
-                    }
-                    let monthKey = DateFormatter()
-                    monthKey.dateFormat = "yyyy-MM"
-                    return monthKey.string(from: firstDayOfLastMonth)
-                }()
-                
-                let isAlreadyGenerated = lastAnalyzedMonth == currentMonthKey
-                let isFreeUser = userTier == .free
-
-                Button {
-                    if isFreeUser {
-                        showPaywall = true
-                    } else {
-                        NotificationCenter.default.post(name: .ddlRequestMonthlyAnalysis, object: nil)
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        if isFreeUser {
-                            Image(systemName: "lock.fill")
-                                .font(.caption2)
-                        } else {
-                            Image(systemName: isAlreadyGenerated ? "checkmark.circle.fill" : "sparkles")
-                        }
-                        
-                        Text(isAlreadyGenerated && !isFreeUser ? "上月分析已生成" : "AI 月度分析")
-                        
-                        if isFreeUser {
-                            GeekBadge()
-                        }
-                    }
-                }
-                .disabled(!isFreeUser && isAlreadyGenerated)
-                .foregroundColor(isAlreadyGenerated && !isFreeUser ? .secondary : .primary)
-            }
-
+            insightsBottomToolbar
         case .archive:
+            archiveBottomToolbar
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var taskManagementBottomToolbar: some ToolbarContent {
+        if aiEnabled {
             ToolbarItem(placement: .bottomBar) {
-                Button(role: .destructive) {
-                    NotificationCenter.default.post(name: .ddlDeleteAllArchived, object: nil)
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "trash")
-                        Text("全部删除")
-                            .fontWeight(.medium)
-                    }
+                Button { showAISheet = true } label: {
+                    Image(systemName: "sparkles")
                 }
-                .foregroundStyle(.red)
+                .accessibilityLabel("Deadliner Claw")
+            }
+            .matchedTransitionSource(id: "main-toolbar-bottom-leading", in: toolbarTransition)
+        }
+
+        ToolbarSpacer(.fixed, placement: .bottomBar)
+        DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            .matchedTransitionSource(id: "main-toolbar-bottom-center", in: toolbarTransition)
+        ToolbarSpacer(.fixed, placement: .bottomBar)
+
+        ToolbarItem(placement: .bottomBar) {
+            Button {
+                showAddOptions = true
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.glassProminent)
+            .tint(themeStore.fabColor)
+            .id("main-fab-\(themeStore.accentOption.rawValue)")
+            .accessibilityLabel("添加选项")
+            .confirmationDialog("选择添加类型", isPresented: $showAddOptions, titleVisibility: .hidden) {
+                Button("新建任务") { showAddTaskForm = true }
+                Button("新建习惯") { showAddHabitForm = true }
+                Button("取消", role: .cancel) { }
             }
         }
+        .matchedTransitionSource(id: "main-toolbar-bottom-trailing", in: toolbarTransition)
+    }
+
+    @ToolbarContentBuilder
+    private var insightsBottomToolbar: some ToolbarContent {
+        ToolbarItem(placement: .bottomBar) {
+            Button {
+                if isInsightFreeUser {
+                    showPaywall = true
+                } else {
+                    NotificationCenter.default.post(name: .ddlRequestMonthlyAnalysis, object: nil)
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    if isInsightFreeUser {
+                        Image(systemName: "lock.fill")
+                            .font(.caption2)
+                    } else {
+                        Image(systemName: insightAnalysisGenerated ? "checkmark.circle.fill" : "sparkles")
+                    }
+
+                    Text(insightAnalysisGenerated && !isInsightFreeUser ? "上月分析已生成" : "AI 月度分析")
+
+                    if isInsightFreeUser {
+                        GeekBadge()
+                    }
+                }
+            }
+            .disabled(!isInsightFreeUser && insightAnalysisGenerated)
+            .foregroundColor(insightAnalysisGenerated && !isInsightFreeUser ? .secondary : .primary)
+        }
+        .matchedTransitionSource(id: "main-toolbar-bottom-center", in: toolbarTransition)
+    }
+
+    @ToolbarContentBuilder
+    private var archiveBottomToolbar: some ToolbarContent {
+        ToolbarItem(placement: .bottomBar) {
+            Button(role: .destructive) {
+                NotificationCenter.default.post(name: .ddlDeleteAllArchived, object: nil)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "trash")
+                    Text("全部删除")
+                        .fontWeight(.medium)
+                }
+            }
+            .foregroundStyle(.red)
+        }
+        .matchedTransitionSource(id: "main-toolbar-bottom-center", in: toolbarTransition)
+    }
+
+    private var isInsightFreeUser: Bool {
+        userTier == .free
+    }
+
+    private var insightAnalysisGenerated: Bool {
+        lastAnalyzedMonth == previousMonthKey
+    }
+
+    private var previousMonthKey: String {
+        let calendar = Calendar.current
+        let now = Date()
+
+        guard let firstDayOfThisMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)),
+              let firstDayOfLastMonth = calendar.date(byAdding: .month, value: -1, to: firstDayOfThisMonth) else {
+            return ""
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        return formatter.string(from: firstDayOfLastMonth)
     }
 
     // MARK: - Search Prompt

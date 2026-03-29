@@ -58,11 +58,11 @@ struct AccountAndSyncView: View {
 
             Section {
                 HStack {
-                    SettingsGradientSymbolIcon(systemName: "icloud.fill", palette: .sky)
+                    SettingsGradientSymbolIcon(systemName: "icloud.fill", palette: .ocean)
                     Text("iCloud 无缝同步")
                     Spacer()
                     if userTier != .free {
-                        Toggle("", isOn: .constant(true)) // 占位
+                        Toggle("", isOn: .constant(true))
                     } else {
                         GeekBadge()
                     }

@@ -41,11 +41,6 @@ struct BehaviorAndDisplayView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
-            
-            Section("界面显示 (开发中)") {
-                settingsLabel("默认主页设置", systemImage: "house.fill", palette: .ocean)
-                settingsLabel("列表排序规则", systemImage: "arrow.up.arrow.down.circle.fill", palette: .sunrise)
-            }
         }
         .navigationTitle("行为与交互")
         .navigationBarTitleDisplayMode(.inline)
