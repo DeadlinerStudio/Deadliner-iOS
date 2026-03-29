@@ -1,4 +1,0 @@
-Target dependency graph (2 targets)
-Target 'Deadliner' in project 'Deadliner'
-➜ Explicit dependency on target 'DeadlinerWidgetExtension' in project 'Deadliner'
-Target 'DeadlinerWidgetExtension' in project 'Deadliner' (no dependencies)
