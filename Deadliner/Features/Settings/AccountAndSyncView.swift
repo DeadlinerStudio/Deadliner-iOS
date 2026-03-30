@@ -13,6 +13,8 @@ struct AccountAndSyncView: View {
     @AppStorage("userTier") private var userTier: UserTier = .free
     
     @State private var cloudSyncEnabled = true
+    @State private var syncProvider: SyncProvider = .webDAV
+    @State private var loadedSyncProvider: SyncProvider = .webDAV
     @State private var webdavURL = ""
     @State private var webdavUser = ""
     @State private var webdavPass = ""
@@ -26,6 +28,10 @@ struct AccountAndSyncView: View {
     @State private var showLogShare = false
     @State private var logURL: URL?
 
+    private var iCloudAvailable: Bool {
+        userTier != .free
+    }
+
     var body: some View {
         Form {
             if userTier == .free {
@@ -38,8 +44,30 @@ struct AccountAndSyncView: View {
                 Text("关闭云同步后，所有数据将仅保存在本地设备。")
             }
 
-            // 极客开源选项 (完全免费)
-            Section("极客同步 (WebDAV)") {
+            Section {
+                Picker("同步方式", selection: $syncProvider) {
+                    Text("WebDAV").tag(SyncProvider.webDAV)
+                    Text("iCloud").tag(SyncProvider.iCloud)
+                }
+                .pickerStyle(.inline)
+
+                if !iCloudAvailable {
+                    HStack {
+                        SettingsGradientSymbolIcon(systemName: "icloud.fill", palette: .ocean)
+                        Text("iCloud 无缝同步")
+                        Spacer()
+                        GeekBadge()
+                    }
+                }
+            } header: {
+                Text("同步方式")
+            } footer: {
+                Text(iCloudAvailable
+                     ? "iCloud 与 WebDAV 不能同时开启。切换同步方式后，需要重启 App 才会完全生效。"
+                     : "当前可使用 WebDAV。升级 Geek 后可切换到 iCloud 无缝同步。")
+            }
+
+            Section {
                 TextField("服务器 URL (https://...)", text: $webdavURL)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
@@ -54,26 +82,32 @@ struct AccountAndSyncView: View {
                 Button("清空 WebDAV 凭据", role: .destructive) {
                     Task { await clearWebDAV() }
                 }
+            } header: {
+                Text("极客同步 (WebDAV)")
             }
+            .disabled(syncProvider != .webDAV)
+            .opacity(syncProvider == .webDAV ? 1 : 0.45)
 
             Section {
                 HStack {
                     SettingsGradientSymbolIcon(systemName: "icloud.fill", palette: .ocean)
                     Text("iCloud 无缝同步")
                     Spacer()
-                    if userTier != .free {
-                        Toggle("", isOn: .constant(true))
+                    if iCloudAvailable {
+                        Text(syncProvider == .iCloud ? "已启用" : "未启用")
+                            .foregroundStyle(.secondary)
                     } else {
                         GeekBadge()
                     }
                 }
-                .disabled(userTier == .free)
             } header: {
                 Text("原生云服务")
             } footer: {
-                Text(userTier == .free
-                     ? "Geek 可解锁 iCloud 无缝同步。"
-                     : "已归入 Geek 权益。当前为占位入口，后续会在这里补齐原生同步细节。")
+                Text(iCloudAvailable
+                     ? (syncProvider == .iCloud
+                        ? "当前已使用 iCloud 作为唯一云同步方式，WebDAV 不会同时运行。"
+                        : "切换到 iCloud 后，将停用 WebDAV 同步引擎并改用系统原生云同步。")
+                     : "Geek 可解锁 iCloud 无缝同步。")
             }
             
             Section {
@@ -124,6 +158,11 @@ struct AccountAndSyncView: View {
         .navigationBarTitleDisplayMode(.inline)
         .optionalTint(themeStore.switchTint)
         .task { await load() }
+        .onChange(of: syncProvider) { newValue in
+            guard newValue == .iCloud, !iCloudAvailable else { return }
+            syncProvider = .webDAV
+            showPaywall = true
+        }
         .sheet(isPresented: $showPaywall) {
             ProPaywallView().presentationDetents([.large])
         }
@@ -146,6 +185,11 @@ struct AccountAndSyncView: View {
         defer { isLoading = false }
 
         cloudSyncEnabled = await LocalValues.shared.getCloudSyncEnabled()
+        syncProvider = await LocalValues.shared.getSyncProvider()
+        if !iCloudAvailable && syncProvider == .iCloud {
+            syncProvider = .webDAV
+        }
+        loadedSyncProvider = syncProvider
 
         if let cfg = await LocalValues.shared.getWebDAVConfig() {
             webdavURL = cfg.url
@@ -156,15 +200,30 @@ struct AccountAndSyncView: View {
 
     @MainActor
     private func save() async {
-        // (URL 校验逻辑与原代码保持一致，此处省略以节省篇幅)
+        if !iCloudAvailable && syncProvider == .iCloud {
+            syncProvider = .webDAV
+        }
+
+        let trimmedURL = webdavURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cloudSyncEnabled && syncProvider == .webDAV && !trimmedURL.isEmpty && URL(string: trimmedURL) == nil {
+            message = "WebDAV 服务器 URL 格式不正确"
+            showMessage = true
+            return
+        }
+
         isSaving = true
         defer { isSaving = false }
 
         await LocalValues.shared.setCloudSyncEnabled(cloudSyncEnabled)
-        await LocalValues.shared.setWebDAVURL(webdavURL.isEmpty ? nil : webdavURL)
+        await LocalValues.shared.setSyncProvider(syncProvider)
+        await LocalValues.shared.setWebDAVURL(trimmedURL.isEmpty ? nil : trimmedURL)
         await LocalValues.shared.setWebDAVAuth(user: webdavUser, pass: webdavPass)
 
-        message = "同步设置已保存"
+        let providerChanged = syncProvider != loadedSyncProvider
+        loadedSyncProvider = syncProvider
+        message = providerChanged
+            ? "同步设置已保存。已切换为 \(syncProvider.displayName)，重启 App 后会完全生效。"
+            : "同步设置已保存"
         showMessage = true
     }
     

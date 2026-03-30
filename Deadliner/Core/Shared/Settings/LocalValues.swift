@@ -7,6 +7,20 @@
 
 import Foundation
 
+enum SyncProvider: String, CaseIterable, Sendable {
+    case webDAV = "webdav"
+    case iCloud = "icloud"
+
+    var displayName: String {
+        switch self {
+        case .webDAV:
+            return "WebDAV"
+        case .iCloud:
+            return "iCloud"
+        }
+    }
+}
+
 actor LocalValues {
     static let shared = LocalValues()
 
@@ -20,6 +34,7 @@ actor LocalValues {
 
     private enum Key {
         static let cloudSyncEnabled = "settings.cloud_sync_enabled"
+        static let syncProvider = "settings.sync_provider"
         static let basicMode = "settings.basic_mode"
         static let autoArchiveDays = "settings.auto_archive_days"
 
@@ -59,6 +74,7 @@ actor LocalValues {
     private func registerDefaults() {
         defaults.register(defaults: [
             Key.cloudSyncEnabled: true,
+            Key.syncProvider: SyncProvider.webDAV.rawValue,
             Key.basicMode: false,
             Key.autoArchiveDays: 7,
             Key.aiBaseUrl: "https://api.deepseek.com",
@@ -78,6 +94,18 @@ actor LocalValues {
 
     func setCloudSyncEnabled(_ value: Bool) {
         defaults.set(value, forKey: Key.cloudSyncEnabled)
+    }
+
+    func getSyncProvider() -> SyncProvider {
+        guard let raw = defaults.string(forKey: Key.syncProvider),
+              let provider = SyncProvider(rawValue: raw) else {
+            return .webDAV
+        }
+        return provider
+    }
+
+    func setSyncProvider(_ provider: SyncProvider) {
+        defaults.set(provider.rawValue, forKey: Key.syncProvider)
     }
 
     // MARK: - Basic Mode

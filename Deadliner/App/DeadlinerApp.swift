@@ -10,7 +10,7 @@ import SwiftData
 
 private enum AppReleaseGate {
     // TODO: Turn this off before shipping the post-Rust public build.
-    static let unlockGeekForCurrentRelease = true
+    static let unlockGeekForCurrentRelease = false
 }
 
 @main

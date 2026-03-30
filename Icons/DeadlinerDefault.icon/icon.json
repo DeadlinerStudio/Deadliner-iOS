@@ -52,7 +52,14 @@
         {
           "fill" : "automatic",
           "image-name" : "Base2.png",
-          "name" : "Base2"
+          "name" : "Base2",
+          "position" : {
+            "scale" : 1.14,
+            "translation-in-points" : [
+              0,
+              -23
+            ]
+          }
         }
       ],
       "name" : "Calendar",
@@ -69,7 +76,14 @@
       "layers" : [
         {
           "image-name" : "Base1.png",
-          "name" : "Base1"
+          "name" : "Base1",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0.06999999999993634,
+              -0.5
+            ]
+          }
         }
       ],
       "name" : "Bg",

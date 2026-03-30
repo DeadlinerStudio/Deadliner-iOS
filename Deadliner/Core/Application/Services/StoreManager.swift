@@ -8,10 +8,11 @@
 import StoreKit
 import SwiftUI
 import Combine
+import os
 
 private enum StoreReleaseGate {
     // TODO: Turn this off before shipping the post-Rust public build.
-    static let disableInAppPurchaseForCurrentRelease = true
+    static let disableInAppPurchaseForCurrentRelease = false
 }
 
 @MainActor
@@ -27,11 +28,18 @@ final class StoreManager: ObservableObject {
     let geekProductID = "top.aritxonly.deadliner.geek.lifetime"
     
     private var updatesTask: Task<Void, Never>?
+    private let logger = Logger(subsystem: "Deadliner", category: "StoreManager")
+
+    private func log(_ message: String) {
+        logger.info("\(message, privacy: .public)")
+        SyncDebugLog.log("[StoreKit] \(message)")
+    }
     
     private init() {
         if StoreReleaseGate.disableInAppPurchaseForCurrentRelease {
             userTier = .geek
             purchasedProductIDs = [geekProductID]
+            log("release gate enabled, force unlock geek tier")
             return
         }
 
@@ -62,8 +70,9 @@ final class StoreManager: ObservableObject {
         do {
             let storeProducts = try await Product.products(for: [geekProductID])
             self.products = storeProducts
+            log("fetched products: \(storeProducts.map(\.id).joined(separator: ", "))")
         } catch {
-            print("❌ StoreKit: 无法拉取商品: \(error)")
+            log("failed to fetch products: \(error.localizedDescription)")
         }
     }
     
@@ -72,22 +81,28 @@ final class StoreManager: ObservableObject {
         if StoreReleaseGate.disableInAppPurchaseForCurrentRelease {
             userTier = .geek
             purchasedProductIDs.insert(geekProductID)
+            log("purchase bypassed by release gate for product: \(product.id)")
             return true
         }
 
+        log("start purchase for product: \(product.id)")
         let result = try await product.purchase()
         
         switch result {
         case .success(let verification):
             let transaction = try checkVerified(verification)
+            log("purchase success for product: \(transaction.productID)")
             await updatePurchasedProducts()
             await transaction.finish()
             return true
         case .userCancelled:
+            log("purchase cancelled by user for product: \(product.id)")
             return false
         case .pending:
+            log("purchase pending for product: \(product.id)")
             return false
         @unknown default:
+            log("purchase returned unknown result for product: \(product.id)")
             return false
         }
     }
@@ -97,9 +112,11 @@ final class StoreManager: ObservableObject {
         if StoreReleaseGate.disableInAppPurchaseForCurrentRelease {
             userTier = .geek
             purchasedProductIDs.insert(geekProductID)
+            log("restore bypassed by release gate")
             return
         }
 
+        log("start restore purchases")
         try? await AppStore.sync()
         await updatePurchasedProducts()
     }
@@ -122,14 +139,19 @@ final class StoreManager: ObservableObject {
         
         self.purchasedProductIDs = purchasedIDs
         
-        // 如果拥有 Geek 永久版权限，更新 UserTier
+        // 让 AppStorage 与当前实际权益保持一致，避免历史测试值残留。
         if purchasedIDs.contains(geekProductID) {
             userTier = .geek
+        } else {
+            userTier = .free
         }
+        let entitlements = purchasedIDs.sorted().joined(separator: ", ")
+        log("current entitlements: [\(entitlements)] => userTier=\(userTier.rawValue)")
     }
     
     private func handleTransaction(result: VerificationResult<StoreKit.Transaction>) async {
         guard let transaction = try? checkVerified(result) else { return }
+        log("transaction update received for product: \(transaction.productID)")
         await updatePurchasedProducts()
         await transaction.finish()
     }

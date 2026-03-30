@@ -35,7 +35,12 @@ actor SyncCoordinator {
         return (cfg.url, cfg.auth.user, cfg.auth.pass)
     }
 
+    private func syncProvider() async -> SyncProvider {
+        await LocalValues.shared.getSyncProvider()
+    }
+
     private func makeSyncService() async -> (any SyncService)? {
+        guard await syncProvider() == .webDAV else { return nil }
         guard let cfg = await webDAVConfig() else { return nil }
         let web = WebDAVClient(baseURL: cfg.url, username: cfg.user, password: cfg.pass)
         return SyncServiceFactory.make(db: db, web: web, impl: .v2)
@@ -46,6 +51,7 @@ actor SyncCoordinator {
         syncDebounceTask = nil
 
         guard await cloudSyncEnabled() else { return }
+        guard await syncProvider() == .webDAV else { return }
 
         syncDebounceTask = Task { [weak self] in
             guard let self else { return }
@@ -61,6 +67,9 @@ actor SyncCoordinator {
     func syncNow() async -> Bool {
         syncDebounceTask?.cancel()
         syncDebounceTask = nil
+
+        guard await cloudSyncEnabled() else { return false }
+        guard await syncProvider() == .webDAV else { return true }
 
         if isSyncing {
             return false
@@ -88,6 +97,8 @@ actor SyncCoordinator {
 
     private func performSync() async {
         if await inBasicMode() { return }
+        guard await cloudSyncEnabled() else { return }
+        guard await syncProvider() == .webDAV else { return }
 
         if isSyncing {
             hasPendingSync = true

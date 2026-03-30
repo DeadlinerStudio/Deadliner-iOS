@@ -19,7 +19,7 @@ struct DeadlinerImportMixedResultIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         do {
-            let container = PersistenceController.makeContainer()
+            let container = SharedModelContainer.shared
             try await TaskRepository.shared.initializeIfNeeded(container: container)
             
             let data = Data(jsonText.utf8)

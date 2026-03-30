@@ -98,6 +98,7 @@
 		E53876342F5A5C6F00E5D81A /* Exceptions for "Deadliner" folder in "DeadlinerWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				App/Integration/Controls/OpenAddEntryIntent.swift,
 				Core/Domain/Enums/DeadlineEnums.swift,
 				Core/Domain/Models/DDLItem.swift,
 				Core/Domain/Models/DDLState.swift,
@@ -628,6 +629,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Deadliner待办日历";
+				INFOPLIST_KEY_CFBundleURLTypes = "({CFBundleURLName=top.aritxonly.deadliner;CFBundleURLSchemes=(deadliner);})";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -671,6 +673,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Deadliner待办日历";
+				INFOPLIST_KEY_CFBundleURLTypes = "({CFBundleURLName=top.aritxonly.deadliner;CFBundleURLSchemes=(deadliner);})";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

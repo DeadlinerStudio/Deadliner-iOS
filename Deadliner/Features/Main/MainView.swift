@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct MainView: View {
     @EnvironmentObject private var themeStore: ThemeStore
@@ -27,12 +28,14 @@ struct MainView: View {
     
     let repo: TaskRepository = TaskRepository.shared
 
-    @State private var showAddTaskForm = false
-    @State private var showAddHabitForm = false
-    @State private var showAddOptions = false
+    @State private var showAddEntrySheet = false
+    @State private var addEntrySelection: TaskSegment = .tasks
     
     @State private var showArchiveSheet = false
     @State private var showPaywall = false
+
+    private let widgetLaunchDefaults = UserDefaults(suiteName: "group.top.aritxonly.deadliner.group")
+    private let widgetLaunchKey = "widget.pending_add_entry_type"
 
     var body: some View {
         NavigationStack {
@@ -59,23 +62,14 @@ struct MainView: View {
                     DeadlinerAIPanel()
                         .presentationDetents([.medium, .large])
                 }
-                .sheet(isPresented: $showAddTaskForm) {
-                    NavigationStack {
-                        AddTaskSheetView(
-                            repository: repo,
-                            onDone: {
-                                NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
-                            }
-                        )
-                    }
-                    .presentationDetents([.large])
-                }
-                .sheet(isPresented: $showAddHabitForm) {
-                    NavigationStack {
-                        AddHabitSheetView(onDone: {
+                .sheet(isPresented: $showAddEntrySheet) {
+                    AddEntrySheetView(
+                        repository: repo,
+                        initialSelection: addEntrySelection,
+                        onDone: {
                             NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
-                        })
-                    }
+                        }
+                    )
                     .presentationDetents([.large])
                 }
                 .sheet(isPresented: $showSettingsSheet) {
@@ -88,6 +82,15 @@ struct MainView: View {
                 }
                 .sheet(isPresented: $showPaywall) {
                     ProPaywallView()
+                }
+                .onAppear {
+                    consumePendingWidgetLaunch()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    consumePendingWidgetLaunch()
+                }
+                .onOpenURL { url in
+                    handleIncomingURL(url)
                 }
         }
     }
@@ -209,19 +212,14 @@ struct MainView: View {
 
         ToolbarItem(placement: .bottomBar) {
             Button {
-                showAddOptions = true
+                presentAddSheet(selection: taskSegment)
             } label: {
                 Image(systemName: "plus")
             }
             .buttonStyle(.glassProminent)
             .tint(themeStore.fabColor)
             .id("main-fab-\(themeStore.accentOption.rawValue)")
-            .accessibilityLabel("添加选项")
-            .confirmationDialog("选择添加类型", isPresented: $showAddOptions, titleVisibility: .hidden) {
-                Button("新建任务") { showAddTaskForm = true }
-                Button("新建习惯") { showAddHabitForm = true }
-                Button("取消", role: .cancel) { }
-            }
+            .accessibilityLabel("添加")
         }
         .matchedTransitionSource(id: "main-toolbar-bottom-trailing", in: toolbarTransition)
     }
@@ -294,6 +292,40 @@ struct MainView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM"
         return formatter.string(from: firstDayOfLastMonth)
+    }
+
+    private func presentAddSheet(selection: TaskSegment) {
+        module = .taskManagement
+        taskSegment = selection
+        addEntrySelection = selection
+        showAddEntrySheet = true
+    }
+
+    private func handleIncomingURL(_ url: URL) {
+        guard url.scheme == "deadliner" else { return }
+        guard url.host == "add" else { return }
+
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let type = components?.queryItems?.first(where: { $0.name == "type" })?.value
+
+        switch type {
+        case "habit", "habits":
+            presentAddSheet(selection: .habits)
+        default:
+            presentAddSheet(selection: .tasks)
+        }
+    }
+
+    private func consumePendingWidgetLaunch() {
+        guard let rawValue = widgetLaunchDefaults?.string(forKey: widgetLaunchKey) else { return }
+        widgetLaunchDefaults?.removeObject(forKey: widgetLaunchKey)
+
+        switch rawValue {
+        case "habit", "habits":
+            presentAddSheet(selection: .habits)
+        default:
+            presentAddSheet(selection: .tasks)
+        }
     }
 
     // MARK: - Search Prompt

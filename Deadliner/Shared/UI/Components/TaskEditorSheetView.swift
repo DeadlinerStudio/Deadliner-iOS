@@ -50,6 +50,10 @@ struct TaskEditorSheetView: View {
     let repository: TaskRepository
     let mode: TaskSheetMode
     var onDone: (() -> Void)? = nil
+    var principalToolbarContent: AnyView? = nil
+    var embedsInParentNavigationStack: Bool = false
+    var saveTrigger: Int = 0
+    var onSaveEnabledChange: ((Bool) -> Void)? = nil
 
     // ===== UI States（保持与你现在完全一致）=====
     @State private var name: String
@@ -72,11 +76,19 @@ struct TaskEditorSheetView: View {
         repository: TaskRepository,
         mode: TaskSheetMode,
         initialDraft: TaskDraft = .empty(),
-        onDone: (() -> Void)? = nil
+        onDone: (() -> Void)? = nil,
+        principalToolbarContent: AnyView? = nil,
+        embedsInParentNavigationStack: Bool = false,
+        saveTrigger: Int = 0,
+        onSaveEnabledChange: ((Bool) -> Void)? = nil
     ) {
         self.repository = repository
         self.mode = mode
         self.onDone = onDone
+        self.principalToolbarContent = principalToolbarContent
+        self.embedsInParentNavigationStack = embedsInParentNavigationStack
+        self.saveTrigger = saveTrigger
+        self.onSaveEnabledChange = onSaveEnabledChange
 
         _name = State(initialValue: initialDraft.name)
         _note = State(initialValue: initialDraft.note)
@@ -86,60 +98,78 @@ struct TaskEditorSheetView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Form {
-                    if aiEnabled {
-                        Section("AI 快速添加") {
-                            HStack(spacing: 8) {
-                                TextField("询问 AI 以快速添加任务...", text: $aiInputText, axis: .vertical)
-                                    .lineLimit(1...3)
-
-                                Button {
-                                    if userTier == .free {
-                                        showPaywall = true
-                                    } else {
-                                        Task { await onAITriggered() }
-                                    }
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Text("解析")
-                                        if userTier == .free {
-                                            Image(systemName: "crown.fill")
-                                                .font(.system(size: 10))
-                                                .foregroundStyle(.orange)
-                                        }
-                                    }
-                                }
-                                .disabled(isAILoading || aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            }
-                        }
-                    }
-
-                    Section("基础信息") {
-                        TextField("任务名称", text: $name)
-                        TextField("备注（可选）", text: $note, axis: .vertical)
-                            .lineLimit(2...5)
-
-                        Toggle("星标", isOn: $isStarred)
-                    }
-
-                    Section("时间") {
-                        DatePicker("开始时间", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                        DatePicker("截止时间", selection: $endTime, displayedComponents: [.date, .hourAndMinute])
-                    }
-                }
-                .disabled(isAILoading || isSaving)
-
-                if isAILoading || isSaving {
-                    Color.black.opacity(0.12).ignoresSafeArea()
-                    ProgressView().controlSize(.large)
+        Group {
+            if embedsInParentNavigationStack {
+                editorContent
+            } else {
+                NavigationStack {
+                    editorContent
                 }
             }
-            .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .optionalTint(themeStore.switchTint)
-            .toolbar {
+        }
+    }
+
+    private var editorContent: some View {
+        ZStack {
+            Form {
+                if aiEnabled {
+                    Section("AI 快速添加") {
+                        HStack(spacing: 8) {
+                            TextField("询问 AI 以快速添加任务...", text: $aiInputText, axis: .vertical)
+                                .lineLimit(1...3)
+
+                            Button {
+                                if userTier == .free {
+                                    showPaywall = true
+                                } else {
+                                    Task { await onAITriggered() }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text("解析")
+                                    if userTier == .free {
+                                        Image(systemName: "crown.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
+                            }
+                            .disabled(isAILoading || aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+                }
+
+                Section("基础信息") {
+                    TextField("任务名称", text: $name)
+                    TextField("备注（可选）", text: $note, axis: .vertical)
+                        .lineLimit(2...5)
+
+                    Toggle("星标", isOn: $isStarred)
+                }
+
+                Section("时间") {
+                    DatePicker("开始时间", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
+                    DatePicker("截止时间", selection: $endTime, displayedComponents: [.date, .hourAndMinute])
+                }
+            }
+            .disabled(isAILoading || isSaving)
+
+            if isAILoading || isSaving {
+                Color.black.opacity(0.12).ignoresSafeArea()
+                ProgressView().controlSize(.large)
+            }
+        }
+        .navigationTitle(embedsInParentNavigationStack ? "" : navigationTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .optionalTint(themeStore.switchTint)
+        .toolbar {
+            if let principalToolbarContent {
+                ToolbarItem(placement: .principal) {
+                    principalToolbarContent
+                }
+            }
+
+            if !embedsInParentNavigationStack {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         onDone?()
@@ -151,19 +181,35 @@ struct TaskEditorSheetView: View {
                     Button {
                         Task { await save() }
                     } label: { Image(systemName: "checkmark") }
-                    .disabled(isSaving || isAILoading || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!isSaveEnabled)
                     .buttonStyle(.glassProminent)
                     .tint(themeStore.accentColor)
                 }
             }
-            .alert("提示", isPresented: $showAlert, actions: {
-                Button("确定", role: .cancel) {}
-            }, message: {
-                Text(alertMessage ?? "")
-            })
-            .sheet(isPresented: $showPaywall) {
-                ProPaywallView()
-            }
+        }
+        .alert("提示", isPresented: $showAlert, actions: {
+            Button("确定", role: .cancel) {}
+        }, message: {
+            Text(alertMessage ?? "")
+        })
+        .sheet(isPresented: $showPaywall) {
+            ProPaywallView()
+        }
+        .onChange(of: saveTrigger) { oldValue, newValue in
+            guard embedsInParentNavigationStack, newValue != oldValue else { return }
+            Task { await save() }
+        }
+        .onAppear {
+            onSaveEnabledChange?(isSaveEnabled)
+        }
+        .onChange(of: name) { _, _ in
+            onSaveEnabledChange?(isSaveEnabled)
+        }
+        .onChange(of: isSaving) { _, _ in
+            onSaveEnabledChange?(isSaveEnabled)
+        }
+        .onChange(of: isAILoading) { _, _ in
+            onSaveEnabledChange?(isSaveEnabled)
         }
     }
 
@@ -172,6 +218,10 @@ struct TaskEditorSheetView: View {
         case .add: return "创建新任务"
         case .edit: return "编辑任务"
         }
+    }
+
+    private var isSaveEnabled: Bool {
+        !isSaving && !isAILoading && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     // MARK: - AI
