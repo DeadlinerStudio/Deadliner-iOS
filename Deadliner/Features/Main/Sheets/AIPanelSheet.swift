@@ -9,6 +9,10 @@ import SwiftUI
 
 struct DeadlinerAIPanel: View {
     @Environment(\.dismiss) private var dismiss
+
+    let showsDismissButton: Bool
+    let embedInNavigationStack: Bool
+    let bottomAccessoryInset: CGFloat
     
     @AppStorage("userTier") private var userTier: UserTier = .free
     
@@ -17,24 +21,47 @@ struct DeadlinerAIPanel: View {
     @State private var isLoadingConfig = true
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if isLoadingConfig {
-                    ProgressView()
-                } else if userTier == .free {
-                    // 状态 1：未解锁，展示拦截引导页
-                    lockedStateView
-                } else if userTier == .geek && apiKey.isEmpty {
-                    // 状态 2：Geek 版且未配置 API Key
-                    missingKeyView
-                } else {
-                    // 状态 3：已就绪，调用剥离出来的核心工作区
-                    AIFunctionView(userTier: userTier)
+        Group {
+            if embedInNavigationStack {
+                NavigationStack {
+                    panelContent
                 }
+            } else {
+                panelContent
             }
-            .navigationTitle("Deadliner Claw")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
+        }
+    }
+
+    init(
+        showsDismissButton: Bool = true,
+        embedInNavigationStack: Bool = true,
+        bottomAccessoryInset: CGFloat = 0
+    ) {
+        self.showsDismissButton = showsDismissButton
+        self.embedInNavigationStack = embedInNavigationStack
+        self.bottomAccessoryInset = bottomAccessoryInset
+    }
+
+    private var panelContent: some View {
+        Group {
+            if isLoadingConfig {
+                ProgressView()
+            } else if userTier == .free {
+                // 状态 1：未解锁，展示拦截引导页
+                lockedStateView
+            } else if userTier == .geek && apiKey.isEmpty {
+                // 状态 2：Geek 版且未配置 API Key
+                missingKeyView
+            } else {
+                // 状态 3：已就绪，调用剥离出来的核心工作区
+                AIFunctionView(userTier: userTier, bottomAccessoryInset: bottomAccessoryInset)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .navigationTitle("Deadliner Claw")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if showsDismissButton {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         dismiss()
@@ -43,16 +70,16 @@ struct DeadlinerAIPanel: View {
                     }
                 }
             }
-            .task {
-                await checkConfig()
-            }
-            .sheet(isPresented: $showPaywall) {
-                ProPaywallView()
-                    .presentationDetents([.large])
-            }
-            .onChange(of: userTier) { _ in
-                Task { await checkConfig() }
-            }
+        }
+        .task {
+            await checkConfig()
+        }
+        .sheet(isPresented: $showPaywall) {
+            ProPaywallView()
+                .presentationDetents([.large])
+        }
+        .onChange(of: userTier) { _ in
+            Task { await checkConfig() }
         }
     }
 
@@ -102,6 +129,7 @@ struct DeadlinerAIPanel: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// 状态 2：缺失 Key 的引导页
@@ -132,6 +160,7 @@ struct DeadlinerAIPanel: View {
                     .clipShape(Capsule())
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @MainActor

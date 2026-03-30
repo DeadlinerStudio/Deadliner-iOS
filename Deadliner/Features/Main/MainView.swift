@@ -8,7 +8,7 @@
 import SwiftUI
 import UIKit
 
-struct MainView: View {
+struct FocusMainView: View {
     @EnvironmentObject private var themeStore: ThemeStore
     @Namespace private var toolbarTransition
 
@@ -261,15 +261,17 @@ struct MainView: View {
             Button(role: .destructive) {
                 NotificationCenter.default.post(name: .ddlDeleteAllArchived, object: nil)
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "trash")
-                    Text("全部删除")
-                        .fontWeight(.medium)
-                }
+                Image(systemName: "trash")
             }
             .foregroundStyle(.red)
+            .accessibilityLabel("删除所有归档")
         }
-        .matchedTransitionSource(id: "main-toolbar-bottom-center", in: toolbarTransition)
+        .matchedTransitionSource(id: "main-toolbar-bottom-leading", in: toolbarTransition)
+
+        ToolbarSpacer(.flexible, placement: .bottomBar)
+
+        DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            .matchedTransitionSource(id: "main-toolbar-bottom-trailing", in: toolbarTransition)
     }
 
     private var isInsightFreeUser: Bool {

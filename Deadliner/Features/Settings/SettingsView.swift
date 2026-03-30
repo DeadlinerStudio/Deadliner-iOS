@@ -11,6 +11,7 @@ import PhotosUI
 struct SettingsView: View {
     @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("userName") private var userName: String = "用户"
+    @AppStorage("settings.home.style") private var homeStyleRawValue: String = HomeStyleOption.rich.rawValue
     @StateObject private var avatarManager = AvatarManager.shared
     @State private var showProPaywall = false
     @State private var selectedPhotoItem: PhotosPickerItem?
@@ -126,7 +127,7 @@ struct SettingsView: View {
                 
                 // 云同步：如果是 Pro 用户，里面会多出一个 iCloud 选项
                 NavigationLink(destination: AccountAndSyncView()) {
-                    settingsLabel("账号与云同步", systemImage: "cloud.fill", tintColors: [.blue, .blue.opacity(0.7)])
+                    settingsLabel("账号与云同步", systemImage: "cloud.fill", tintColors: [.cyan, .cyan.opacity(0.7)])
                 }
                 .settingsRowEntrance(isVisible: animateRows, index: 3)
             }
@@ -148,6 +149,15 @@ struct SettingsView: View {
             // MARK: - 5. 外观与个性化
             // 个性化：只要是 Deadliner+ 计划（Geek 或 Pro）都能解锁
             Section("个性化") {
+                NavigationLink(destination: HomeStyleSettingsView()) {
+                    HStack {
+                        settingsLabel("主页风格", systemImage: "square.grid.2x2.fill", tintColors: [.blue, .blue.opacity(0.7)])
+                        Spacer()
+                        Text(selectedHomeStyle.title)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .settingsRowEntrance(isVisible: animateRows, index: 5)
                 NavigationLink(destination: ThemeSettingsView()) {
                     HStack {
                         settingsLabel("App 主题", systemImage: "paintbrush.fill", tintColors: [.orange, .orange.opacity(0.7)])
@@ -155,7 +165,7 @@ struct SettingsView: View {
                         if userTier == .free { PlusBadge() }
                     }
                 }
-                .settingsRowEntrance(isVisible: animateRows, index: 5)
+                .settingsRowEntrance(isVisible: animateRows, index: 6)
                 NavigationLink(destination: IconSettingsView()) {
                     HStack {
                         settingsLabel("自定义图标", systemImage: "app.fill", tintColors: [.mint, .mint.opacity(0.7)])
@@ -163,7 +173,7 @@ struct SettingsView: View {
                         if userTier == .free { PlusBadge() }
                     }
                 }
-                .settingsRowEntrance(isVisible: animateRows, index: 6)
+                .settingsRowEntrance(isVisible: animateRows, index: 7)
             }
 
             // MARK: - 6. 其他
@@ -176,12 +186,12 @@ struct SettingsView: View {
                     Text("\(version) (\(build))")
                         .foregroundColor(.secondary)
                 }
-                .settingsRowEntrance(isVisible: animateRows, index: 7)
+                .settingsRowEntrance(isVisible: animateRows, index: 8)
                 
                 Link(destination: URL(string: "https://github.com/AritxOnly/Deadliner-iOS/blob/main/LICENSE")!) {
                     settingsLabel("开源协议 (GPLv3)", systemImage: "doc.text.fill", tintColors: [.pink, .pink.opacity(0.7)])
                 }
-                .settingsRowEntrance(isVisible: animateRows, index: 8)
+                .settingsRowEntrance(isVisible: animateRows, index: 9)
             }
         }
         .navigationTitle("设置")
@@ -206,5 +216,9 @@ struct SettingsView: View {
 
     private func settingsLabel(_ title: String, systemImage: String, tintColors: [Color]) -> some View {
         SettingsListLabel(title: title, systemImage: systemImage, tintColors: tintColors, style: .main)
+    }
+
+    private var selectedHomeStyle: HomeStyleOption {
+        HomeStyleOption(rawValue: homeStyleRawValue) ?? .rich
     }
 }

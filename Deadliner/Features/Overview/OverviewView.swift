@@ -24,8 +24,10 @@ struct OverviewView: View {
                     } label: {
                         Label("分享", systemImage: "square.and.arrow.up")
                     }
+                    .tint(.primary)
                 } else {
                     EditButton()
+                        .tint(.primary)
                 }
             }
         }

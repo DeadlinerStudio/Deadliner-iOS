@@ -80,64 +80,64 @@ struct AIFunctionView: View {
     @State private var repoBusy: Bool = false               // 防连点
     
     @State private var showMemoryManageSheet: Bool = false
+    let bottomAccessoryInset: CGFloat
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if isExpanded || !displayItems.isEmpty {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 16) {
-                                memoryHintView
+        Group {
+            if isExpanded || !displayItems.isEmpty {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            memoryHintView
 
-                                ForEach(displayItems) { item in
-                                    renderItem(item)
-                                        .id(item.id)
-                                        .transition(.asymmetric(
-                                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                                            removal: .opacity
-                                        ))
-                                }
-
-                                if isParsing {
-                                    HStack(spacing: 12) {
-                                        ProgressView().tint(.purple)
-                                        Text("Deadliner Claw 正在思考...")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        Spacer()
-                                    }
-                                    .padding(.leading)
-                                    .id("loading_indicator")
-                                }
-
-                                Color.clear
-                                    .frame(height: inputSectionHeight + 24)
-                                    .id("bottom_spacing")
+                            ForEach(displayItems) { item in
+                                renderItem(item)
+                                    .id(item.id)
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                                        removal: .opacity
+                                    ))
                             }
-                            .padding()
-                        }
-                        .onChange(of: displayItems.count) { _ in
-                            guard let lastId = displayItems.last?.id else { return }
-                            withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
-                        }
-                        .onChange(of: isParsing) { parsing in
-                            if parsing {
-                                withAnimation { proxy.scrollTo("loading_indicator", anchor: .bottom) }
+
+                            if isParsing {
+                                HStack(spacing: 12) {
+                                    ProgressView().tint(.purple)
+                                    Text("Deadliner Claw 正在思考...")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                }
+                                .padding(.leading)
+                                .id("loading_indicator")
                             }
+
+                            Color.clear
+                                .frame(height: inputSectionHeight + bottomAccessoryInset + 24)
+                                .id("bottom_spacing")
+                        }
+                        .padding()
+                    }
+                    .onChange(of: displayItems.count) { _ in
+                        guard let lastId = displayItems.last?.id else { return }
+                        withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
+                    }
+                    .onChange(of: isParsing) { parsing in
+                        if parsing {
+                            withAnimation { proxy.scrollTo("loading_indicator", anchor: .bottom) }
                         }
                     }
-                } else {
-                    initialGuideView
                 }
+            } else {
+                initialGuideView
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                inputSection
-            }
-            .navigationTitle(isExpanded ? "Deadliner Claw" : "")
-            .navigationBarTitleDisplayMode(.inline)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            inputSection
+                .padding(.bottom, bottomAccessoryInset)
+        }
+        .navigationTitle(isExpanded ? "Deadliner Claw" : "")
+        .navigationBarTitleDisplayMode(.inline)
         // 根据是否展开自动调整 Sheet 高度
         .presentationDetents(isExpanded ? [.large] : [.medium, .large])
         .alert("出错了", isPresented: $showErrorMessage) {
@@ -187,6 +187,11 @@ struct AIFunctionView: View {
         .onDisappear {
             DeadlinerCoreBridge.shared.clearEventHandler()
         }
+    }
+
+    init(userTier: UserTier, bottomAccessoryInset: CGFloat = 0) {
+        self.userTier = userTier
+        self.bottomAccessoryInset = bottomAccessoryInset
     }
 }
 
