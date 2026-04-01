@@ -790,6 +790,29 @@ actor DatabaseHelper {
         return try context.fetch(fd)
     }
 
+    func pruneExpiredTombstones(olderThan retentionDays: Int) throws -> Int {
+        guard let context else { throw DBError.notInitialized }
+        guard retentionDays > 0 else { return 0 }
+
+        let cutoff = Calendar.current.date(byAdding: .day, value: -retentionDays, to: Date()) ?? Date()
+        let fd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.isTombstoned == true })
+        let tombstones = try context.fetch(fd)
+
+        var deletedCount = 0
+        for entity in tombstones {
+            guard let tombstoneDate = DeadlineDateParser.safeParseOptional(entity.verTs) else { continue }
+            guard tombstoneDate < cutoff else { continue }
+            context.delete(entity)
+            deletedCount += 1
+        }
+
+        if deletedCount > 0 {
+            try context.save()
+        }
+
+        return deletedCount
+    }
+
     func findDDLByUID(_ uid: String) throws -> DDLItemEntity? {
         guard let context else { throw DBError.notInitialized }
         let fd = FetchDescriptor<DDLItemEntity>(
@@ -1095,8 +1118,11 @@ actor DatabaseHelper {
         var hasChanges = false
 
         for ddl in ddls {
+            // Preserve any already-valid canonical stateRaw, including newer states
+            // like abandoned / abandonedArchived. Only backfill from legacy booleans
+            // when stateRaw is missing or invalid.
             let expectedState = Self.stateFromLegacy(isCompleted: ddl.isCompleted, isArchived: ddl.isArchived)
-            if ddl.stateRaw != expectedState.rawValue {
+            if ddl.currentState() == nil {
                 ddl.stateRaw = expectedState.rawValue
                 hasChanges = true
             }

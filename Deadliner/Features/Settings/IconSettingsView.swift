@@ -11,7 +11,6 @@ import UIKit
 // MARK: - App Icon Model
 enum DeadlinerIcon: String, CaseIterable, Identifiable {
     case deadlinerDefault = "DeadlinerDefault"
-    case deadlinerPurple  = "DeadlinerPurple"
     case blackGold        = "DeadlinerBlackGold"
     case pixel            = "DeadlinerPixel"
     case spring           = "DeadlinerSpring"
@@ -25,7 +24,6 @@ enum DeadlinerIcon: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .deadlinerDefault: return "默认"
-        case .deadlinerPurple:  return "紫色"
         case .blackGold:        return "黑金"
         case .pixel:            return "像素"
         case .spring:           return "春"
@@ -67,7 +65,6 @@ enum DeadlinerIcon: String, CaseIterable, Identifiable {
     var alternateIconName: String? {
         switch self {
         case .deadlinerDefault: return nil
-        case .deadlinerPurple:  return "DeadlinerPurple"
         case .blackGold:        return "DeadlinerBlackGold"
         case .pixel:            return "DeadlinerPixel"
         case .spring:           return "DeadlinerSpring"

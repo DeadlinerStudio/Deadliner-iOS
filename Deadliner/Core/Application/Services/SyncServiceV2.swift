@@ -24,6 +24,30 @@ actor SyncServiceV2: SyncService {
         SyncDebugLog.log(message)
     }
 
+    private func tombstoneRetentionCutoff() async -> Date? {
+        let retentionDays = await LocalValues.shared.getTombstoneRetentionDays()
+        guard retentionDays > 0 else { return nil }
+        return Calendar.current.date(byAdding: .day, value: -retentionDays, to: Date())
+    }
+
+    private func shouldKeepDeletedItem(verTs: String, cutoff: Date?) -> Bool {
+        guard let cutoff else { return true }
+        guard let tombstoneDate = DeadlineDateParser.safeParseOptional(verTs) else { return true }
+        return tombstoneDate >= cutoff
+    }
+
+    private func pruneExpiredDeletedItems(_ items: [SnapshotV2Item], cutoff: Date?) -> [SnapshotV2Item] {
+        items.filter { item in
+            !item.deleted || shouldKeepDeletedItem(verTs: item.ver.ts, cutoff: cutoff)
+        }
+    }
+
+    private func pruneExpiredDeletedItems(_ items: [HabitSnapshotV2Item], cutoff: Date?) -> [HabitSnapshotV2Item] {
+        items.filter { item in
+            !item.deleted || shouldKeepDeletedItem(verTs: item.ver.ts, cutoff: cutoff)
+        }
+    }
+
     func syncOnce() async -> SyncResult {
         do {
             return try await syncAllSnapshotsOnce()
@@ -36,12 +60,17 @@ actor SyncServiceV2: SyncService {
 
     private func buildLocalSnapshotV2() async throws -> SnapshotV2Root {
         let items = try await db.getAllDDLsIncludingDeletedForSync()
+        let cutoff = await tombstoneRetentionCutoff()
 
         let snapshotItems = try items.compactMap { entity -> SnapshotV2Item? in
             guard let uid = entity.uid, !uid.isEmpty else { return nil }
 
             let ver = SnapshotVer(ts: entity.verTs, ctr: entity.verCtr, dev: entity.verDev)
             if entity.isTombstoned {
+                guard shouldKeepDeletedItem(verTs: ver.ts, cutoff: cutoff) else {
+                    trace("buildLocalSnapshotV2 prune expired tombstone uid=\(uid) ver=\(ver.ts)#\(ver.ctr)#\(ver.dev)")
+                    return nil
+                }
                 return SnapshotV2Item(uid: uid, ver: ver, deleted: true, doc: nil)
             }
 
@@ -77,13 +106,14 @@ actor SyncServiceV2: SyncService {
     }
 
     private func merge(local: SnapshotV2Root, remoteRoots: [SnapshotV2Root]) -> SnapshotV2Root {
+        let cutoff = TaskLocalSyncContext.tombstoneCutoff
         var map: [String: SnapshotV2Item] = [:]
-        for item in local.items {
+        for item in pruneExpiredDeletedItems(local.items, cutoff: cutoff) {
             map[item.uid] = item
         }
 
         for root in remoteRoots {
-            for item in root.items {
+            for item in pruneExpiredDeletedItems(root.items, cutoff: cutoff) {
                 if let existing = map[item.uid] {
                     if isVerNewer(item.ver, existing.ver) {
                         map[item.uid] = item
@@ -261,63 +291,67 @@ actor SyncServiceV2: SyncService {
     private func syncDDLSnapshotOnce() async throws -> SyncResult {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
+        let cutoff = await tombstoneRetentionCutoff()
 
-        let local = try await buildLocalSnapshotV2()
-        let remoteV2 = try await loadRemoteV2IfPresent(decoder: decoder)
-        let remoteV1Compat = try await loadRemoteV1AsV2IfPresent(decoder: decoder)
-        let merged = merge(local: local, remoteRoots: [remoteV2.root, remoteV1Compat.root].compactMap { $0 })
+        return try await TaskLocalSyncContext.$tombstoneCutoff.withValue(cutoff) {
+            let local = try await buildLocalSnapshotV2()
+            let remoteV2 = try await loadRemoteV2IfPresent(decoder: decoder)
+            let remoteV1Compat = try await loadRemoteV1AsV2IfPresent(decoder: decoder)
+            let merged = merge(local: local, remoteRoots: [remoteV2.root, remoteV1Compat.root].compactMap { $0 })
 
-        let mergedV2Bytes = try encoder.encode(merged)
-        let mergedV1 = try projectV2RootToV1(merged)
-        let mergedV1Bytes = try encoder.encode(mergedV1)
+            let mergedV2Bytes = try encoder.encode(merged)
+            let mergedV1 = try projectV2RootToV1(merged)
+            let mergedV1Bytes = try encoder.encode(mergedV1)
 
-        do {
-            _ = await web.ensureDir("Deadliner")
-            _ = try await web.putBytes(
-                path: snapshotV2Path,
-                bytes: mergedV2Bytes,
-                ifMatch: remoteV2.etag,
-                ifNoneMatchStar: remoteV2.root == nil
-            )
-        } catch is PreconditionFailedError {
-            let refreshedV2 = try await loadRemoteV2IfPresent(decoder: decoder)
-            let refreshedV1 = try await loadRemoteV1AsV2IfPresent(decoder: decoder)
-            let mergedRetry = merge(local: local, remoteRoots: [refreshedV2.root, refreshedV1.root].compactMap { $0 })
+            do {
+                _ = await web.ensureDir("Deadliner")
+                _ = try await web.putBytes(
+                    path: snapshotV2Path,
+                    bytes: mergedV2Bytes,
+                    ifMatch: remoteV2.etag,
+                    ifNoneMatchStar: remoteV2.root == nil
+                )
+            } catch is PreconditionFailedError {
+                let refreshedV2 = try await loadRemoteV2IfPresent(decoder: decoder)
+                let refreshedV1 = try await loadRemoteV1AsV2IfPresent(decoder: decoder)
+                let mergedRetry = merge(local: local, remoteRoots: [refreshedV2.root, refreshedV1.root].compactMap { $0 })
 
-            let retryV2Bytes = try encoder.encode(mergedRetry)
-            _ = try await web.putBytes(
-                path: snapshotV2Path,
-                bytes: retryV2Bytes,
-                ifMatch: refreshedV2.etag,
-                ifNoneMatchStar: refreshedV2.root == nil
-            )
+                let retryV2Bytes = try encoder.encode(mergedRetry)
+                _ = try await web.putBytes(
+                    path: snapshotV2Path,
+                    bytes: retryV2Bytes,
+                    ifMatch: refreshedV2.etag,
+                    ifNoneMatchStar: refreshedV2.root == nil
+                )
 
-            let retryV1 = try projectV2RootToV1(mergedRetry)
+                let retryV1 = try projectV2RootToV1(mergedRetry)
+                _ = try await web.putBytes(
+                    path: snapshotV1Path,
+                    bytes: try encoder.encode(retryV1),
+                    ifMatch: refreshedV1.etag,
+                    ifNoneMatchStar: refreshedV1.root == nil
+                )
+
+                let hasChanges = try await applySnapshotToLocal(mergedRetry)
+                return .init(success: true, hasLocalChanges: hasChanges)
+            }
+
             _ = try await web.putBytes(
                 path: snapshotV1Path,
-                bytes: try encoder.encode(retryV1),
-                ifMatch: refreshedV1.etag,
-                ifNoneMatchStar: refreshedV1.root == nil
+                bytes: mergedV1Bytes,
+                ifMatch: remoteV1Compat.etag,
+                ifNoneMatchStar: remoteV1Compat.root == nil
             )
 
-            let hasChanges = try await applySnapshotToLocal(mergedRetry)
+            let hasChanges = try await applySnapshotToLocal(merged)
             return .init(success: true, hasLocalChanges: hasChanges)
         }
-
-        _ = try await web.putBytes(
-            path: snapshotV1Path,
-            bytes: mergedV1Bytes,
-            ifMatch: remoteV1Compat.etag,
-            ifNoneMatchStar: remoteV1Compat.root == nil
-        )
-
-        let hasChanges = try await applySnapshotToLocal(merged)
-        return .init(success: true, hasLocalChanges: hasChanges)
     }
 
     private func buildLocalHabitSnapshotV2() async throws -> HabitSnapshotV2Root {
         let items = try await db.getAllDDLsIncludingDeletedForSync()
         let dev = try await db.getDeviceId()
+        let cutoff = await tombstoneRetentionCutoff()
 
         let snapshotItems = try items.compactMap { entity -> HabitSnapshotV2Item? in
             guard entity.typeRaw == DeadlineType.habit.rawValue else { return nil }
@@ -325,6 +359,10 @@ actor SyncServiceV2: SyncService {
 
             let ver = SnapshotVer(ts: entity.verTs, ctr: entity.verCtr, dev: entity.verDev)
             if entity.isTombstoned {
+                guard shouldKeepDeletedItem(verTs: ver.ts, cutoff: cutoff) else {
+                    trace("buildLocalHabitSnapshotV2 prune expired tombstone uid=\(uid) carrierVer=\(ver.ts)#\(ver.ctr)#\(ver.dev)")
+                    return nil
+                }
                 return HabitSnapshotV2Item(uid: uid, ver: ver, deleted: true, doc: nil)
             }
 
@@ -368,12 +406,13 @@ actor SyncServiceV2: SyncService {
     }
 
     private func merge(local: HabitSnapshotV2Root, remote: HabitSnapshotV2Root?) -> HabitSnapshotV2Root {
+        let cutoff = TaskLocalSyncContext.tombstoneCutoff
         var map: [String: HabitSnapshotV2Item] = [:]
-        for item in local.items {
+        for item in pruneExpiredDeletedItems(local.items, cutoff: cutoff) {
             map[item.uid] = item
         }
 
-        for item in remote?.items ?? [] {
+        for item in pruneExpiredDeletedItems(remote?.items ?? [], cutoff: cutoff) {
             if let existing = map[item.uid] {
                 if isVerNewer(item.ver, existing.ver) {
                     trace("mergeHabitSnapshot replace uid=\(item.uid) localVer=\(existing.ver.ts)#\(existing.ver.ctr)#\(existing.ver.dev) remoteVer=\(item.ver.ts)#\(item.ver.ctr)#\(item.ver.dev) remoteDeleted=\(item.deleted)")
@@ -452,35 +491,38 @@ actor SyncServiceV2: SyncService {
     private func syncHabitSnapshotOnce() async throws -> SyncResult {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
+        let cutoff = await tombstoneRetentionCutoff()
 
-        let local = try await buildLocalHabitSnapshotV2()
-        let remote = try await loadRemoteHabitV2IfPresent(decoder: decoder)
-        let merged = merge(local: local, remote: remote.root)
-        let mergedBytes = try encoder.encode(merged)
+        return try await TaskLocalSyncContext.$tombstoneCutoff.withValue(cutoff) {
+            let local = try await buildLocalHabitSnapshotV2()
+            let remote = try await loadRemoteHabitV2IfPresent(decoder: decoder)
+            let merged = merge(local: local, remote: remote.root)
+            let mergedBytes = try encoder.encode(merged)
 
-        do {
-            _ = await web.ensureDir("Deadliner")
-            _ = try await web.putBytes(
-                path: habitSnapshotV2Path,
-                bytes: mergedBytes,
-                ifMatch: remote.etag,
-                ifNoneMatchStar: remote.root == nil
-            )
-        } catch is PreconditionFailedError {
-            let refreshed = try await loadRemoteHabitV2IfPresent(decoder: decoder)
-            let mergedRetry = merge(local: local, remote: refreshed.root)
-            _ = try await web.putBytes(
-                path: habitSnapshotV2Path,
-                bytes: try encoder.encode(mergedRetry),
-                ifMatch: refreshed.etag,
-                ifNoneMatchStar: refreshed.root == nil
-            )
-            let hasChanges = try await applyHabitSnapshotToLocal(mergedRetry)
+            do {
+                _ = await web.ensureDir("Deadliner")
+                _ = try await web.putBytes(
+                    path: habitSnapshotV2Path,
+                    bytes: mergedBytes,
+                    ifMatch: remote.etag,
+                    ifNoneMatchStar: remote.root == nil
+                )
+            } catch is PreconditionFailedError {
+                let refreshed = try await loadRemoteHabitV2IfPresent(decoder: decoder)
+                let mergedRetry = merge(local: local, remote: refreshed.root)
+                _ = try await web.putBytes(
+                    path: habitSnapshotV2Path,
+                    bytes: try encoder.encode(mergedRetry),
+                    ifMatch: refreshed.etag,
+                    ifNoneMatchStar: refreshed.root == nil
+                )
+                let hasChanges = try await applyHabitSnapshotToLocal(mergedRetry)
+                return .init(success: true, hasLocalChanges: hasChanges)
+            }
+
+            let hasChanges = try await applyHabitSnapshotToLocal(merged)
             return .init(success: true, hasLocalChanges: hasChanges)
         }
-
-        let hasChanges = try await applyHabitSnapshotToLocal(merged)
-        return .init(success: true, hasLocalChanges: hasChanges)
     }
 
     private func syncAllSnapshotsOnce() async throws -> SyncResult {
@@ -509,10 +551,14 @@ actor SyncServiceV2: SyncService {
         switch state {
         case .active, .completed, .archived:
             return state
-        case .abandoned:
+        case .abandoned, .abandonedArchived:
             return .archived
         }
     }
+}
+
+private enum TaskLocalSyncContext {
+    @TaskLocal static var tombstoneCutoff: Date?
 }
 
 private extension InnerTodo {

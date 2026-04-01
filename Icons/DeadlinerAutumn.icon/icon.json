@@ -29,8 +29,15 @@
       "blur-material" : 0.5,
       "layers" : [
         {
-          "image-name" : "Details_pencil_autumn.png",
-          "name" : "Details_pencil_autumn"
+          "image-name" : "Details_pencil_autumn 2.png",
+          "name" : "Details_pencil_autumn 2",
+          "position" : {
+            "scale" : 0.95,
+            "translation-in-points" : [
+              5,
+              0
+            ]
+          }
         }
       ],
       "shadow" : {
@@ -46,8 +53,15 @@
       "blur-material" : 0.5,
       "layers" : [
         {
-          "image-name" : "Details_autumn.png",
-          "name" : "Details_autumn"
+          "image-name" : "Details_autumn 2.png",
+          "name" : "Details_autumn 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "shadow" : {
@@ -62,18 +76,34 @@
     {
       "layers" : [
         {
-          "image-name" : "Base3_autumn.png",
-          "name" : "Base3_autumn"
+          "glass" : false,
+          "image-name" : "Base2_autumn 2.png",
+          "name" : "Base2_autumn 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              5
+            ]
+          }
         },
         {
-          "image-name" : "Base2_autumn.png",
-          "name" : "Base2_autumn"
+          "image-name" : "Base3_autumn 2.png",
+          "name" : "Base3_autumn 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.1
       },
+      "specular" : true,
       "translucency" : {
         "enabled" : true,
         "value" : 0.5
@@ -82,8 +112,15 @@
     {
       "layers" : [
         {
-          "image-name" : "Base1_autumn.png",
-          "name" : "Base1_autumn"
+          "image-name" : "Base1_autumn 2.png",
+          "name" : "Base1_autumn 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "shadow" : {

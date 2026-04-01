@@ -19,6 +19,8 @@ struct HomeView: View {
     @State private var pendingDeleteItem: DDLItem? = nil
     @State private var pendingDeleteHabit: Habit? = nil
     @State private var showDeleteConfirm: Bool = false
+    @State private var pendingGiveUpItem: DDLItem? = nil
+    @State private var showGiveUpConfirm: Bool = false
     
     @StateObject private var confetti = ConfettiController()
     
@@ -91,6 +93,14 @@ struct HomeView: View {
                                     onDelete: {
                                         pendingDeleteItem = item
                                         showDeleteConfirm = true
+                                    },
+                                    onGiveUp: {
+                                        if item.state.isAbandonedLike {
+                                            Task { await vm.toggleGiveUpItem(item: item) }
+                                        } else {
+                                            pendingGiveUpItem = item
+                                            showGiveUpConfirm = true
+                                        }
                                     },
                                     onArchive: {
                                         Task { await vm.toggleArchiveItem(item: item) }
@@ -223,6 +233,12 @@ struct HomeView: View {
                 enterAnimToken += 1
             }
         }
+        .onAppear {
+            vm.searchQuery = query
+        }
+        .onChange(of: query) { _, newValue in
+            vm.searchQuery = newValue
+        }
         .alert("提示", isPresented: Binding(
             get: { vm.errorText != nil },
             set: { if !$0 { vm.errorText = nil } }
@@ -255,6 +271,26 @@ struct HomeView: View {
                 Text("将删除「\(habit.name)」。此操作不可撤销。")
             } else {
                 Text("此操作不可撤销。")
+            }
+        }
+        .alert(
+            "确认放弃任务？",
+            isPresented: $showGiveUpConfirm
+        ) {
+            Button("放弃", role: .destructive) {
+                if let item = pendingGiveUpItem {
+                    Task { await vm.toggleGiveUpItem(item: item) }
+                }
+                pendingGiveUpItem = nil
+            }
+            Button("取消", role: .cancel) {
+                pendingGiveUpItem = nil
+            }
+        } message: {
+            if let item = pendingGiveUpItem {
+                Text("将把「\(item.name)」标记为已放弃。之后你仍可以恢复，或继续归档到归档页。")
+            } else {
+                Text("放弃后任务会变成已放弃状态。")
             }
         }
         .overlay {
@@ -293,6 +329,7 @@ struct HomeView: View {
     // MARK: - Mapping Helpers (基础版)
 
     private func status(for item: DDLItem) -> DDLStatus {
+        if item.state.isAbandonedLike { return .abandoned }
         if item.isCompleted { return .completed }
 
         guard let end = DeadlineDateParser.safeParseOptional(item.endTime) else { return .undergo }
@@ -305,6 +342,7 @@ struct HomeView: View {
     }
 
     private func remainingTimeText(for item: DDLItem) -> String {
+        if item.state.isAbandonedLike { return item.isArchived ? "已放弃归档" : "已放弃" }
         if item.isCompleted { return "已完成" }
         guard let end = DeadlineDateParser.safeParseOptional(item.endTime) else { return item.endTime }
 

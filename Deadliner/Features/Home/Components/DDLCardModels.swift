@@ -12,6 +12,7 @@ enum DDLStatus {
     case near
     case passed
     case completed
+    case abandoned
 }
 
 enum DDLCardSwipeAction {
@@ -44,6 +45,11 @@ struct DDLStatusStyle {
             return .init(
                 indicator: .green.opacity(0.65),
                 background: .green.opacity(0.20)
+            )
+        case .abandoned:
+            return .init(
+                indicator: .gray.opacity(0.65),
+                background: .gray.opacity(0.18)
             )
         }
     }

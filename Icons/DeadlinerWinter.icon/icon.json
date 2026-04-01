@@ -29,8 +29,15 @@
       "blur-material" : 0.5,
       "layers" : [
         {
-          "image-name" : "Details_pencil_winter.png",
-          "name" : "Details_pencil_winter"
+          "image-name" : "Details_pencil_winter 2.png",
+          "name" : "Details_pencil_winter 2",
+          "position" : {
+            "scale" : 0.95,
+            "translation-in-points" : [
+              5,
+              0
+            ]
+          }
         }
       ],
       "name" : "Pencil",
@@ -47,8 +54,15 @@
       "blur-material" : null,
       "layers" : [
         {
-          "image-name" : "Details_winter.png",
-          "name" : "Details_winter"
+          "image-name" : "Details_winter 2.png",
+          "name" : "Details_winter 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "name" : "Details",
@@ -62,14 +76,30 @@
       }
     },
     {
+      "blur-material" : null,
       "layers" : [
         {
-          "image-name" : "Base3_winter.png",
-          "name" : "Base3_winter"
+          "image-name" : "Base2_winter 2.png",
+          "name" : "Base2_winter 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         },
         {
-          "image-name" : "Base2_winter.png",
-          "name" : "Base2_winter"
+          "glass" : false,
+          "image-name" : "Base3_winter 2.png",
+          "name" : "Base3_winter 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              5
+            ]
+          }
         }
       ],
       "name" : "Calendar",
@@ -77,6 +107,7 @@
         "kind" : "neutral",
         "opacity" : 0.1
       },
+      "specular" : true,
       "translucency" : {
         "enabled" : true,
         "value" : 0.5
@@ -85,8 +116,15 @@
     {
       "layers" : [
         {
-          "image-name" : "Base1_winter.png",
-          "name" : "Base1_winter"
+          "image-name" : "Base1_winter 2.png",
+          "name" : "Base1_winter 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "name" : "Bg",
@@ -94,6 +132,7 @@
         "kind" : "layer-color",
         "opacity" : 0.1
       },
+      "specular" : true,
       "translucency" : {
         "enabled" : true,
         "value" : 0.5

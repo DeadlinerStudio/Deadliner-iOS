@@ -86,6 +86,9 @@ actor SyncCoordinator {
         if result.hasLocalChanges {
             await handleLocalChanges()
         }
+        if result.success {
+            await pruneExpiredTombstonesIfNeeded()
+        }
 
         if hasPendingSync {
             hasPendingSync = false
@@ -118,6 +121,9 @@ actor SyncCoordinator {
         if result.hasLocalChanges {
             await handleLocalChanges()
         }
+        if result.success {
+            await pruneExpiredTombstonesIfNeeded()
+        }
 
         if hasPendingSync {
             hasPendingSync = false
@@ -135,6 +141,22 @@ actor SyncCoordinator {
             HabitRepository.shared.scheduleReminderRefresh()
         } catch {
             logger.error("Failed to refresh local state after sync: \(error.localizedDescription)")
+        }
+    }
+
+    private func pruneExpiredTombstonesIfNeeded() async {
+        let retentionDays = await LocalValues.shared.getTombstoneRetentionDays()
+        guard retentionDays > 0 else { return }
+
+        do {
+            let deleted = try await db.pruneExpiredTombstones(olderThan: retentionDays)
+            if deleted > 0 {
+                logger.info("Pruned \(deleted, privacy: .public) expired tombstones")
+                NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+        } catch {
+            logger.error("Failed to prune expired tombstones: \(error.localizedDescription)")
         }
     }
 }

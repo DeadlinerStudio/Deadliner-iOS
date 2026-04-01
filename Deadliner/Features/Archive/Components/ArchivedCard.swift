@@ -12,6 +12,7 @@ struct ArchivedDDLItemCard: View {
     let startTime: String
     let completeTime: String
     let note: String
+    var indicatorColor: Color = .blue
     var onUndo: () -> Void = {}
     var onDelete: () -> Void = {}
 
@@ -21,8 +22,6 @@ struct ArchivedDDLItemCard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        // 仿照 DDLItemCard 的配色方案
-        let indicatorColor = Color.blue
         let backgroundColor = Color(uiColor: .secondarySystemBackground)
         
         ZStack(alignment: .leading) {

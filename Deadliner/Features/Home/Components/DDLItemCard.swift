@@ -101,6 +101,7 @@ struct DDLItemCardSwipeable: View {
 
     var onComplete: () -> Void
     var onDelete: () -> Void
+    var onGiveUp: (() -> Void)? = nil
     
     var onArchive: (() -> Void)? = nil
     var onEdit: (() -> Void)? = nil
@@ -126,7 +127,11 @@ struct DDLItemCardSwipeable: View {
             )
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.35).onEnded { _ in
-                    onLongPressSelect?()
+                    if selectionMode {
+                        onLongPressSelect?()
+                    } else {
+                        onEdit?()
+                    }
                 }
             )
             .swipeActions(edge: .trailing, allowsFullSwipe: !selectionMode) {
@@ -148,21 +153,51 @@ struct DDLItemCardSwipeable: View {
             }
             .swipeActions(edge: .leading, allowsFullSwipe: !selectionMode) {
                 if !selectionMode {
-                    Button {
-                        onComplete()
-                    } label: {
-                        Label(status == .completed ? "撤销完成" : "完成",
-                              systemImage: status == .completed ? "arrow.uturn.backward" : "checkmark")
-                    }
-                    .tint(.green)
+                    if status == .completed {
+                        Button {
+                            onComplete()
+                        } label: {
+                            Label("撤销完成", systemImage: "arrow.uturn.backward")
+                        }
+                        .tint(.green)
 
-                    Button {
-                        onArchive?()
-                    } label: {
-                        Label("归档", systemImage: "archivebox")
+                        Button {
+                            onArchive?()
+                        } label: {
+                            Label("归档", systemImage: "archivebox")
+                        }
+                        .tint(.gray)
+                    } else if status == .abandoned {
+                        Button {
+                            onGiveUp?()
+                        } label: {
+                            Label("恢复", systemImage: "arrow.uturn.backward.circle")
+                        }
+                        .tint(.orange)
+
+                        Button {
+                            onArchive?()
+                        } label: {
+                            Label("归档", systemImage: "archivebox")
+                        }
+                        .tint(.gray)
+                    } else {
+                        Button {
+                            onComplete()
+                        } label: {
+                            Label("完成", systemImage: "checkmark")
+                        }
+                        .tint(.green)
+
+                        if onGiveUp != nil {
+                            Button {
+                                onGiveUp?()
+                            } label: {
+                                Label("放弃", systemImage: "flag")
+                            }
+                            .tint(.orange)
+                        }
                     }
-                    .tint(.gray)
-                    .disabled(status != .completed)
                 }
             }
 

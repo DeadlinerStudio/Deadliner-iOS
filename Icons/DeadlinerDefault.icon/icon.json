@@ -4,8 +4,8 @@
     {
       "value" : {
         "linear-gradient" : [
-          "display-p3:0.78704,0.84390,0.92659,1.00000",
-          "display-p3:0.76321,0.86381,1.00000,1.00000"
+          "display-p3:0.68996,0.80306,0.86120,1.00000",
+          "display-p3:0.58989,0.71922,0.92659,1.00000"
         ],
         "orientation" : {
           "start" : {
@@ -29,8 +29,15 @@
       "blur-material" : 0.5,
       "layers" : [
         {
-          "image-name" : "Details_pencil_summer.png",
-          "name" : "Details_pencil_summer"
+          "image-name" : "Details_pencil_summer 2.png",
+          "name" : "Details_pencil_summer 2",
+          "position" : {
+            "scale" : 0.95,
+            "translation-in-points" : [
+              5,
+              0
+            ]
+          }
         }
       ],
       "name" : "Pencil",
@@ -46,18 +53,25 @@
     {
       "layers" : [
         {
-          "image-name" : "Base1_spring.png",
-          "name" : "Base1_spring"
-        },
-        {
-          "fill" : "automatic",
-          "image-name" : "Base2.png",
-          "name" : "Base2",
+          "image-name" : "Base2 2.png",
+          "name" : "Base2 2",
           "position" : {
-            "scale" : 1.14,
+            "scale" : 1.05,
             "translation-in-points" : [
               0,
-              -23
+              0
+            ]
+          }
+        },
+        {
+          "glass" : false,
+          "image-name" : "Base3.png",
+          "name" : "Base3",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              5
             ]
           }
         }
@@ -75,13 +89,13 @@
     {
       "layers" : [
         {
-          "image-name" : "Base1.png",
-          "name" : "Base1",
+          "image-name" : "Base1 2.png",
+          "name" : "Base1 2",
           "position" : {
-            "scale" : 1,
+            "scale" : 1.05,
             "translation-in-points" : [
-              0.06999999999993634,
-              -0.5
+              0,
+              0
             ]
           }
         }
@@ -93,7 +107,7 @@
       },
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
+        "value" : 0.2
       }
     }
   ],

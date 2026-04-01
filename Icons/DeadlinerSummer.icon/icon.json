@@ -29,16 +29,23 @@
       "blur-material" : 0.5,
       "layers" : [
         {
-          "image-name" : "Details_pencil1_summer.png",
-          "name" : "Details_pencil1_summer"
+          "image-name" : "Details_pencil1_summer 2.png",
+          "name" : "Details_pencil1_summer 2"
         },
         {
-          "image-name" : "Details_pencil_summer.png",
-          "name" : "Details_pencil_summer"
+          "image-name" : "Details_pencil_summer 2.png",
+          "name" : "Details_pencil_summer 2"
         }
       ],
       "lighting" : "individual",
       "name" : "Pencil",
+      "position" : {
+        "scale" : 0.95,
+        "translation-in-points" : [
+          5,
+          0
+        ]
+      },
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.1
@@ -53,8 +60,28 @@
       "blur-material" : 0.5,
       "layers" : [
         {
-          "image-name" : "Details_summer.png",
-          "name" : "Details_summer"
+          "hidden" : true,
+          "image-name" : "Details_summer 2.png",
+          "name" : "Details_summer 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "hidden" : false,
+          "image-name" : "Details_summer1 (1).png",
+          "name" : "Details_summer1 (1)",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "lighting" : "individual",
@@ -73,12 +100,27 @@
       "blur-material" : null,
       "layers" : [
         {
-          "image-name" : "Base1_spring.png",
-          "name" : "Base1_spring"
+          "image-name" : "Base3_spring.png",
+          "name" : "Base3_spring",
+          "position" : {
+            "scale" : 0.94,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         },
         {
-          "image-name" : "Base2_spring.png",
-          "name" : "Base2_spring"
+          "glass" : false,
+          "image-name" : "Base2_spring 2.png",
+          "name" : "Base2_spring 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              5
+            ]
+          }
         }
       ],
       "name" : "Calendar",
@@ -95,8 +137,15 @@
     {
       "layers" : [
         {
-          "image-name" : "Base1_summer.png",
-          "name" : "Base1_summer"
+          "image-name" : "Base1_summer 2.png",
+          "name" : "Base1_summer 2",
+          "position" : {
+            "scale" : 1.05,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "name" : "Bg",

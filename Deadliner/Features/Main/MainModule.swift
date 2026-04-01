@@ -17,7 +17,7 @@ enum MainModule: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .taskManagement: return "checklist"
-        case .insights: return "chart.bar.xaxis"
+        case .insights: return "chart.pie"
         case .archive: return "archivebox"
         }
     }

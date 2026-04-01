@@ -21,8 +21,6 @@
 		E5A147602F51E766001845F7 /* DeadlinerWinter.icon in Resources */ = {isa = PBXBuildFile; fileRef = E5A1475F2F51E766001845F7 /* DeadlinerWinter.icon */; };
 		E5B68B692F4B493500E603F3 /* DeadlinerBlackGold.icon in Resources */ = {isa = PBXBuildFile; fileRef = E5B68B672F4B493500E603F3 /* DeadlinerBlackGold.icon */; };
 		E5B68B6A2F4B493500E603F3 /* DeadlinerPixel.icon in Resources */ = {isa = PBXBuildFile; fileRef = E5B68B682F4B493500E603F3 /* DeadlinerPixel.icon */; };
-		E5B68B6F2F4C821E00E603F3 /* DeadlinerPurple.icon in Resources */ = {isa = PBXBuildFile; fileRef = E5B68B6E2F4C821E00E603F3 /* DeadlinerPurple.icon */; };
-		E5B68B712F4C825700E603F3 /* DeadlinerOragne.icon in Resources */ = {isa = PBXBuildFile; fileRef = E5B68B702F4C825700E603F3 /* DeadlinerOragne.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,8 +81,6 @@
 		E5A1475F2F51E766001845F7 /* DeadlinerWinter.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DeadlinerWinter.icon; sourceTree = "<group>"; };
 		E5B68B672F4B493500E603F3 /* DeadlinerBlackGold.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DeadlinerBlackGold.icon; sourceTree = "<group>"; };
 		E5B68B682F4B493500E603F3 /* DeadlinerPixel.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DeadlinerPixel.icon; sourceTree = "<group>"; };
-		E5B68B6E2F4C821E00E603F3 /* DeadlinerPurple.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DeadlinerPurple.icon; sourceTree = "<group>"; };
-		E5B68B702F4C825700E603F3 /* DeadlinerOragne.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DeadlinerOragne.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -244,8 +240,6 @@
 			isa = PBXGroup;
 			children = (
 				E52763CE2F42F09F002162DF /* DeadlinerDefault.icon */,
-				E5B68B6E2F4C821E00E603F3 /* DeadlinerPurple.icon */,
-				E5B68B702F4C825700E603F3 /* DeadlinerOragne.icon */,
 				E5B68B672F4B493500E603F3 /* DeadlinerBlackGold.icon */,
 				E5B68B682F4B493500E603F3 /* DeadlinerPixel.icon */,
 				E5A147592F512B7D001845F7 /* DeadlinerSpring.icon */,
@@ -407,9 +401,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E5B68B692F4B493500E603F3 /* DeadlinerBlackGold.icon in Resources */,
-				E5B68B6F2F4C821E00E603F3 /* DeadlinerPurple.icon in Resources */,
 				E5A1475E2F51DFA3001845F7 /* DeadlinerAutumn.icon in Resources */,
-				E5B68B712F4C825700E603F3 /* DeadlinerOragne.icon in Resources */,
 				E5B68B6A2F4B493500E603F3 /* DeadlinerPixel.icon in Resources */,
 				E5A147602F51E766001845F7 /* DeadlinerWinter.icon in Resources */,
 				E52763CF2F42F09F002162DF /* DeadlinerDefault.icon in Resources */,
@@ -632,6 +624,8 @@
 				INFOPLIST_KEY_CFBundleURLTypes = "({CFBundleURLName=top.aritxonly.deadliner;CFBundleURLSchemes=(deadliner);})";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Deadliner 需要使用麦克风来进行语音输入。";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Deadliner 需要语音识别权限，将语音实时转换成文本输入。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -676,6 +670,8 @@
 				INFOPLIST_KEY_CFBundleURLTypes = "({CFBundleURLName=top.aritxonly.deadliner;CFBundleURLSchemes=(deadliner);})";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Deadliner 需要使用麦克风来进行语音输入。";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Deadliner 需要语音识别权限，将语音实时转换成文本输入。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

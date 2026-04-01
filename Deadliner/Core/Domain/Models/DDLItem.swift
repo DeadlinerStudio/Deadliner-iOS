@@ -51,4 +51,8 @@ struct DDLItem: Identifiable, Equatable, Sendable {
         try DDLStateMachine.validateTransition(from: state, to: newState)
         state = newState
     }
+
+    mutating func transition(using action: DDLStateAction) throws {
+        state = try DDLStateMachine.nextState(from: state, action: action)
+    }
 }

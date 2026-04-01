@@ -11,6 +11,7 @@ struct BehaviorAndDisplayView: View {
     @EnvironmentObject private var themeStore: ThemeStore
 
     @State private var autoArchiveDays = 7
+    @State private var tombstoneRetentionDays = 30
     
     @State private var progressDir = false
     
@@ -40,6 +41,21 @@ struct BehaviorAndDisplayView: View {
                      : "任务完成后 \(autoArchiveDays) 天，将自动移入归档区。")
                     .font(.footnote)
                     .foregroundColor(.secondary)
+
+                Stepper(value: $tombstoneRetentionDays, in: 0...365) {
+                    HStack {
+                        Text("已删除记录保留天数")
+                        Spacer()
+                        Text(tombstoneRetentionDays == 0 ? "不自动清理" : "\(tombstoneRetentionDays) 天")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Text(tombstoneRetentionDays == 0
+                     ? "删除墓碑将持续保留，适合极端保守的多设备同步。"
+                     : "删除后的同步墓碑保留 \(tombstoneRetentionDays) 天，之后会自动回收，减少 snapshot 体积和垃圾数据堆积。")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
             }
         }
         .navigationTitle("行为与交互")
@@ -47,10 +63,14 @@ struct BehaviorAndDisplayView: View {
         .optionalTint(themeStore.switchTint)
         .task {
             autoArchiveDays = await LocalValues.shared.getAutoArchiveDays()
+            tombstoneRetentionDays = await LocalValues.shared.getTombstoneRetentionDays()
             progressDir = await LocalValues.shared.getProgressDir()
         }
         .onChange(of: autoArchiveDays) { newValue in
             Task { await LocalValues.shared.setAutoArchiveDays(newValue) }
+        }
+        .onChange(of: tombstoneRetentionDays) { newValue in
+            Task { await LocalValues.shared.setTombstoneRetentionDays(newValue) }
         }
         .onChange(of: progressDir) { newValue in
             Task { await LocalValues.shared.setProgressDir(newValue) }

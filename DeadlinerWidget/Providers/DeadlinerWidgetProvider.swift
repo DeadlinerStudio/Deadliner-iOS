@@ -55,7 +55,11 @@ struct DeadlinerWidgetProvider: TimelineProvider {
             entity.isTombstoned == false && entity.typeRaw == taskTypeRaw
         }
 
-        let activeTasks = validTasks.filter { !$0.isArchived }
+        let visibleTasks = validTasks.filter { entity in
+            let state = entity.resolvedState()
+            return !state.isArchivedLike && !state.isAbandonedLike
+        }
+        let activeTasks = visibleTasks
         let remainingTasks = activeTasks.filter { !$0.isCompleted }
         let sortedRemaining = remainingTasks.sorted { $0.endTime < $1.endTime }
 

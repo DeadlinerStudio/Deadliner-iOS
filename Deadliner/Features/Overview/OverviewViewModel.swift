@@ -62,6 +62,7 @@ struct ComputedStats {
     let completedTodayCount: Int
     let todayTodoCount: Int
     let todayOverdueCount: Int
+    let activeAbandonedCount: Int
     let historyStats: [String: Int]
     let completionTimeStats: [(String, Int)]
     let overdueItems: [DDLItem]
@@ -80,6 +81,7 @@ final class OverviewViewModel: ObservableObject {
     @Published var todayCompleted = 0
     @Published var todayTodo = 0
     @Published var todayOverdue = 0
+    @Published var activeAbandoned = 0
     @Published var historyStats: [String: Int] = [:]
     @Published var completionTimeStats: [(String, Int)] = []
     @Published var overdueItems: [DDLItem] = []
@@ -176,6 +178,7 @@ final class OverviewViewModel: ObservableObject {
             self.todayCompleted = stats.completedTodayCount
             self.todayTodo = stats.todayTodoCount
             self.todayOverdue = stats.todayOverdueCount
+            self.activeAbandoned = stats.activeAbandonedCount
             self.historyStats = stats.historyStats
             self.completionTimeStats = stats.completionTimeStats
             self.overdueItems = stats.overdueItems
@@ -229,23 +232,26 @@ final class OverviewViewModel: ObservableObject {
             guard let d = it.completeTime else { return false }
             return calendar.isDate(d, inSameDayAs: now) && it.item.isCompleted
         }.count
+
+        let activeAbandonedCount = activeParsed.filter { $0.item.state.isAbandonedLike }.count
         
         let todayTodoCount = activeParsed.filter { it in
-            if it.item.isCompleted { return false }
+            if it.item.isCompleted || it.item.state.isAbandonedLike { return false }
             guard let end = it.endTime else { return false }
             return end >= now
         }.count
         
         let todayOverdueCount = activeParsed.filter { it in
-            if it.item.isCompleted { return false }
+            if it.item.isCompleted || it.item.state.isAbandonedLike { return false }
             guard let end = it.endTime else { return false }
             return calendar.isDate(end, inSameDayAs: now) && end < now
         }.count
         
         let historyCompleted = parsedItems.filter { $0.item.isCompleted }
-        let historyIncomplete = parsedItems.filter { !$0.item.isCompleted }
+        let historyAbandoned = parsedItems.filter { $0.item.state.isAbandonedLike }
+        let historyIncomplete = parsedItems.filter { !$0.item.isCompleted && !$0.item.state.isAbandonedLike }
         let historyOverdue = activeParsed.filter { it in
-            if it.item.isCompleted { return false }
+            if it.item.isCompleted || it.item.state.isAbandonedLike { return false }
             guard let end = it.endTime else { return false }
             return end < now
         }
@@ -253,6 +259,7 @@ final class OverviewViewModel: ObservableObject {
         let historyStats = [
             "累计完成": historyCompleted.count,
             "当前待办": historyIncomplete.count,
+            "累计放弃": historyAbandoned.count,
             "累计逾期": historyOverdue.count
         ]
         
@@ -288,6 +295,7 @@ final class OverviewViewModel: ObservableObject {
             completedTodayCount: completedTodayCount,
             todayTodoCount: todayTodoCount,
             todayOverdueCount: todayOverdueCount,
+            activeAbandonedCount: activeAbandonedCount,
             historyStats: historyStats,
             completionTimeStats: completionTimeStats,
             overdueItems: historyOverdue.map { $0.item },

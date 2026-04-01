@@ -18,7 +18,8 @@ struct OverviewStatsCard: View {
             ActiveStatsCard(
                 completed: viewModel.todayCompleted,
                 todo: viewModel.todayTodo,
-                overdue: viewModel.todayOverdue
+                overdue: viewModel.todayOverdue,
+                abandoned: viewModel.activeAbandoned
             )
         case .completionTime:
             CompletionTimeCard(completionTimeStats: viewModel.completionTimeStats)
@@ -51,6 +52,7 @@ private struct ActiveStatsCard: View {
     let completed: Int
     let todo: Int
     let overdue: Int
+    let abandoned: Int
     
     var body: some View {
         StatsCardContainer {
@@ -58,27 +60,31 @@ private struct ActiveStatsCard: View {
                 .font(.headline)
                 .padding(.bottom, 20)
             
-            HStack {
+            HStack(alignment: .top, spacing: 8) {
                 statItem(label: "今日完成", value: completed, color: .green)
-                Spacer()
+                Spacer(minLength: 0)
                 statItem(label: "待办任务", value: todo, color: .orange)
-                Spacer()
+                Spacer(minLength: 0)
                 statItem(label: "今日逾期", value: overdue, color: .red)
+                Spacer(minLength: 0)
+                statItem(label: "已放弃", value: abandoned, color: .gray)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 4)
         }
     }
     
     private func statItem(label: String, value: Int, color: Color) -> some View {
         VStack {
             Text("\(value)")
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundColor(color)
                 .padding(.bottom, 4)
             Text(label)
-                .font(.caption)
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 

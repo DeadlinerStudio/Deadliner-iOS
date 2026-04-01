@@ -357,7 +357,7 @@ final class HomeViewModel: ObservableObject {
         beginSuppressReload()
         var updated = item
         do {
-            try updated.transition(to: item.isCompleted ? .active : .completed)
+            try updated.transition(using: item.isCompleted ? .restoreActive : .markComplete)
         } catch {
             logger.error("toggleCompleteLocal transition failed: \(error.localizedDescription)")
             return item.isCompleted
@@ -373,7 +373,7 @@ final class HomeViewModel: ObservableObject {
     func persistToggleComplete(original: DDLItem) async {
         var updated = original
         do {
-            try updated.transition(to: original.isCompleted ? .active : .completed)
+            try updated.transition(using: original.isCompleted ? .restoreActive : .markComplete)
         } catch {
             errorText = "状态流转失败：\(error.localizedDescription)"
             rollbackTo(original)
@@ -391,11 +391,29 @@ final class HomeViewModel: ObservableObject {
     func toggleArchiveItem(item: DDLItem) async {
         var updated = item
         do {
-            try updated.transition(to: item.isArchived ? .completed : .archived)
+            try updated.transition(using: item.isArchived ? .unarchive : .markArchive)
         } catch {
             errorText = "状态流转失败：\(error.localizedDescription)"
             return
         }
+        do {
+            try await repo.updateDDL(updated)
+            await reload()
+        } catch {
+            errorText = "更新失败：\(error.localizedDescription)"
+        }
+    }
+
+    func toggleGiveUpItem(item: DDLItem) async {
+        var updated = item
+        do {
+            try updated.transition(using: item.state.isAbandonedLike ? .restoreActive : .markGiveUp)
+            updated.completeTime = updated.state.isAbandonedLike ? Date().toLocalISOString() : ""
+        } catch {
+            errorText = "状态流转失败：\(error.localizedDescription)"
+            return
+        }
+
         do {
             try await repo.updateDDL(updated)
             await reload()

@@ -24,7 +24,6 @@ final class StoreManager: ObservableObject {
     
     @AppStorage("userTier") private var userTier: UserTier = .free
     
-    // 正确的内购 ID
     let geekProductID = "top.aritxonly.deadliner.geek.lifetime"
     
     private var updatesTask: Task<Void, Never>?

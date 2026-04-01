@@ -58,8 +58,6 @@ struct DeadlinerAIPanel: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .navigationTitle("Deadliner Claw")
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsDismissButton {
                 ToolbarItem(placement: .topBarTrailing) {

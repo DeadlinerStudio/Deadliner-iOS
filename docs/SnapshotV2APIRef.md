@@ -111,7 +111,7 @@ Compatibility file:
 ### State values
 
 ```json
-"state": "active | completed | archived | abandoned"
+"state": "active | completed | archived | abandoned | abandonedArchived"
 ```
 
 Meaning:
@@ -120,6 +120,37 @@ Meaning:
 - `completed`: task finished
 - `archived`: completed and archived
 - `abandoned`: user explicitly gave up the task
+- `abandonedArchived`: user explicitly gave up the task and then archived it
+
+### Task state machine
+
+Canonical task actions:
+
+- `markComplete`
+- `markArchive`
+- `markGiveUp`
+- `restoreActive`
+- `unarchive`
+
+Canonical transitions:
+
+- `active --markComplete--> completed`
+- `completed --markArchive--> archived`
+- `active --markGiveUp--> abandoned`
+- `abandoned --markArchive--> abandonedArchived`
+
+Supported reverse transitions:
+
+- `completed --restoreActive--> active`
+- `abandoned --restoreActive--> active`
+- `archived --unarchive--> completed`
+- `abandonedArchived --unarchive--> abandoned`
+
+Rules:
+
+- clients should implement task lifecycle transitions through an action-based state machine instead of ad hoc direct state writes
+- `abandoned` is still an active-list task and must not be treated as archived
+- `abandonedArchived` is an archive-list task and must preserve the fact that it was abandoned before archiving
 
 ### Tombstone
 
@@ -129,6 +160,22 @@ Meaning:
 
 - `state` answers lifecycle semantics
 - `deleted` answers sync deletion semantics
+
+### Tombstone retention
+
+Deleted tombstones are not required to live forever.
+
+Rules:
+
+- clients may retain tombstones for a bounded retention window, for example 30 days
+- tombstones older than the retention window may be pruned from local storage
+- tombstones older than the retention window may also be dropped during snapshot merge/build so remote snapshot files can shrink over time
+- once a tombstone is older than the retention window, clients accept the risk that a very stale offline device may no longer receive that deletion marker
+
+Recommended behavior:
+
+- apply normal LWW rules within the retention window
+- after the retention window, treat the tombstone as eligible for garbage collection
 
 ### Inner Todo shape
 

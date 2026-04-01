@@ -119,8 +119,9 @@ struct ArchiveView: View {
                 ArchivedDDLItemCard(
                     title: item.name,
                     startTime: formatDate(item.startTime),
-                    completeTime: formatDate(item.completeTime),
+                    completeTime: archivedTaskDetail(for: item),
                     note: item.note,
+                    indicatorColor: item.state.isAbandonedLike ? .gray : .blue,
                     onUndo: {
                         Task { await performUndo(.task(item)) }
                     },
@@ -220,7 +221,7 @@ struct ArchiveView: View {
         do {
             switch target {
             case .task(var item):
-                try item.transition(to: .completed)
+                try item.transition(using: .unarchive)
                 try await taskRepo.updateDDL(item)
                 archivedTasks.removeAll { $0.id == item.id }
             case .habit(var habit):
@@ -295,5 +296,12 @@ struct ArchiveView: View {
         }()
         
         return "\(periodStr) · \(goalStr)"
+    }
+
+    private func archivedTaskDetail(for item: DDLItem) -> String {
+        if item.state.isAbandonedLike {
+            return item.completeTime.isEmpty ? "已放弃归档" : "放弃于 \(formatDate(item.completeTime))"
+        }
+        return item.completeTime.isEmpty ? "已归档" : "完成于 \(formatDate(item.completeTime))"
     }
 }

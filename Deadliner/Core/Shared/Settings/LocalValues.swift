@@ -37,6 +37,7 @@ actor LocalValues {
         static let syncProvider = "settings.sync_provider"
         static let basicMode = "settings.basic_mode"
         static let autoArchiveDays = "settings.auto_archive_days"
+        static let tombstoneRetentionDays = "settings.tombstone_retention_days"
 
         static let webdavURL = "settings.webdav.url"
         static let webdavUser = "settings.webdav.user"
@@ -77,6 +78,7 @@ actor LocalValues {
             Key.syncProvider: SyncProvider.webDAV.rawValue,
             Key.basicMode: false,
             Key.autoArchiveDays: 7,
+            Key.tombstoneRetentionDays: 30,
             Key.aiBaseUrl: "https://api.deepseek.com",
             Key.aiModel: "deepseek-chat",
             Key.aiUseHosted: false,
@@ -127,6 +129,17 @@ actor LocalValues {
 
     func setAutoArchiveDays(_ days: Int) {
         defaults.set(max(0, days), forKey: Key.autoArchiveDays)
+    }
+
+    // MARK: - Tombstone Retention
+
+    func getTombstoneRetentionDays() -> Int {
+        let v = defaults.integer(forKey: Key.tombstoneRetentionDays)
+        return max(0, v)
+    }
+
+    func setTombstoneRetentionDays(_ days: Int) {
+        defaults.set(max(0, days), forKey: Key.tombstoneRetentionDays)
     }
 
     // MARK: - WebDAV

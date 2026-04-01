@@ -48,6 +48,9 @@ struct DisplayItem: Identifiable {
 
 struct AIFunctionView: View {
     let userTier: UserTier
+    @AppStorage("userName") private var userName: String = "用户"
+    @Environment(\.colorScheme) private var colorScheme
+    @StateObject private var speechInput = SpeechInputService()
 
     // 状态控制
     @State private var inputText: String = ""
@@ -131,7 +134,11 @@ struct AIFunctionView: View {
                 initialGuideView
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: (isExpanded || !displayItems.isEmpty) ? .top : .center
+        )
         .safeAreaInset(edge: .bottom, spacing: 0) {
             inputSection
                 .padding(.bottom, bottomAccessoryInset)
@@ -178,6 +185,14 @@ struct AIFunctionView: View {
         .sheet(isPresented: $showMemoryManageSheet) {
             MemoryManageSheet()
         }
+        .onChange(of: speechInput.composedText) { _, newValue in
+            inputText = newValue
+        }
+        .onChange(of: speechInput.lastErrorMessage) { _, newValue in
+            guard let newValue, !newValue.isEmpty else { return }
+            errorMessage = newValue
+            showErrorMessage = true
+        }
         .task {
             await DeadlinerCoreBridge.shared.initializeIfNeeded()
             DeadlinerCoreBridge.shared.setEventHandler { event in
@@ -186,6 +201,7 @@ struct AIFunctionView: View {
         }
         .onDisappear {
             DeadlinerCoreBridge.shared.clearEventHandler()
+            Task { await speechInput.cancelRecording() }
         }
     }
 
@@ -197,6 +213,14 @@ struct AIFunctionView: View {
 
 // MARK: - UI 渲染组件
 extension AIFunctionView {
+    private var messageBubbleRadius: CGFloat { 28 }
+    private var proposalCardRadius: CGFloat { 28 }
+    private var proposalCardFill: Color {
+        colorScheme == .dark ? Color(hex: "#111111").opacity(0.8) : Color.white.opacity(0.8)
+    }
+    private var proposalCardStroke: Color {
+        colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05)
+    }
 
     @ViewBuilder
     private func renderItem(_ item: DisplayItem) -> some View {
@@ -224,20 +248,40 @@ extension AIFunctionView {
         HStack {
             Spacer()
             Text(text)
-                .padding(12)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
                 .background(Color.blue)
                 .foregroundColor(.white)
-                .cornerRadius(16, corners: [.topLeft, .topRight, .bottomLeft])
+                .clipShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: messageBubbleRadius,
+                        bottomLeadingRadius: messageBubbleRadius,
+                        bottomTrailingRadius: 10,
+                        topTrailingRadius: messageBubbleRadius,
+                        style: .continuous
+                    )
+                )
+                .frame(maxWidth: UIScreen.main.bounds.width * 0.78, alignment: .trailing)
         }
     }
 
     private func chatBubble(text: String) -> some View {
         HStack {
             Text(text)
-                .padding(12)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
                 .background(Color(uiColor: .secondarySystemFill))
                 .foregroundColor(.primary)
-                .cornerRadius(16, corners: [.topLeft, .topRight, .bottomRight])
+                .clipShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: messageBubbleRadius,
+                        bottomLeadingRadius: 10,
+                        bottomTrailingRadius: messageBubbleRadius,
+                        topTrailingRadius: messageBubbleRadius,
+                        style: .continuous
+                    )
+                )
+                .frame(maxWidth: UIScreen.main.bounds.width * 0.82, alignment: .leading)
             Spacer()
         }
     }
@@ -255,7 +299,7 @@ extension AIFunctionView {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.blue.opacity(0.06))
-        .cornerRadius(10)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private func memoryCapturedBubble(content: String) -> some View {
@@ -272,7 +316,7 @@ extension AIFunctionView {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.purple.opacity(0.05))
-        .cornerRadius(10)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private func proposalCard(task: AITask) -> some View {
@@ -295,16 +339,20 @@ extension AIFunctionView {
                 Text(addedTaskKeys.contains(taskKey) ? "已添加" : "确认添加")
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 12)
                     .background(addedTaskKeys.contains(taskKey) ? Color.gray.opacity(0.4) : Color.blue)
                     .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .clipShape(Capsule())
             }
             .disabled(addedTaskKeys.contains(taskKey) || repoBusy)
         }
         .padding()
-        .background(Color(uiColor: .secondarySystemBackground))
-        .cornerRadius(16)
+        .background(proposalCardFill)
+        .overlay(
+            RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
+                .stroke(proposalCardStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous))
     }
 
     private func habitCard(habit: AIHabit) -> some View {
@@ -327,16 +375,20 @@ extension AIFunctionView {
                 Text(addedHabitKeys.contains(habitKey) ? "已开启" : "开启习惯")
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 12)
                     .background(addedHabitKeys.contains(habitKey) ? Color.gray.opacity(0.4) : Color.purple)
                     .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .clipShape(Capsule())
             }
             .disabled(addedHabitKeys.contains(habitKey) || repoBusy)
         }
         .padding()
-        .background(Color(uiColor: .secondarySystemBackground))
-        .cornerRadius(16)
+        .background(proposalCardFill)
+        .overlay(
+            RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
+                .stroke(proposalCardStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous))
     }
     
     private func toolRequestCard(_ req: AIToolRequest) -> some View {
@@ -375,6 +427,7 @@ extension AIFunctionView {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
 
                 Button {
                     pendingToolRequest = req
@@ -384,12 +437,17 @@ extension AIFunctionView {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
                 .disabled(repoBusy || submittedToolRequestIDs.contains(req.id))
             }
         }
         .padding()
-        .background(Color(uiColor: .secondarySystemBackground))
-        .cornerRadius(16)
+        .background(proposalCardFill)
+        .overlay(
+            RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
+                .stroke(proposalCardStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous))
     }
 
     private func toolResultBubble(_ res: AIToolResult) -> some View {
@@ -408,32 +466,66 @@ extension AIFunctionView {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.orange.opacity(0.06))
-        .cornerRadius(10)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private var inputSection: some View {
         GlassEffectContainer(spacing: 12) {
-            HStack(alignment: .bottom, spacing: 12) {
-                TextField("告诉 Deadliner Claw 你的计划...", text: $inputText, axis: .vertical)
-                    .padding(8)
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
-                    .lineLimit(1...5)
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 18) {
+                    TextField("和 Deadliner 聊聊你接下来想做什么", text: $inputText, axis: .vertical)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .lineLimit(1...6)
+                        .submitLabel(.send)
+                        .onSubmit {
+                            Task { await runSmartAgent() }
+                        }
 
-                Button(action: {
-                    print("[AIFunctionView] Send tapped. input=\(inputText)")
-                    Task { await runSmartAgent() }
-                }) {
-                    Image(systemName: isParsing ? "ellipsis" : "arrow.up")
-                        .fontWeight(.medium)
-                        .padding(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                    HStack(spacing: 10) {
+                        Spacer(minLength: 0)
+
+                        voicePlaceholderButton
+
+                        Button(action: {
+                            print("[AIFunctionView] Send tapped. input=\(inputText)")
+                            Task { await runSmartAgent() }
+                        }) {
+                            Image(systemName: isParsing ? "ellipsis" : "arrow.up")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(sendButtonForeground)
+                            .frame(width: 44, height: 44)
+                            .background(sendButtonBackground, in: Circle())
+                    }
+                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isParsing || speechInput.isBusy)
+                    .opacity(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isParsing || speechInput.isBusy ? 0.6 : 1)
+                    }
+
+                    if let speechStatusText = speechStatusText {
+                        Text(speechStatusText)
+                            .font(.caption)
+                            .foregroundColor(speechInput.isRecording ? .secondary : .red.opacity(0.9))
+                            .transition(.opacity)
+                    }
                 }
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isParsing)
-                .buttonStyle(.glassProminent)
+                .animation(.easeInOut(duration: 0.18), value: speechInput.isRecording)
+                .animation(.easeInOut(duration: 0.18), value: speechInput.helperText)
+                .animation(.easeInOut(duration: 0.18), value: speechInput.lastErrorMessage)
+                .padding(.horizontal, 18)
+                .padding(.top, 18)
+                .padding(.bottom, 16)
             }
-            .padding(.horizontal)
-            .padding(.bottom, 10)
-            .padding(.top, 10)
+            .glassEffect(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(inputCardStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.26 : 0.08), radius: 18, x: 0, y: 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
         .background(
             GeometryReader { proxy in
                 Color.clear
@@ -477,68 +569,85 @@ extension AIFunctionView {
     }
     
     private var initialGuideViewRegular: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 18) {
+            Spacer(minLength: 24)
+
             ZStack {
                 Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 78, height: 78)
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white.opacity(0.15), Color.white.opacity(0.02), .clear],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 44
+                        )
+                    )
+                    .frame(width: 88, height: 88)
 
                 Image(systemName: "sparkles")
                     .font(.system(size: 30, weight: .semibold))
                     .foregroundStyle(
-                        LinearGradient(colors: [.blue, .purple], startPoint: .top, endPoint: .bottom)
+                        LinearGradient(colors: [Color.white, Color(hex: "#B8B8B8")], startPoint: .top, endPoint: .bottom)
                     )
             }
 
-            Text("Deadliner Claw")
-                .font(.title3.weight(.semibold))
+            VStack(spacing: 8) {
+                Text("你好，\(userName)")
+                    .font(.system(size: 34, weight: .bold))
 
-            Text("一句话生成任务 / 习惯 / 记忆")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                Text("你可以这样问我")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
 
-            VStack(spacing: 10) {
-                quickRow("创建任务", "明天 19:00 交系统论作业", icon: "checklist") {
-                    applyQuickPrompt("明天 19:00 交系统论作业")
+            VStack(spacing: 12) {
+                quickRow("安排一个任务", "明天下午 3 点和产品开评审会", icon: "calendar.badge.clock") {
+                    applyQuickPrompt("明天下午 3 点和产品开评审会")
                 }
-                quickRow("创建习惯", "每周 3 次 跑步 30 分钟", icon: "arrow.triangle.2.circlepath") {
-                    applyQuickPrompt("每周 3 次 跑步 30 分钟")
+                quickRow("建立一个习惯", "每周 3 次力量训练，每次 40 分钟", icon: "figure.run") {
+                    applyQuickPrompt("每周 3 次力量训练，每次 40 分钟")
                 }
-                quickRow("记住偏好", "以后任务时间用 24 小时制", icon: "brain.head.profile") {
-                    applyQuickPrompt("记住：以后任务时间用 24 小时制输出")
+                quickRow("帮我整理计划", "把这周要交付的 Deadliner 功能排一下优先级", icon: "square.stack.3d.up") {
+                    applyQuickPrompt("把这周要交付的 Deadliner 功能排一下优先级")
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, 6)
+
+            Spacer(minLength: 12)
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 24)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 32)
     }
     
     private var initialGuideViewCompact: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 78, height: 78)
+                    .fill(Color.secondary.opacity(0.12))
+                    .frame(width: 72, height: 72)
 
                 Image(systemName: "sparkles")
-                    .font(.system(size: 30, weight: .semibold))
+                    .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(
-                        LinearGradient(colors: [.blue, .purple], startPoint: .top, endPoint: .bottom)
+                        LinearGradient(colors: [Color.white, Color.secondary], startPoint: .top, endPoint: .bottom)
                     )
             }
 
-            Text("有什么我可以帮你的？")
-                .font(.headline)
-                .foregroundColor(.secondary)
+            VStack(spacing: 4) {
+                Text("你好，\(userName)")
+                    .font(.title3.weight(.bold))
+                Text("你可以这样问我")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
             
             HStack(spacing: 10) {
-                quickChip("创建任务", icon: "checklist") {
-                    applyQuickPrompt("明天 19:00 交系统论作业")
+                quickChip("安排任务", icon: "calendar.badge.clock") {
+                    applyQuickPrompt("明天下午 3 点和产品开评审会")
                 }
-                quickChip("创建习惯", icon: "arrow.triangle.2.circlepath") {
-                    applyQuickPrompt("每周 3 次 跑步 30 分钟")
+                quickChip("建立习惯", icon: "figure.run") {
+                    applyQuickPrompt("每周 3 次力量训练，每次 40 分钟")
                 }
             }
         }
@@ -573,7 +682,8 @@ extension AIFunctionView {
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 26)
+                    .frame(width: 30, height: 30)
+                    .background(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.9), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -590,10 +700,72 @@ extension AIFunctionView {
                     .font(.caption.weight(.semibold))
                     .foregroundColor(.secondary)
             }
-            .padding(12)
-            .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(colorScheme == .dark ? 0.04 : 0.88))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.45), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
+    }
+
+    private var voicePlaceholderButton: some View {
+        Button {
+            Task { await handleVoiceTap() }
+        } label: {
+            Group {
+                if speechInput.state == .preparing || speechInput.state == .installingAssets {
+                    ProgressView()
+                        .tint(.secondary)
+                } else {
+                    Image(systemName: speechInput.isRecording ? "stop.fill" : "waveform")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(speechInput.isRecording ? .red : .secondary)
+                }
+            }
+            .frame(width: 34, height: 34)
+            .background(Color.white.opacity(colorScheme == .dark ? 0.04 : 0.65), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isParsing)
+    }
+
+    private var inputCardStroke: Color {
+        colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.08)
+    }
+
+    private var sendButtonBackground: Color {
+        colorScheme == .dark ? .white : Color(hex: "#111111")
+    }
+
+    private var sendButtonForeground: Color {
+        colorScheme == .dark ? Color(hex: "#111111") : .white
+    }
+
+    private var speechStatusText: String? {
+        if speechInput.isRecording {
+            return speechInput.helperText ?? "正在听写..."
+        }
+
+        return speechInput.lastErrorMessage
+    }
+
+    @MainActor
+    private func handleVoiceTap() async {
+        do {
+            if speechInput.isRecording {
+                try await speechInput.stopRecording()
+            } else {
+                try await speechInput.startRecording(initialText: inputText)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorMessage = true
+        }
     }
 }
 
