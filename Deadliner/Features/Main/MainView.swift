@@ -109,6 +109,10 @@ struct FocusMainView: View {
             OverviewView(onScrollProgressChange: { p in
                 navGradientProgress = p
             })
+        case .inspiration:
+            CaptureInboxView(query: $query, onScrollProgressChange: { p in
+                navGradientProgress = p
+            })
         case .archive:
             ArchiveView(query: $query, onScrollProgressChange: { p in
                 navGradientProgress = p
@@ -188,6 +192,8 @@ struct FocusMainView: View {
             taskManagementBottomToolbar
         case .insights:
             insightsBottomToolbar
+        case .inspiration:
+            inspirationBottomToolbar
         case .archive:
             archiveBottomToolbar
         }
@@ -253,6 +259,12 @@ struct FocusMainView: View {
             .foregroundColor(insightAnalysisGenerated && !isInsightFreeUser ? .secondary : .primary)
         }
         .matchedTransitionSource(id: "main-toolbar-bottom-center", in: toolbarTransition)
+    }
+
+    @ToolbarContentBuilder
+    private var inspirationBottomToolbar: some ToolbarContent {
+        DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            .matchedTransitionSource(id: "main-toolbar-bottom-center", in: toolbarTransition)
     }
 
     @ToolbarContentBuilder
@@ -338,6 +350,8 @@ struct FocusMainView: View {
             return taskSegment == .tasks ? "搜索任务..." : "搜索习惯..."
         case .insights:
             return "搜索模块..."
+        case .inspiration:
+            return "搜索灵感..."
         case .archive:
             return "搜索归档..."
         }

@@ -50,6 +50,7 @@ struct TaskEditorSheetView: View {
     let repository: TaskRepository
     let mode: TaskSheetMode
     var onDone: (() -> Void)? = nil
+    var onSaved: (() -> Void)? = nil
     var principalToolbarContent: AnyView? = nil
     var embedsInParentNavigationStack: Bool = false
     var saveTrigger: Int = 0
@@ -77,6 +78,7 @@ struct TaskEditorSheetView: View {
         mode: TaskSheetMode,
         initialDraft: TaskDraft = .empty(),
         onDone: (() -> Void)? = nil,
+        onSaved: (() -> Void)? = nil,
         principalToolbarContent: AnyView? = nil,
         embedsInParentNavigationStack: Bool = false,
         saveTrigger: Int = 0,
@@ -85,6 +87,7 @@ struct TaskEditorSheetView: View {
         self.repository = repository
         self.mode = mode
         self.onDone = onDone
+        self.onSaved = onSaved
         self.principalToolbarContent = principalToolbarContent
         self.embedsInParentNavigationStack = embedsInParentNavigationStack
         self.saveTrigger = saveTrigger
@@ -312,6 +315,7 @@ struct TaskEditorSheetView: View {
                 }
                 
                 showToast("创建成功")
+                onSaved?()
                 onDone?()
                 dismiss()
 
@@ -327,6 +331,7 @@ struct TaskEditorSheetView: View {
                 NotificationManager.shared.scheduleTaskNotification(for: updated)
                 
                 showToast("保存成功")
+                onSaved?()
                 onDone?()
                 dismiss()
             }

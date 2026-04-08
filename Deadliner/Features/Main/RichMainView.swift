@@ -24,7 +24,7 @@ struct MainView: View {
 private enum RichMainTab: String, Hashable {
     case home
     case overview
-    case archive
+    case inspiration
     case ai
     case search
 }
@@ -37,7 +37,6 @@ struct RichMainView: View {
     @State private var homeQuery: String = ""
 
     @State private var searchQuery: String = ""
-    @State private var archiveQuery: String = ""
 
     @State private var navGradientProgress: CGFloat = 0
 
@@ -69,9 +68,8 @@ struct RichMainView: View {
                     )
                 }
 
-                Tab("归档", systemImage: "archivebox", value: RichMainTab.archive) {
-                    RichArchiveTabView(
-                        query: $archiveQuery,
+                Tab("灵感", systemImage: "quote.bubble.fill", value: RichMainTab.inspiration) {
+                    RichInspirationTabView(
                         overlayProgress: $navGradientProgress
                     )
                 }
@@ -95,6 +93,7 @@ struct RichMainView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .tabBarMinimizeBehavior(.onScrollDown)
         .animation(.smooth(duration: 0.28, extraBounce: 0), value: selectedTab)
         .sheet(isPresented: $showAddEntrySheet) {
             AddEntrySheetView(
@@ -137,7 +136,7 @@ struct RichMainView: View {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 24, weight: .semibold))
-                .frame(width: 52, height: 52)
+                .frame(width: 48, height: 48)
         }
         .buttonStyle(.glassProminent)
         .buttonBorderShape(.circle)

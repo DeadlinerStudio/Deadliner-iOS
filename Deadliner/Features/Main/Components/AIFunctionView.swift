@@ -48,6 +48,7 @@ struct DisplayItem: Identifiable {
 
 struct AIFunctionView: View {
     let userTier: UserTier
+    let useSheetDetents: Bool
     @AppStorage("userName") private var userName: String = "用户"
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var speechInput = SpeechInputService()
@@ -146,7 +147,10 @@ struct AIFunctionView: View {
         .navigationTitle(isExpanded ? "Deadliner Claw" : "")
         .navigationBarTitleDisplayMode(.inline)
         // 根据是否展开自动调整 Sheet 高度
-        .presentationDetents(isExpanded ? [.large] : [.medium, .large])
+        .modifier(AIFunctionDetentsModifier(
+            useSheetDetents: useSheetDetents,
+            isExpanded: isExpanded
+        ))
         .alert("出错了", isPresented: $showErrorMessage) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -205,9 +209,28 @@ struct AIFunctionView: View {
         }
     }
 
-    init(userTier: UserTier, bottomAccessoryInset: CGFloat = 0) {
+    init(
+        userTier: UserTier,
+        bottomAccessoryInset: CGFloat = 0,
+        useSheetDetents: Bool = true
+    ) {
         self.userTier = userTier
         self.bottomAccessoryInset = bottomAccessoryInset
+        self.useSheetDetents = useSheetDetents
+    }
+}
+
+private struct AIFunctionDetentsModifier: ViewModifier {
+    let useSheetDetents: Bool
+    let isExpanded: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if useSheetDetents {
+            content.presentationDetents(isExpanded ? [.large] : [.medium, .large])
+        } else {
+            content
+        }
     }
 }
 

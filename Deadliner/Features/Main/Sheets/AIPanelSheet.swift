@@ -13,6 +13,7 @@ struct DeadlinerAIPanel: View {
     let showsDismissButton: Bool
     let embedInNavigationStack: Bool
     let bottomAccessoryInset: CGFloat
+    let useSheetDetents: Bool
     
     @AppStorage("userTier") private var userTier: UserTier = .free
     
@@ -35,11 +36,13 @@ struct DeadlinerAIPanel: View {
     init(
         showsDismissButton: Bool = true,
         embedInNavigationStack: Bool = true,
-        bottomAccessoryInset: CGFloat = 0
+        bottomAccessoryInset: CGFloat = 0,
+        useSheetDetents: Bool = true
     ) {
         self.showsDismissButton = showsDismissButton
         self.embedInNavigationStack = embedInNavigationStack
         self.bottomAccessoryInset = bottomAccessoryInset
+        self.useSheetDetents = useSheetDetents
     }
 
     private var panelContent: some View {
@@ -54,7 +57,11 @@ struct DeadlinerAIPanel: View {
                 missingKeyView
             } else {
                 // 状态 3：已就绪，调用剥离出来的核心工作区
-                AIFunctionView(userTier: userTier, bottomAccessoryInset: bottomAccessoryInset)
+                AIFunctionView(
+                    userTier: userTier,
+                    bottomAccessoryInset: bottomAccessoryInset,
+                    useSheetDetents: useSheetDetents
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)

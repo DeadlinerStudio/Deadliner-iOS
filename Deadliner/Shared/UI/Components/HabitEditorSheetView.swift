@@ -54,6 +54,7 @@ struct HabitEditorSheetView: View {
     let habitRepository: HabitRepository = .shared
     let mode: HabitSheetMode
     var onDone: (() -> Void)? = nil
+    var onSaved: (() -> Void)? = nil
     var principalToolbarContent: AnyView? = nil
     var embedsInParentNavigationStack: Bool = false
     var saveTrigger: Int = 0
@@ -82,6 +83,7 @@ struct HabitEditorSheetView: View {
         mode: HabitSheetMode,
         initialDraft: HabitDraft = .empty(),
         onDone: (() -> Void)? = nil,
+        onSaved: (() -> Void)? = nil,
         principalToolbarContent: AnyView? = nil,
         embedsInParentNavigationStack: Bool = false,
         saveTrigger: Int = 0,
@@ -89,6 +91,7 @@ struct HabitEditorSheetView: View {
     ) {
         self.mode = mode
         self.onDone = onDone
+        self.onSaved = onSaved
         self.principalToolbarContent = principalToolbarContent
         self.embedsInParentNavigationStack = embedsInParentNavigationStack
         self.saveTrigger = saveTrigger
@@ -413,6 +416,7 @@ struct HabitEditorSheetView: View {
                 )
                 
                 showToast("创建成功")
+                onSaved?()
                 onDone?()
                 dismiss()
                 
@@ -440,6 +444,7 @@ struct HabitEditorSheetView: View {
                 }
                 
                 showToast("保存成功")
+                onSaved?()
                 onDone?()
                 dismiss()
             }

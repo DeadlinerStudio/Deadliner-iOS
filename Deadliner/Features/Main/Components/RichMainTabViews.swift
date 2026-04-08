@@ -176,6 +176,29 @@ struct RichOverviewTabView: View {
     }
 }
 
+struct RichInspirationTabView: View {
+    @Binding var overlayProgress: CGFloat
+
+    @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
+
+    var body: some View {
+        NavigationStack {
+            CaptureInboxView(onScrollProgressChange: { overlayProgress = $0 })
+                .navigationTitle("灵感")
+                .navigationBarTitleDisplayMode(.automatic)
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .background {
+                    ZStack(alignment: .top) {
+                        Color(uiColor: .systemGroupedBackground)
+                            .ignoresSafeArea()
+
+                        TopBarGradientOverlay(progress: overlayProgress, isAIConfigured: isAIConfigured)
+                    }
+                }
+        }
+    }
+}
+
 struct RichAITabView: View {
     @Binding var overlayProgress: CGFloat
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
@@ -185,7 +208,8 @@ struct RichAITabView: View {
             DeadlinerAIPanel(
                 showsDismissButton: false,
                 embedInNavigationStack: false,
-                bottomAccessoryInset: 16
+                bottomAccessoryInset: 16,
+                useSheetDetents: false
             )
             .toolbarBackground(.hidden, for: .navigationBar)
             .background {
