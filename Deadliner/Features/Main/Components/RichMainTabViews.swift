@@ -126,7 +126,13 @@ struct RichOverviewTabView: View {
                                 NotificationCenter.default.post(name: .ddlRequestMonthlyAnalysis, object: nil)
                             }
                         } label: {
-                            Image(systemName: isInsightFreeUser ? "lock.fill" : (insightAnalysisGenerated ? "checkmark.circle.fill" : "sparkles"))
+                            if isInsightFreeUser {
+                                Image(systemName: "lock.fill")
+                            } else if insightAnalysisGenerated {
+                                Image(systemName: "checkmark.circle.fill")
+                            } else {
+                                Image("lifi.logo.v1")
+                            }
                         }
                         .disabled(!isInsightFreeUser && insightAnalysisGenerated)
                         .tint(.primary)

@@ -33,6 +33,10 @@ struct FocusMainView: View {
     
     @State private var showArchiveSheet = false
     @State private var showPaywall = false
+    @State private var taskManagementResetToken = 0
+    @State private var insightsResetToken = 0
+    @State private var inspirationResetToken = 0
+    @State private var archiveResetToken = 0
 
     private let widgetLaunchDefaults = UserDefaults(suiteName: "group.top.aritxonly.deadliner.group")
     private let widgetLaunchKey = "widget.pending_add_entry_type"
@@ -105,18 +109,22 @@ struct FocusMainView: View {
                      onScrollProgressChange: { p in
                          navGradientProgress = p
                      })
+            .id(taskManagementResetToken)
         case .insights:
             OverviewView(onScrollProgressChange: { p in
                 navGradientProgress = p
             })
+            .id(insightsResetToken)
         case .inspiration:
             CaptureInboxView(query: $query, onScrollProgressChange: { p in
                 navGradientProgress = p
             })
+            .id(inspirationResetToken)
         case .archive:
             ArchiveView(query: $query, onScrollProgressChange: { p in
                 navGradientProgress = p
             })
+            .id(archiveResetToken)
         }
     }
 
@@ -129,6 +137,7 @@ struct FocusMainView: View {
                 ForEach(MainModule.allCases) { m in
                     Button {
                         withAnimation(.smooth(duration: 0.32, extraBounce: 0)) {
+                            resetScroll(for: m)
                             module = m
                             query = ""
                         }
@@ -147,6 +156,19 @@ struct FocusMainView: View {
             .accessibilityLabel("切换模块")
         }
         .matchedTransitionSource(id: "main-toolbar-leading", in: toolbarTransition)
+    }
+
+    private func resetScroll(for module: MainModule) {
+        switch module {
+        case .taskManagement:
+            taskManagementResetToken += 1
+        case .insights:
+            insightsResetToken += 1
+        case .inspiration:
+            inspirationResetToken += 1
+        case .archive:
+            archiveResetToken += 1
+        }
     }
     @ToolbarContentBuilder
     private var topTrailingToolbar: some ToolbarContent {
@@ -204,9 +226,9 @@ struct FocusMainView: View {
         if aiEnabled {
             ToolbarItem(placement: .bottomBar) {
                 Button { showAISheet = true } label: {
-                    Image(systemName: "sparkles")
+                    Image("lifi.logo.v1")
                 }
-                .accessibilityLabel("Deadliner Claw")
+                .accessibilityLabel("Lifi AI")
             }
             .matchedTransitionSource(id: "main-toolbar-bottom-leading", in: toolbarTransition)
         }
@@ -245,7 +267,11 @@ struct FocusMainView: View {
                         Image(systemName: "lock.fill")
                             .font(.caption2)
                     } else {
-                        Image(systemName: insightAnalysisGenerated ? "checkmark.circle.fill" : "sparkles")
+                        if insightAnalysisGenerated {
+                            Image(systemName: "checkmark.circle.fill")
+                        } else {
+                            Image("lifi.logo.v1")
+                        }
                     }
 
                     Text(insightAnalysisGenerated && !isInsightFreeUser ? "上月分析已生成" : "AI 月度分析")

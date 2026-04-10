@@ -19,7 +19,7 @@ enum MainModule: String, CaseIterable, Identifiable {
         switch self {
         case .taskManagement: return "checklist"
         case .insights: return "chart.pie"
-        case .inspiration: return "quote.bubble"
+        case .inspiration: return "pencil.and.outline"
         case .archive: return "archivebox"
         }
     }

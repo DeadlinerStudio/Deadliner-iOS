@@ -83,6 +83,14 @@ struct CaptureInboxView: View {
                     selectedItem = nil
                     conversionRequest = singleConversionRequest(kind: .habit, item: item)
                 },
+                onAIConvertToTask: {
+                    selectedItem = nil
+                    conversionRequest = singleConversionRequest(kind: .aiTask, item: item)
+                },
+                onAIConvertToHabit: {
+                    selectedItem = nil
+                    conversionRequest = singleConversionRequest(kind: .aiHabit, item: item)
+                },
                 onDelete: {
                     selectedItem = nil
                     requestDelete(items: [item])
@@ -160,22 +168,40 @@ struct CaptureInboxView: View {
                 .contentTransition(.symbolEffect(.replace))
             }
 
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button(role: .destructive) {
                     requestDelete(items: selectedItems)
                 } label: {
                     Image(systemName: "trash")
                 }
                 .disabled(selectedIDs.isEmpty)
-
+            }
+            
+            ToolbarSpacer(placement: .topBarTrailing)
+            
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("合并成任务") {
+                    Button("AI 合并成任务") {
+                        if let request = mergedConversionRequest(kind: .aiTask) {
+                            conversionRequest = request
+                        }
+                    }
+
+                    Button("AI 合并成习惯") {
+                        if let request = mergedConversionRequest(kind: .aiHabit) {
+                            conversionRequest = request
+                        }
+                    }
+
+                    Divider()
+
+                    Button("直接整理成任务") {
                         if let request = mergedConversionRequest(kind: .task) {
                             conversionRequest = request
                         }
                     }
 
-                    Button("合并成习惯") {
+                    Button("直接整理成习惯") {
                         if let request = mergedConversionRequest(kind: .habit) {
                             conversionRequest = request
                         }
@@ -223,16 +249,16 @@ struct CaptureInboxView: View {
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             if !selectionMode {
                 Button {
-                    conversionRequest = singleConversionRequest(kind: .habit, item: item)
+                    conversionRequest = singleConversionRequest(kind: .aiHabit, item: item)
                 } label: {
-                    Label("转习惯", systemImage: "leaf")
+                    Label("AI 习惯", systemImage: "leaf")
                 }
                 .tint(.green)
 
                 Button {
-                    conversionRequest = singleConversionRequest(kind: .task, item: item)
+                    conversionRequest = singleConversionRequest(kind: .aiTask, item: item)
                 } label: {
-                    Label("转任务", systemImage: "checklist")
+                    Label("AI 任务", image: "lifi.logo.v1")
                 }
                 .tint(.blue)
             }
@@ -281,6 +307,35 @@ struct CaptureInboxView: View {
                         conversionRequest = nil
                         clearSelection()
                     }
+                )
+            }
+        case .aiTask:
+            NavigationStack {
+                TaskEditorSheetView(
+                    repository: TaskRepository.shared,
+                    mode: .add,
+                    initialDraft: .empty(),
+                    onSaved: {
+                        store.consumeItems(ids: Set(request.consumedIDs))
+                        conversionRequest = nil
+                        clearSelection()
+                    },
+                    initialAIInput: request.item.text,
+                    autoRunAIOnAppear: true
+                )
+            }
+        case .aiHabit:
+            NavigationStack {
+                HabitEditorSheetView(
+                    mode: .add,
+                    initialDraft: .empty(),
+                    onSaved: {
+                        store.consumeItems(ids: Set(request.consumedIDs))
+                        conversionRequest = nil
+                        clearSelection()
+                    },
+                    initialAIInput: request.item.text,
+                    autoRunAIOnAppear: true
                 )
             }
         }

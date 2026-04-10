@@ -79,7 +79,7 @@ private struct AIAnalysisCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Image(systemName: "sparkles")
+                Image("lifi.logo.v1")
                     .foregroundColor(.purple)
                 Text("AI 月度洞察")
                     .font(.headline)

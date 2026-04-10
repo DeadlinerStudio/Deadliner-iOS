@@ -88,6 +88,7 @@ enum SearchBrowseCategory: String, CaseIterable, Hashable, Identifiable {
 enum RichSearchDeleteTarget {
     case task(DDLItem)
     case habit(Habit)
+    case inspiration(CaptureInboxItem)
 }
 
 protocol RichSearchSortable {
@@ -111,6 +112,14 @@ struct SearchHabitResult: Identifiable, RichSearchSortable {
     var sortTitle: String { habit.name }
 }
 
+struct SearchInspirationResult: Identifiable, RichSearchSortable {
+    let item: CaptureInboxItem
+    let sortScore: Int
+
+    var id: UUID { item.id }
+    var sortTitle: String { item.text }
+}
+
 struct SearchTaskActions {
     let onToggleCompletion: (DDLItem) async -> Void
     let onDelete: (DDLItem) -> Void
@@ -126,6 +135,15 @@ struct SearchHabitActions {
     let onArchive: (Habit) async -> Void
     let onEdit: (Habit) -> Void
     let onUnarchive: (Habit) async -> Void
+}
+
+struct SearchInspirationActions {
+    let onOpen: (CaptureInboxItem) -> Void
+    let onDelete: (CaptureInboxItem) -> Void
+    let onConvertToTask: (CaptureInboxItem) -> Void
+    let onConvertToHabit: (CaptureInboxItem) -> Void
+    let onAIConvertToTask: (CaptureInboxItem) -> Void
+    let onAIConvertToHabit: (CaptureInboxItem) -> Void
 }
 
 struct SearchListStyleModifier: ViewModifier {

@@ -38,6 +38,19 @@ enum SearchViewSupport {
         .sorted(by: searchSortComparator)
     }
 
+    static func searchResults(in inspirations: [CaptureInboxItem], query: String) -> [SearchInspirationResult] {
+        let tokens = queryTokens(from: query)
+
+        return inspirations.compactMap { item in
+            let title = item.text
+            let subtitle = relativeTimeText(for: item.updatedAt)
+            let score = searchScore(title: title, subtitle: subtitle, detail: item.text, tokens: tokens)
+            guard score > 0 else { return nil }
+            return SearchInspirationResult(item: item, sortScore: score)
+        }
+        .sorted(by: searchSortComparator)
+    }
+
     static func queryTokens(from query: String) -> [String] {
         query
             .lowercased()
@@ -279,6 +292,13 @@ enum SearchViewSupport {
         }
 
         return formatDate(item.completeTime)
+    }
+
+    static func relativeTimeText(for date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 
     static func tasks(

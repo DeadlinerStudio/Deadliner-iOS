@@ -156,7 +156,7 @@ struct ThemeSettingsView: View {
                     }
 
                     if option == .systemDefault {
-                        Image(systemName: "sparkles")
+                        Image("lifi.logo.v1")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.white)
                     }

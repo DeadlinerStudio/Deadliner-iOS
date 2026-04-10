@@ -59,6 +59,10 @@ final class CaptureStore: ObservableObject {
         deleteItems(ids: ids)
     }
 
+    func reload() {
+        load()
+    }
+
     private func load() {
         guard let data = defaults.data(forKey: storageKey) else {
             items = []
@@ -77,6 +81,7 @@ final class CaptureStore: ObservableObject {
         do {
             let data = try encoder.encode(items)
             defaults.set(data, forKey: storageKey)
+            NotificationCenter.default.post(name: .captureInboxChanged, object: nil)
         } catch {
             print("CaptureStore persist failed: \(error)")
         }

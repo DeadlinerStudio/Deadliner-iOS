@@ -95,7 +95,7 @@ struct DeadlinerAIPanel: View {
         VStack(spacing: 24) {
             Spacer()
             
-            Image(systemName: "sparkles")
+            Image("lifi.logo.v1")
                 .font(.system(size: 72))
                 .foregroundStyle(
                     LinearGradient(colors: [.purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -107,7 +107,7 @@ struct DeadlinerAIPanel: View {
                     .font(.title2)
                     .fontWeight(.bold)
                 
-                Text("Deadliner Claw 能够精准理解你的自然语言。只需随手输入“明天下午三点开会”或“每周跑三次步”，即可瞬间拆解并创建任务与习惯。")
+                Text("Lifi AI 能够精准理解你的自然语言。只需随手输入“明天下午三点开会”或“每周跑三次步”，即可瞬间拆解并创建任务与习惯。")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)

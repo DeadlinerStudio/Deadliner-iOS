@@ -50,7 +50,7 @@ struct AISettingsView: View {
             .disabled(userTier == .free)
             
             Section("说明") {
-                Text("Deadliner Claw 现统一采用自带密钥 (BYOK) 模式。您的 API Key 仅保存在本地设备，不会上传至任何第三方服务器。Geek 可用。")
+                Text("Lifi AI 现统一采用自带密钥 (BYOK) 模式。您的 API Key 仅保存在本地设备，不会上传至任何第三方服务器。Geek 可用。")
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
@@ -78,7 +78,7 @@ struct AISettingsView: View {
                 }
             }
         }
-        .navigationTitle("Deadliner Claw")
+        .navigationTitle("Lifi AI")
         .navigationBarTitleDisplayMode(.inline)
         .optionalTint(themeStore.switchTint)
         .sheet(isPresented: $showPaywall) {

@@ -106,7 +106,7 @@ struct AIFunctionView: View {
                             if isParsing {
                                 HStack(spacing: 12) {
                                     ProgressView().tint(.purple)
-                                    Text("Deadliner Claw 正在思考...")
+                                    Text("Lifi AI 正在思考...")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                     Spacer()
@@ -144,7 +144,7 @@ struct AIFunctionView: View {
             inputSection
                 .padding(.bottom, bottomAccessoryInset)
         }
-        .navigationTitle(isExpanded ? "Deadliner Claw" : "")
+        .navigationTitle(isExpanded ? "Lifi AI" : "")
         .navigationBarTitleDisplayMode(.inline)
         // 根据是否展开自动调整 Sheet 高度
         .modifier(AIFunctionDetentsModifier(
@@ -607,10 +607,10 @@ extension AIFunctionView {
                     )
                     .frame(width: 88, height: 88)
 
-                Image(systemName: "sparkles")
-                    .font(.system(size: 30, weight: .semibold))
+                Image("lifi.logo.v1")
+                    .font(.system(size: 48, weight: .semibold))
                     .foregroundStyle(
-                        LinearGradient(colors: [Color.white, Color(hex: "#B8B8B8")], startPoint: .top, endPoint: .bottom)
+                        LinearGradient(colors: [Color.purple, Color.indigo], startPoint: .top, endPoint: .bottom)
                     )
             }
 
@@ -618,7 +618,7 @@ extension AIFunctionView {
                 Text("你好，\(userName)")
                     .font(.system(size: 34, weight: .bold))
 
-                Text("你可以这样问我")
+                Text("我是 Lifi，你可以这样问我")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundColor(.secondary)
             }
@@ -650,17 +650,17 @@ extension AIFunctionView {
                     .fill(Color.secondary.opacity(0.12))
                     .frame(width: 72, height: 72)
 
-                Image(systemName: "sparkles")
-                    .font(.system(size: 28, weight: .semibold))
+                Image("lifi.logo.v1")
+                    .font(.system(size: 48, weight: .semibold))
                     .foregroundStyle(
-                        LinearGradient(colors: [Color.white, Color.secondary], startPoint: .top, endPoint: .bottom)
+                        LinearGradient(colors: [Color.purple, Color.indigo], startPoint: .top, endPoint: .bottom)
                     )
             }
 
             VStack(spacing: 4) {
                 Text("你好，\(userName)")
                     .font(.title3.weight(.bold))
-                Text("你可以这样问我")
+                Text("我是 Lifi，你可以这样问我")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }

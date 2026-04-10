@@ -21,6 +21,30 @@ public enum SharedModelContainer {
         return cloudSyncEnabled && rawProvider == iCloudSyncProviderRawValue
     }
 
+    private static func makeConfiguration(
+        schema: Schema,
+        cloudKitDatabase: ModelConfiguration.CloudKitDatabase,
+        isStoredInMemoryOnly: Bool = false
+    ) -> ModelConfiguration {
+        if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) {
+            let sqliteURL = groupURL.appendingPathComponent("default.store")
+            return ModelConfiguration(
+                "DeadlinerModel",
+                schema: schema,
+                url: sqliteURL,
+                cloudKitDatabase: cloudKitDatabase
+            )
+        }
+
+        return ModelConfiguration(
+            "DeadlinerModel",
+            schema: schema,
+            isStoredInMemoryOnly: isStoredInMemoryOnly,
+            groupContainer: .none,
+            cloudKitDatabase: cloudKitDatabase
+        )
+    }
+
     public static let shared: ModelContainer = {
         let schema = Schema([
             DDLItemEntity.self,
@@ -30,33 +54,44 @@ public enum SharedModelContainer {
             SyncStateEntity.self
         ])
 
-        let cloudKitDatabase: ModelConfiguration.CloudKitDatabase = shouldUseICloudSync
+        let useICloudSync = shouldUseICloudSync
+        let cloudKitDatabase: ModelConfiguration.CloudKitDatabase = useICloudSync
             ? .private(iCloudContainerId)
             : .none
 
-        let config: ModelConfiguration
-        if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) {
-            let sqliteURL = groupURL.appendingPathComponent("default.store")
-            config = ModelConfiguration(
-                "DeadlinerModel",
-                schema: schema,
-                url: sqliteURL,
-                cloudKitDatabase: cloudKitDatabase
-            )
-        } else {
-            config = ModelConfiguration(
-                "DeadlinerModel",
-                schema: schema,
-                isStoredInMemoryOnly: false,
-                groupContainer: .none,
-                cloudKitDatabase: cloudKitDatabase
-            )
-        }
-
         do {
+            let config = makeConfiguration(schema: schema, cloudKitDatabase: cloudKitDatabase)
             return try ModelContainer(for: schema, configurations: [config])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+        } catch let firstError {
+            NSLog("[SharedModelContainer] Primary container init failed. useICloudSync=%{public}@, error=%{public}@",
+                  useICloudSync ? "true" : "false",
+                  String(describing: firstError))
+
+            if useICloudSync {
+                do {
+                    let fallbackConfig = makeConfiguration(schema: schema, cloudKitDatabase: .none)
+                    let fallback = try ModelContainer(for: schema, configurations: [fallbackConfig])
+                    UserDefaults.standard.set("webdav", forKey: syncProviderKey)
+                    UserDefaults.standard.set(false, forKey: cloudSyncEnabledKey)
+                    NSLog("[SharedModelContainer] Fallback to local store succeeded; iCloud sync disabled.")
+                    return fallback
+                } catch let fallbackError {
+                    NSLog("[SharedModelContainer] Local fallback init failed. error=%{public}@",
+                          String(describing: fallbackError))
+                }
+            }
+
+            do {
+                let memoryConfig = makeConfiguration(
+                    schema: schema,
+                    cloudKitDatabase: .none,
+                    isStoredInMemoryOnly: true
+                )
+                NSLog("[SharedModelContainer] Falling back to in-memory store.")
+                return try ModelContainer(for: schema, configurations: [memoryConfig])
+            } catch let memoryError {
+                fatalError("Could not create any ModelContainer. firstError=\(firstError), memoryError=\(memoryError)")
+            }
         }
     }()
 }

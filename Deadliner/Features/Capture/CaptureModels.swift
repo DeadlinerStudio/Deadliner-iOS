@@ -41,6 +41,8 @@ enum CaptureConversionTarget: Identifiable {
 enum CaptureConversionKind {
     case task
     case habit
+    case aiTask
+    case aiHabit
 }
 
 struct CaptureConversionRequest: Identifiable {

@@ -136,7 +136,26 @@ struct SettingsView: View {
             Section("效率引擎") {
                 NavigationLink(destination: AISettingsView()) {
                     HStack {
-                        settingsLabel("Deadliner Claw", systemImage: "sparkles", tintColors: [.indigo, .indigo.opacity(0.7)])
+                        HStack(spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8.96, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.indigo, .indigo.opacity(0.7)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .frame(width: 28, height: 28)
+
+                                Image("lifi.logo.v1")
+                                    .font(.system(size: 15.68, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
+
+                            Text("Lifi AI")
+                                .foregroundStyle(.primary)
+                        }
                         Spacer()
                         if userTier == .free {
                             PlusBadge()

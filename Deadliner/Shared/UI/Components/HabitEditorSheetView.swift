@@ -59,6 +59,8 @@ struct HabitEditorSheetView: View {
     var embedsInParentNavigationStack: Bool = false
     var saveTrigger: Int = 0
     var onSaveEnabledChange: ((Bool) -> Void)? = nil
+    var initialAIInput: String? = nil
+    var autoRunAIOnAppear: Bool = false
     
     // ===== UI States =====
     @State private var name: String
@@ -87,7 +89,9 @@ struct HabitEditorSheetView: View {
         principalToolbarContent: AnyView? = nil,
         embedsInParentNavigationStack: Bool = false,
         saveTrigger: Int = 0,
-        onSaveEnabledChange: ((Bool) -> Void)? = nil
+        onSaveEnabledChange: ((Bool) -> Void)? = nil,
+        initialAIInput: String? = nil,
+        autoRunAIOnAppear: Bool = false
     ) {
         self.mode = mode
         self.onDone = onDone
@@ -96,6 +100,8 @@ struct HabitEditorSheetView: View {
         self.embedsInParentNavigationStack = embedsInParentNavigationStack
         self.saveTrigger = saveTrigger
         self.onSaveEnabledChange = onSaveEnabledChange
+        self.initialAIInput = initialAIInput
+        self.autoRunAIOnAppear = autoRunAIOnAppear
         
         _name = State(initialValue: initialDraft.name)
         _description = State(initialValue: initialDraft.description)
@@ -117,6 +123,8 @@ struct HabitEditorSheetView: View {
             _isReminderEnabled = State(initialValue: false)
             _reminderTime = State(initialValue: Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date())
         }
+
+        _aiInputText = State(initialValue: initialAIInput ?? "")
     }
     
     private static func parseAlarmTime(_ alarm: String) -> Date? {
@@ -296,6 +304,10 @@ struct HabitEditorSheetView: View {
         }
         .onAppear {
             onSaveEnabledChange?(isSaveEnabled)
+            guard autoRunAIOnAppear else { return }
+            guard !isAILoading else { return }
+            guard !aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            Task { await onAITriggered() }
         }
         .onChange(of: name) { _, _ in
             onSaveEnabledChange?(isSaveEnabled)

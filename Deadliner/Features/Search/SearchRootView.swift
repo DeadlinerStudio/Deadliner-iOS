@@ -13,6 +13,7 @@ struct RichSearchTabView: View {
 
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @State private var scope: SearchScope = .all
+    @StateObject private var captureStore = CaptureStore()
     @State private var activeTasks: [DDLItem] = []
     @State private var activeHabits: [Habit] = []
     @State private var archivedTasks: [DDLItem] = []
@@ -21,6 +22,8 @@ struct RichSearchTabView: View {
     @State private var isLoading = true
     @State private var selectedTaskForEdit: DDLItem?
     @State private var selectedHabitForEdit: Habit?
+    @State private var selectedInspirationForEdit: CaptureInboxItem?
+    @State private var inspirationConversionRequest: CaptureConversionRequest?
     @State private var pendingDeleteTarget: RichSearchDeleteTarget?
     @State private var showDeleteAlert = false
     @State private var pendingGiveUpTask: DDLItem?
@@ -71,6 +74,30 @@ struct RichSearchTabView: View {
         )
     }
 
+    private var inspirationActions: SearchInspirationActions {
+        SearchInspirationActions(
+            onOpen: { item in
+                selectedInspirationForEdit = item
+            },
+            onDelete: { item in
+                pendingDeleteTarget = .inspiration(item)
+                showDeleteAlert = true
+            },
+            onConvertToTask: { item in
+                inspirationConversionRequest = CaptureConversionRequest(kind: .task, item: item, consumedIDs: [item.id])
+            },
+            onConvertToHabit: { item in
+                inspirationConversionRequest = CaptureConversionRequest(kind: .habit, item: item, consumedIDs: [item.id])
+            },
+            onAIConvertToTask: { item in
+                inspirationConversionRequest = CaptureConversionRequest(kind: .aiTask, item: item, consumedIDs: [item.id])
+            },
+            onAIConvertToHabit: { item in
+                inspirationConversionRequest = CaptureConversionRequest(kind: .aiHabit, item: item, consumedIDs: [item.id])
+            }
+        )
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -92,13 +119,15 @@ struct RichSearchTabView: View {
                     SearchResultsView(
                         scope: $scope,
                         query: query,
+                        inspirations: captureStore.items,
                         activeTasks: activeTasks,
                         activeHabits: activeHabits,
                         archivedTasks: archivedTasks,
                         archivedHabits: archivedHabits,
                         habitStatusMap: habitStatusMap,
                         taskActions: taskActions,
-                        habitActions: habitActions
+                        habitActions: habitActions,
+                        inspirationActions: inspirationActions
                     )
                     .transition(
                         .asymmetric(
@@ -153,6 +182,9 @@ struct RichSearchTabView: View {
             .onReceive(NotificationCenter.default.publisher(for: .ddlDataChanged)) { _ in
                 Task { await reload() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .captureInboxChanged)) { _ in
+                captureStore.reload()
+            }
             .sheet(item: $selectedTaskForEdit) { item in
                 EditTaskSheetView(repository: TaskRepository.shared, item: item)
             }
@@ -164,6 +196,38 @@ struct RichSearchTabView: View {
                         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
                     }
                 )
+            }
+            .sheet(item: $selectedInspirationForEdit) { item in
+                CaptureItemDetailSheet(
+                    item: item,
+                    onSave: { updatedText in
+                        captureStore.updateItem(id: item.id, text: updatedText)
+                    },
+                    onConvertToTask: {
+                        selectedInspirationForEdit = nil
+                        inspirationConversionRequest = CaptureConversionRequest(kind: .task, item: item, consumedIDs: [item.id])
+                    },
+                    onConvertToHabit: {
+                        selectedInspirationForEdit = nil
+                        inspirationConversionRequest = CaptureConversionRequest(kind: .habit, item: item, consumedIDs: [item.id])
+                    },
+                    onAIConvertToTask: {
+                        selectedInspirationForEdit = nil
+                        inspirationConversionRequest = CaptureConversionRequest(kind: .aiTask, item: item, consumedIDs: [item.id])
+                    },
+                    onAIConvertToHabit: {
+                        selectedInspirationForEdit = nil
+                        inspirationConversionRequest = CaptureConversionRequest(kind: .aiHabit, item: item, consumedIDs: [item.id])
+                    },
+                    onDelete: {
+                        selectedInspirationForEdit = nil
+                        pendingDeleteTarget = .inspiration(item)
+                        showDeleteAlert = true
+                    }
+                )
+            }
+            .sheet(item: $inspirationConversionRequest) { request in
+                inspirationConversionDestination(for: request)
             }
             .alert(deleteAlertTitle, isPresented: $showDeleteAlert) {
                 Button("取消", role: .cancel) {
@@ -199,9 +263,9 @@ struct RichSearchTabView: View {
     private var searchPrompt: String {
         switch scope {
         case .all:
-            return "搜索任务、习惯、归档内容..."
+            return "搜索任务、习惯、灵感、归档内容..."
         case .active:
-            return "搜索当前清单..."
+            return "搜索当前清单和灵感..."
         case .archive:
             return "搜索归档..."
         }
@@ -213,6 +277,8 @@ struct RichSearchTabView: View {
             return "确认删除任务？"
         case .habit:
             return "确认删除习惯？"
+        case .inspiration:
+            return "确认删除灵感？"
         case .none:
             return "确认删除？"
         }
@@ -224,6 +290,8 @@ struct RichSearchTabView: View {
             return "将删除「\(item.name)」。此操作不可撤销。"
         case .habit(let habit):
             return "将删除「\(habit.name)」。此操作不可撤销。"
+        case .inspiration(let item):
+            return "将删除「\(item.text)」。此操作不可撤销。"
         case .none:
             return "此操作不可撤销。"
         }
@@ -258,6 +326,75 @@ struct RichSearchTabView: View {
         }
 
         return result
+    }
+
+    @ViewBuilder
+    private func inspirationConversionDestination(for request: CaptureConversionRequest) -> some View {
+        switch request.kind {
+        case .task:
+            NavigationStack {
+                TaskEditorSheetView(
+                    repository: TaskRepository.shared,
+                    mode: .add,
+                    initialDraft: TaskDraft(
+                        name: request.item.text,
+                        note: "",
+                        startTime: Date(),
+                        endTime: Date().addingTimeInterval(3600),
+                        isStarred: false
+                    ),
+                    onSaved: {
+                        captureStore.consumeItems(ids: Set(request.consumedIDs))
+                        inspirationConversionRequest = nil
+                    }
+                )
+            }
+        case .habit:
+            NavigationStack {
+                HabitEditorSheetView(
+                    mode: .add,
+                    initialDraft: HabitDraft(
+                        name: request.item.text,
+                        description: "",
+                        period: .daily,
+                        goalType: .perPeriod,
+                        timesPerPeriod: "1",
+                        totalTarget: "100"
+                    ),
+                    onSaved: {
+                        captureStore.consumeItems(ids: Set(request.consumedIDs))
+                        inspirationConversionRequest = nil
+                    }
+                )
+            }
+        case .aiTask:
+            NavigationStack {
+                TaskEditorSheetView(
+                    repository: TaskRepository.shared,
+                    mode: .add,
+                    initialDraft: .empty(),
+                    onSaved: {
+                        captureStore.consumeItems(ids: Set(request.consumedIDs))
+                        inspirationConversionRequest = nil
+                    },
+                    initialAIInput: request.item.text,
+                    autoRunAIOnAppear: true
+                )
+            }
+        case .aiHabit:
+            NavigationStack {
+                HabitEditorSheetView(
+                    mode: .add,
+                    initialDraft: .empty(),
+                    onSaved: {
+                        captureStore.consumeItems(ids: Set(request.consumedIDs))
+                        inspirationConversionRequest = nil
+                    },
+                    initialAIInput: request.item.text,
+                    autoRunAIOnAppear: true
+                )
+            }
+        }
     }
 
     private func buildStatusForToday(habit: Habit) async -> HabitWithDailyStatus? {
@@ -380,6 +517,8 @@ struct RichSearchTabView: View {
                 try await taskRepo.deleteDDL(item.id)
             case .habit(let habit):
                 try await habitRepo.deleteHabitByDdlId(ddlId: habit.ddlId)
+            case .inspiration(let item):
+                captureStore.deleteItem(id: item.id)
             }
             await reload()
         } catch {

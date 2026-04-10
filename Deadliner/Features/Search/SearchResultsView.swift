@@ -10,6 +10,7 @@ import SwiftUI
 struct SearchResultsView: View {
     @Binding var scope: SearchScope
     let query: String
+    let inspirations: [CaptureInboxItem]
     let activeTasks: [DDLItem]
     let activeHabits: [Habit]
     let archivedTasks: [DDLItem]
@@ -17,6 +18,7 @@ struct SearchResultsView: View {
     let habitStatusMap: [Int64: HabitWithDailyStatus]
     let taskActions: SearchTaskActions
     let habitActions: SearchHabitActions
+    let inspirationActions: SearchInspirationActions
 
     private var taskMatches: [SearchTaskResult] {
         scope.allowsActive ? SearchViewSupport.searchResults(in: activeTasks, query: query) : []
@@ -24,6 +26,10 @@ struct SearchResultsView: View {
 
     private var habitMatches: [SearchHabitResult] {
         scope.allowsActive ? SearchViewSupport.searchResults(in: activeHabits, query: query) : []
+    }
+
+    private var inspirationMatches: [SearchInspirationResult] {
+        scope.allowsActive ? SearchViewSupport.searchResults(in: inspirations, query: query) : []
     }
 
     private var archivedTaskMatches: [SearchTaskResult] {
@@ -37,9 +43,19 @@ struct SearchResultsView: View {
     var body: some View {
         resultsScopeSection
 
-        if taskMatches.isEmpty && habitMatches.isEmpty && archivedTaskMatches.isEmpty && archivedHabitMatches.isEmpty {
+        if taskMatches.isEmpty && inspirationMatches.isEmpty && habitMatches.isEmpty && archivedTaskMatches.isEmpty && archivedHabitMatches.isEmpty {
             emptySearchRow
         } else {
+            if !inspirationMatches.isEmpty {
+                Section {
+                    ForEach(inspirationMatches) { item in
+                        inspirationRow(item)
+                    }
+                } header: {
+                    searchSectionHeader("灵感", systemImage: "quote.bubble")
+                }
+            }
+
             if !taskMatches.isEmpty {
                 Section {
                     ForEach(taskMatches) { item in
@@ -149,6 +165,43 @@ struct SearchResultsView: View {
                 taskActions.onEdit(item.task)
             }
         )
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+    }
+
+    private func inspirationRow(_ item: SearchInspirationResult) -> some View {
+        CaptureNoteCard(
+            item: item.item,
+            relativeTimeText: SearchViewSupport.relativeTimeText(for: item.item.updatedAt),
+            selectionMode: false,
+            isSelected: false,
+            onTap: {
+                inspirationActions.onOpen(item.item)
+            }
+        )
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                inspirationActions.onDelete(item.item)
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                inspirationActions.onAIConvertToHabit(item.item)
+            } label: {
+                Label("AI 习惯", systemImage: "leaf")
+            }
+            .tint(.green)
+
+            Button {
+                inspirationActions.onAIConvertToTask(item.item)
+            } label: {
+                Label("AI 任务", image: "lifi.logo.v1")
+            }
+            .tint(.blue)
+        }
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)

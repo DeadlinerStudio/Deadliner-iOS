@@ -43,6 +43,11 @@ struct RichMainView: View {
     @State private var showAddEntrySheet = false
     @State private var addEntrySelection: TaskSegment = .tasks
     @State private var showSettingsSheet = false
+    @State private var homeResetToken = 0
+    @State private var overviewResetToken = 0
+    @State private var inspirationResetToken = 0
+    @State private var aiResetToken = 0
+    @State private var searchResetToken = 0
 
     private let repo: TaskRepository = TaskRepository.shared
     private let widgetLaunchDefaults = UserDefaults(suiteName: "group.top.aritxonly.deadliner.group")
@@ -60,24 +65,28 @@ struct RichMainView: View {
                             showSettingsSheet = true
                         }
                     )
+                    .id(homeResetToken)
                 }
 
                 Tab("概览", systemImage: "chart.pie", value: RichMainTab.overview) {
                     RichOverviewTabView(
                         overlayProgress: $navGradientProgress
                     )
+                    .id(overviewResetToken)
                 }
 
-                Tab("灵感", systemImage: "quote.bubble.fill", value: RichMainTab.inspiration) {
+                Tab("灵感", systemImage: "pencil.and.outline", value: RichMainTab.inspiration) {
                     RichInspirationTabView(
                         overlayProgress: $navGradientProgress
                     )
+                    .id(inspirationResetToken)
                 }
-
-                Tab("AI", systemImage: "sparkles", value: RichMainTab.ai) {
+                
+                Tab("AI", image: "lifi.logo.v1", value: RichMainTab.ai) {
                     RichAITabView(
                         overlayProgress: $navGradientProgress
                     )
+                    .id(aiResetToken)
                 }
 
                 Tab("搜索", systemImage: "magnifyingglass", value: RichMainTab.search, role: .search) {
@@ -85,6 +94,7 @@ struct RichMainView: View {
                         query: $searchQuery,
                         overlayProgress: $navGradientProgress
                     )
+                    .id(searchResetToken)
                 }
             }
 
@@ -95,6 +105,9 @@ struct RichMainView: View {
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .animation(.smooth(duration: 0.28, extraBounce: 0), value: selectedTab)
+        .onChange(of: selectedTab) { _, newTab in
+            resetScroll(for: newTab)
+        }
         .sheet(isPresented: $showAddEntrySheet) {
             AddEntrySheetView(
                 repository: repo,
@@ -203,6 +216,21 @@ struct RichMainView: View {
         tabBar.unselectedItemTintColor = unselectedColor
 
         updateVisibleTabBars(appearance: appearance, selectedColor: selectedColor, unselectedColor: unselectedColor)
+    }
+
+    private func resetScroll(for tab: RichMainTab) {
+        switch tab {
+        case .home:
+            homeResetToken += 1
+        case .overview:
+            overviewResetToken += 1
+        case .inspiration:
+            inspirationResetToken += 1
+        case .ai:
+            aiResetToken += 1
+        case .search:
+            searchResetToken += 1
+        }
     }
 
     private func configureTabBarItemAppearance(

@@ -55,6 +55,8 @@ struct TaskEditorSheetView: View {
     var embedsInParentNavigationStack: Bool = false
     var saveTrigger: Int = 0
     var onSaveEnabledChange: ((Bool) -> Void)? = nil
+    var initialAIInput: String? = nil
+    var autoRunAIOnAppear: Bool = false
 
     // ===== UI States（保持与你现在完全一致）=====
     @State private var name: String
@@ -82,7 +84,9 @@ struct TaskEditorSheetView: View {
         principalToolbarContent: AnyView? = nil,
         embedsInParentNavigationStack: Bool = false,
         saveTrigger: Int = 0,
-        onSaveEnabledChange: ((Bool) -> Void)? = nil
+        onSaveEnabledChange: ((Bool) -> Void)? = nil,
+        initialAIInput: String? = nil,
+        autoRunAIOnAppear: Bool = false
     ) {
         self.repository = repository
         self.mode = mode
@@ -92,12 +96,15 @@ struct TaskEditorSheetView: View {
         self.embedsInParentNavigationStack = embedsInParentNavigationStack
         self.saveTrigger = saveTrigger
         self.onSaveEnabledChange = onSaveEnabledChange
+        self.initialAIInput = initialAIInput
+        self.autoRunAIOnAppear = autoRunAIOnAppear
 
         _name = State(initialValue: initialDraft.name)
         _note = State(initialValue: initialDraft.note)
         _startTime = State(initialValue: initialDraft.startTime)
         _endTime = State(initialValue: initialDraft.endTime)
         _isStarred = State(initialValue: initialDraft.isStarred)
+        _aiInputText = State(initialValue: initialAIInput ?? "")
     }
 
     var body: some View {
@@ -204,6 +211,10 @@ struct TaskEditorSheetView: View {
         }
         .onAppear {
             onSaveEnabledChange?(isSaveEnabled)
+            guard autoRunAIOnAppear else { return }
+            guard !isAILoading else { return }
+            guard !aiInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            Task { await onAITriggered() }
         }
         .onChange(of: name) { _, _ in
             onSaveEnabledChange?(isSaveEnabled)
