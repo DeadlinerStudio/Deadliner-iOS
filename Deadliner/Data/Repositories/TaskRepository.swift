@@ -12,6 +12,7 @@ import WidgetKit
 
 actor TaskRepository {
     static let shared = TaskRepository(db: .shared)
+    private static let taskStatusControlKind = "com.aritxonly.Deadliner.DeadlinerTaskStatusControl"
 
     private let db: DatabaseHelper
     
@@ -19,6 +20,11 @@ actor TaskRepository {
 
     private init(db: DatabaseHelper) {
         self.db = db
+    }
+
+    private func refreshWidgetsAndControls() {
+        WidgetCenter.shared.reloadAllTimelines()
+        ControlCenter.shared.reloadControls(ofKind: Self.taskStatusControlKind)
     }
 
     // MARK: - Init
@@ -44,7 +50,7 @@ actor TaskRepository {
         }
         await SyncCoordinator.shared.scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
-        WidgetCenter.shared.reloadAllTimelines()
+        refreshWidgetsAndControls()
         return id
     }
 
@@ -55,7 +61,7 @@ actor TaskRepository {
         NotificationManager.shared.scheduleTaskNotification(for: item)
         await SyncCoordinator.shared.scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
-        WidgetCenter.shared.reloadAllTimelines()
+        refreshWidgetsAndControls()
     }
 
     func deleteDDL(_ item: DDLItem) async throws {
@@ -64,7 +70,7 @@ actor TaskRepository {
         try await db.deleteDDL(legacyId: item.id)
         await SyncCoordinator.shared.scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
-        WidgetCenter.shared.reloadAllTimelines()
+        refreshWidgetsAndControls()
     }
 
     func deleteDDL(_ id: Int64) async throws {
@@ -73,7 +79,7 @@ actor TaskRepository {
         try await db.deleteDDL(legacyId: id)
         await SyncCoordinator.shared.scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
-        WidgetCenter.shared.reloadAllTimelines()
+        refreshWidgetsAndControls()
     }
 
     func getAllDDLs() async throws -> [DDLItem] {
@@ -106,6 +112,7 @@ actor TaskRepository {
         )
         await SyncCoordinator.shared.scheduleSync()
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        refreshWidgetsAndControls()
         return id
     }
 
@@ -120,7 +127,26 @@ actor TaskRepository {
             isCompleted: !subTask.isCompleted
         )
         await SyncCoordinator.shared.scheduleSync()
-        // TODO: 后续可加通知/UI刷新
+        NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        refreshWidgetsAndControls()
+    }
+
+    func updateSubTaskContent(ddlLegacyId: Int64, subTaskId: String, content: String) async throws {
+        try await db.updateSubTaskContent(
+            ddlLegacyId: ddlLegacyId,
+            subTaskId: subTaskId,
+            content: content
+        )
+        await SyncCoordinator.shared.scheduleSync()
+        NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        refreshWidgetsAndControls()
+    }
+
+    func deleteSubTask(ddlLegacyId: Int64, subTaskId: String) async throws {
+        try await db.deleteSubTask(ddlLegacyId: ddlLegacyId, subTaskId: subTaskId)
+        await SyncCoordinator.shared.scheduleSync()
+        NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        refreshWidgetsAndControls()
     }
 
     // MARK: - Auto Archive (minimal)

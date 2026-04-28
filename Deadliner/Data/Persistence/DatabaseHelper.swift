@@ -322,6 +322,52 @@ actor DatabaseHelper {
         try context.save()
     }
 
+    func updateSubTaskContent(ddlLegacyId: Int64, subTaskId: String, content: String) throws {
+        guard let context else { throw DBError.notInitialized }
+        let fd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.legacyId == ddlLegacyId })
+        guard let ddl = try context.fetch(fd).first else { throw DBError.notFound("DDL \(ddlLegacyId)") }
+
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return }
+
+        var subTasks = try ddl.decodedSubTasks()
+        guard let index = subTasks.firstIndex(where: { $0.id == subTaskId }) else {
+            throw DBError.notFound("SubTask \(subTaskId)")
+        }
+
+        let v = try nextVersionUTC()
+        subTasks[index].content = trimmed
+        subTasks[index].updatedAt = Date().toLocalISOString()
+        ddl.subTasksJSON = try Self.encodeSubTasks(subTasks)
+        ddl.verTs = v.ts
+        ddl.verCtr = v.ctr
+        ddl.verDev = v.dev
+        ddl.timestamp = Self.formatLocalDateTime(Date())
+
+        try context.save()
+    }
+
+    func deleteSubTask(ddlLegacyId: Int64, subTaskId: String) throws {
+        guard let context else { throw DBError.notInitialized }
+        let fd = FetchDescriptor<DDLItemEntity>(predicate: #Predicate { $0.legacyId == ddlLegacyId })
+        guard let ddl = try context.fetch(fd).first else { throw DBError.notFound("DDL \(ddlLegacyId)") }
+
+        var subTasks = try ddl.decodedSubTasks()
+        guard subTasks.contains(where: { $0.id == subTaskId }) else {
+            throw DBError.notFound("SubTask \(subTaskId)")
+        }
+        subTasks.removeAll { $0.id == subTaskId }
+
+        let v = try nextVersionUTC()
+        ddl.subTasksJSON = try Self.encodeSubTasks(subTasks)
+        ddl.verTs = v.ts
+        ddl.verCtr = v.ctr
+        ddl.verDev = v.dev
+        ddl.timestamp = Self.formatLocalDateTime(Date())
+
+        try context.save()
+    }
+
     // MARK: - Habit
 
     @discardableResult
@@ -362,7 +408,21 @@ actor DatabaseHelper {
         let fd = FetchDescriptor<HabitEntity>(predicate: #Predicate { $0.legacyId == targetId })
         guard let e = try context.fetch(fd).first else { throw DBError.notFound("Habit \(habit.id)") }
 
-        e.apply(domain: habit)
+        guard let ddl = e.ddl else {
+            throw DBError.notFound("Habit carrier for habit \(habit.id)")
+        }
+
+        let v = try nextVersionUTC()
+        var synced = habit
+        // Keep payload timestamp exactly aligned with carrier version timestamp.
+        synced.updatedAt = v.ts
+        e.apply(domain: synced)
+        Self.syncCarrierStateFromHabitStatus(ddl: ddl, statusRaw: synced.status.rawValue)
+        ddl.verTs = v.ts
+        ddl.verCtr = v.ctr
+        ddl.verDev = v.dev
+        ddl.timestamp = Self.formatLocalDateTime(Date())
+        trace("updateHabit advance carrier habitId=\(habit.id) ddlId=\(ddl.legacyId) uid=\(ddl.uid ?? "") ver=\(v.ts)#\(v.ctr)#\(v.dev) status=\(synced.status.rawValue)")
         try context.save()
     }
 
@@ -446,6 +506,7 @@ actor DatabaseHelper {
             existing.sortOrder = payload.sort_order
             existing.alarmTime = payload.alarm_time
             existing.ddl = ddl
+            Self.syncCarrierStateFromHabitStatus(ddl: ddl, statusRaw: payload.status)
             try context.save()
             return existing
         }
@@ -470,6 +531,7 @@ actor DatabaseHelper {
         trace("upsertHabitFromSnapshotV2 insert uid=\(ddlUID) habitId=\(habit.legacyId) updatedAt=\(payload.updated_at)")
         context.insert(habit)
         ddl.habit = habit
+        Self.syncCarrierStateFromHabitStatus(ddl: ddl, statusRaw: payload.status)
         try context.save()
         return habit
     }
@@ -759,6 +821,25 @@ actor DatabaseHelper {
         f.timeZone = .current
         f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
         return f.string(from: date)
+    }
+
+    private static func syncCarrierStateFromHabitStatus(ddl: DDLItemEntity, statusRaw: String) {
+        guard ddl.typeRaw == DeadlineType.habit.rawValue,
+              let status = HabitStatus(rawValue: statusRaw) else {
+            return
+        }
+
+        switch status {
+        case .archived:
+            ddl.stateRaw = DDLState.archived.rawValue
+            ddl.isArchived = true
+            ddl.isCompleted = true
+        case .active:
+            ddl.stateRaw = DDLState.active.rawValue
+            ddl.isArchived = false
+            ddl.isCompleted = false
+            ddl.completeTime = ""
+        }
     }
 
     private func maxLegacyId<T: PersistentModel>(
@@ -1219,6 +1300,21 @@ enum DBError: Error {
     case syncStateMissing
     case notFound(String)
     case invalidData(String)
+}
+
+extension DBError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .notInitialized:
+            return "数据库尚未初始化"
+        case .syncStateMissing:
+            return "同步状态缺失"
+        case let .notFound(target):
+            return "未找到数据：\(target)"
+        case let .invalidData(reason):
+            return "数据异常：\(reason)"
+        }
+    }
 }
 
 private extension SnapshotV2InnerTodo {

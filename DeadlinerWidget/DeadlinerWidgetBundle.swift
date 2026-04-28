@@ -13,6 +13,9 @@ struct DeadlinerWidgetBundle: WidgetBundle {
         DeadlinerWidget()
         DeadlinerListWidget()
         DeadlinerWidgetControl()
+        DeadlinerLifiAIControl()
+        DeadlinerInspirationControl()
+        DeadlinerTaskStatusControl()
         DeadlinerWidgetLiveActivity()
     }
 }

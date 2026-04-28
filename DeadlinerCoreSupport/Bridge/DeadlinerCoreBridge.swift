@@ -53,7 +53,7 @@ final class DeadlinerCoreBridge {
         MemoryBank.shared.exportSnapshotJson()
     }
 
-    func initializeIfNeeded() async {
+    func initializeIfNeeded() async throws {
         guard core == nil else { return }
 
         let apiKey = await LocalValues.shared.getAIApiKey()
@@ -61,7 +61,7 @@ final class DeadlinerCoreBridge {
         let modelId = await LocalValues.shared.getAIModel()
         let storagePath = makeStoragePath()
 
-        let core = DeadlinerCore(
+        let core = try DeadlinerCore(
             apiKey: apiKey,
             baseUrl: normalizeBaseURL(baseUrl),
             modelId: modelId,
@@ -105,6 +105,14 @@ final class DeadlinerCoreBridge {
         core?.exportMemorySnapshot()
     }
 
+    func getLastFinishJson() -> String? {
+        core?.getLastFinishJson()
+    }
+
+    func getLastMemorySyncJson() -> String? {
+        core?.getLastMemorySyncJson()
+    }
+
     func setEventHandler(_ handler: @escaping (DeadlinerCoreBridgeEvent) -> Void) {
         eventHandler = handler
     }
@@ -115,6 +123,9 @@ final class DeadlinerCoreBridge {
 
     private func handle(event: CoreEvent) {
         switch event {
+        case .onLifecycle(let requestId, let stage, let status, let message):
+            let suffix = message?.isEmpty == false ? " - \(message!)" : ""
+            lastEventSummary = "Lifecycle \(stage).\(status) [\(requestId)]\(suffix)"
         case .onThinking(let agentName, let phase, let message):
             lastEventSummary = "Thinking: \(agentName) [\(phase)]"
             eventHandler?(.thinking(agentName: agentName, phase: phase, message: message))
@@ -124,12 +135,11 @@ final class DeadlinerCoreBridge {
         case .onToolRequest(let id, let toolName, let argsJson):
             let normalizedToolName = ToolCallExecutor.shared.normalizeToolName(toolName)
             lastEventSummary = "Tool request \(normalizedToolName) [\(id)]"
-            let args = decodeReadTasksArgs(from: argsJson)
             let executionMode = decodeToolExecutionMode(from: argsJson)
             eventHandler?(.toolRequest(AIToolRequest(
                 id: id,
                 tool: normalizedToolName,
-                args: args,
+                argsJson: argsJson,
                 reason: nil,
                 executionMode: executionMode
             )))
@@ -193,20 +203,6 @@ final class DeadlinerCoreBridge {
             return trimmed
         }
         return trimmed.isEmpty ? "https://api.deepseek.com/v1" : "\(trimmed)/v1"
-    }
-
-    private func decodeReadTasksArgs(from argsJson: String) -> ReadTasksArgs {
-        guard let data = argsJson.data(using: .utf8),
-              let args = try? JSONDecoder().decode(ReadTasksArgs.self, from: data) else {
-            return ReadTasksArgs(
-                timeRangeDays: 7,
-                status: "OPEN",
-                keywords: nil,
-                limit: 20,
-                sort: "DUE_ASC"
-            )
-        }
-        return args
     }
 
     private func decodeToolExecutionMode(from argsJson: String) -> String? {

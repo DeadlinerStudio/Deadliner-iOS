@@ -2,6 +2,8 @@ import SwiftData
 import WidgetKit
 
 struct DeadlinerWidgetProvider: TimelineProvider {
+    private static let contributionDays = 150
+
     func placeholder(in context: Context) -> DeadlinerEntry {
         DeadlinerEntry(
             date: Date(),
@@ -9,7 +11,8 @@ struct DeadlinerWidgetProvider: TimelineProvider {
             topTasks: [DDLItem.mock()],
             remainingCount: 5,
             totalActiveCount: 7,
-            urgentCount: 2
+            urgentCount: 2,
+            contributionStats: Self.mockContributionStats(days: Self.contributionDays)
         )
     }
 
@@ -20,7 +23,8 @@ struct DeadlinerWidgetProvider: TimelineProvider {
             topTasks: [DDLItem.mock()],
             remainingCount: 5,
             totalActiveCount: 7,
-            urgentCount: 2
+            urgentCount: 2,
+            contributionStats: Self.mockContributionStats(days: Self.contributionDays)
         )
         completion(entry)
     }
@@ -34,7 +38,8 @@ struct DeadlinerWidgetProvider: TimelineProvider {
                 topTasks: stats.topTasks,
                 remainingCount: stats.remaining,
                 totalActiveCount: stats.active,
-                urgentCount: stats.urgent
+                urgentCount: stats.urgent,
+                contributionStats: stats.contributionStats
             )
             let nextUpdate = Date().addingTimeInterval(15 * 60)
             let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
@@ -43,7 +48,7 @@ struct DeadlinerWidgetProvider: TimelineProvider {
     }
 
     @MainActor
-    private func fetchWidgetData() async -> (task: DDLItem?, topTasks: [DDLItem], remaining: Int, active: Int, urgent: Int) {
+    private func fetchWidgetData() async -> (task: DDLItem?, topTasks: [DDLItem], remaining: Int, active: Int, urgent: Int, contributionStats: [WidgetContributionDay]) {
         let container = SharedModelContainer.shared
         let context = ModelContext(container)
 
@@ -76,6 +81,41 @@ struct DeadlinerWidgetProvider: TimelineProvider {
             return date > now && date <= tomorrow
         }.count
 
-        return (nearestTask, topTasks, remaining, active, urgent)
+        var completedCountsByDay: [Date: Int] = [:]
+        let calendar = Calendar.current
+        for entity in validTasks where entity.isCompleted {
+            guard let completedAt = DeadlineDateParser.safeParseOptional(entity.completeTime) else { continue }
+            let day = calendar.startOfDay(for: completedAt)
+            completedCountsByDay[day, default: 0] += 1
+        }
+
+        let contributionStats: [WidgetContributionDay] = (0..<Self.contributionDays).reversed().compactMap { offset in
+            guard let dayDate = calendar.date(byAdding: .day, value: -offset, to: now) else { return nil }
+            let day = calendar.startOfDay(for: dayDate)
+            return WidgetContributionDay(date: dayDate, count: completedCountsByDay[day] ?? 0)
+        }
+
+        return (nearestTask, topTasks, remaining, active, urgent, contributionStats)
+    }
+
+    private static func mockContributionStats(days: Int) -> [WidgetContributionDay] {
+        let calendar = Calendar.current
+        let today = Date()
+
+        return (0..<days).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+
+            let cycle = (days - offset) % 11
+            let count: Int
+            switch cycle {
+            case 0, 1, 2: count = 0
+            case 3, 4: count = 1
+            case 5, 6: count = 2
+            case 7, 8: count = 4
+            case 9: count = 6
+            default: count = 8
+            }
+            return WidgetContributionDay(date: date, count: count)
+        }
     }
 }

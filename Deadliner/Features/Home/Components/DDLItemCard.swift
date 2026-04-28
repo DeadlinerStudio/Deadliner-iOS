@@ -107,6 +107,7 @@ struct DDLItemCardSwipeable: View {
     var onEdit: (() -> Void)? = nil
 
     private let corner: CGFloat = 28
+    @State private var suppressNextTapAfterLongPress = false
 
     var body: some View {
         ZStack {
@@ -118,6 +119,10 @@ struct DDLItemCardSwipeable: View {
                 isStarred: isStarred,
                 status: status,
                 onTap: {
+                    if suppressNextTapAfterLongPress {
+                        suppressNextTapAfterLongPress = false
+                        return
+                    }
                     if selectionMode {
                         onToggleSelect?()
                     } else {
@@ -127,8 +132,9 @@ struct DDLItemCardSwipeable: View {
             )
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.35).onEnded { _ in
-                    if selectionMode {
-                        onLongPressSelect?()
+                    suppressNextTapAfterLongPress = true
+                    if let onLongPressSelect {
+                        onLongPressSelect()
                     } else {
                         onEdit?()
                     }

@@ -33,6 +33,7 @@ struct FocusMainView: View {
     
     @State private var showArchiveSheet = false
     @State private var showPaywall = false
+    @State private var homeSelectionMode = false
     @State private var taskManagementResetToken = 0
     @State private var insightsResetToken = 0
     @State private var inspirationResetToken = 0
@@ -40,6 +41,7 @@ struct FocusMainView: View {
 
     private let widgetLaunchDefaults = UserDefaults(suiteName: "group.top.aritxonly.deadliner.group")
     private let widgetLaunchKey = "widget.pending_add_entry_type"
+    private let widgetLaunchTaskDetailIdKey = "widget.pending_task_detail_id"
 
     var body: some View {
         NavigationStack {
@@ -108,6 +110,9 @@ struct FocusMainView: View {
             HomeView(query: $query, taskSegment: $taskSegment,
                      onScrollProgressChange: { p in
                          navGradientProgress = p
+                     },
+                     onSelectionModeChange: { isSelecting in
+                         homeSelectionMode = isSelecting
                      })
             .id(taskManagementResetToken)
         case .insights:
@@ -173,7 +178,7 @@ struct FocusMainView: View {
     @ToolbarContentBuilder
     private var topTrailingToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            if module == .taskManagement {
+            if module == .taskManagement && !homeSelectionMode {
                 Button {
                     showSettingsSheet = true
                 } label: {
@@ -343,6 +348,11 @@ struct FocusMainView: View {
 
     private func handleIncomingURL(_ url: URL) {
         guard url.scheme == "deadliner" else { return }
+        if url.host == "ai" {
+            module = .taskManagement
+            showAISheet = true
+            return
+        }
         guard url.host == "add" else { return }
 
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
@@ -361,8 +371,38 @@ struct FocusMainView: View {
         widgetLaunchDefaults?.removeObject(forKey: widgetLaunchKey)
 
         switch rawValue {
-        case "habit", "habits":
+        case "open_ai":
+            module = .taskManagement
+            showAISheet = true
+        case "open_inspiration":
+            module = .inspiration
+        case "open_home":
+            module = .taskManagement
+            taskSegment = .tasks
+        case "open_home_or_urgent":
+            module = .taskManagement
+            taskSegment = .tasks
+            let rawTaskId = widgetLaunchDefaults?.object(forKey: widgetLaunchTaskDetailIdKey)
+            let taskId: Int64? = {
+                if let v = rawTaskId as? Int64 { return v }
+                if let v = rawTaskId as? Int { return Int64(v) }
+                if let v = rawTaskId as? NSNumber { return v.int64Value }
+                return nil
+            }()
+            if let taskId {
+                widgetLaunchDefaults?.removeObject(forKey: widgetLaunchTaskDetailIdKey)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    NotificationCenter.default.post(
+                        name: .ddlOpenTaskDetail,
+                        object: nil,
+                        userInfo: ["taskId": taskId]
+                    )
+                }
+            }
+        case "open_add_habits", "habit", "habits":
             presentAddSheet(selection: .habits)
+        case "open_add_tasks":
+            presentAddSheet(selection: .tasks)
         default:
             presentAddSheet(selection: .tasks)
         }

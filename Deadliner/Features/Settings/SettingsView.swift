@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("userName") private var userName: String = "用户"
     @AppStorage("settings.home.style") private var homeStyleRawValue: String = HomeStyleOption.rich.rawValue
+    @AppStorage(OnboardingStorageKey.showOnNextLaunch) private var showOnboardingOnNextLaunch = false
     @StateObject private var avatarManager = AvatarManager.shared
     @State private var showProPaywall = false
     @State private var selectedPhotoItem: PhotosPickerItem?
@@ -20,6 +21,8 @@ struct SettingsView: View {
     @State private var showNameAlert = false
     @State private var tempName = ""
     @State private var animateRows = false
+    @State private var versionTapCount = 0
+    @State private var showGuideUnlockedAlert = false
 
     var body: some View {
         List {
@@ -179,7 +182,7 @@ struct SettingsView: View {
                 .settingsRowEntrance(isVisible: animateRows, index: 5)
                 NavigationLink(destination: ThemeSettingsView()) {
                     HStack {
-                        settingsLabel("App 主题", systemImage: "paintbrush.fill", tintColors: [.orange, .orange.opacity(0.7)])
+                        settingsLabel("App 主题", systemImage: "paintbrush.fill", tintColors: [.yellow, .yellow.opacity(0.7)])
                         Spacer()
                         if userTier == .free { PlusBadge() }
                     }
@@ -195,26 +198,58 @@ struct SettingsView: View {
                 .settingsRowEntrance(isVisible: animateRows, index: 7)
             }
 
-            // MARK: - 6. 其他
-            Section("关于") {
-                HStack {
-                    settingsLabel("版本信息", systemImage: "info.circle.fill", tintColors: [.gray, .gray.opacity(0.7)])
-                    Spacer()
-                    let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-                    let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-                    Text("\(version) (\(build))")
-                        .foregroundColor(.secondary)
+            Section("会员") {
+                NavigationLink(destination: MembershipCenterView()) {
+                    HStack {
+                        settingsLabel("会员中心", systemImage: "person.text.rectangle.fill", tintColors: [.orange, .orange.opacity(0.72)])
+                        Spacer()
+                        Text(userTier == .free ? "未开通" : "已开通")
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .settingsRowEntrance(isVisible: animateRows, index: 8)
+            }
+
+            // MARK: - 6. 其他
+            Section("关于") {
+                Button {
+                    handleVersionInfoTap()
+                } label: {
+                    HStack {
+                        settingsLabel("版本信息", systemImage: "info.circle.fill", tintColors: [.gray, .gray.opacity(0.7)])
+                        Spacer()
+                        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+                        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+                        Text("\(version) (\(build))")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .settingsRowEntrance(isVisible: animateRows, index: 9)
                 
                 Link(destination: URL(string: "https://github.com/AritxOnly/Deadliner-iOS/blob/main/LICENSE")!) {
                     settingsLabel("开源协议 (GPLv3)", systemImage: "doc.text.fill", tintColors: [.pink, .pink.opacity(0.7)])
                 }
-                .settingsRowEntrance(isVisible: animateRows, index: 9)
+                .settingsRowEntrance(isVisible: animateRows, index: 10)
+
+                if versionTapCount > 0 {
+                    Text("再点 \(10 - versionTapCount) 次版本号，下次启动时重新显示新手引导。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else if showOnboardingOnNextLaunch {
+                    Text("已设为下次启动时显示新手引导。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("已开启新手引导", isPresented: $showGuideUnlockedAlert) {
+            Button("好的", role: .cancel) { }
+        } message: {
+            Text("下次打开 App 时，会重新显示新手引导页。")
+        }
         .sheet(isPresented: $showProPaywall) {
             ProPaywallView()
                 .presentationDetents([.large])
@@ -239,5 +274,15 @@ struct SettingsView: View {
 
     private var selectedHomeStyle: HomeStyleOption {
         HomeStyleOption(rawValue: homeStyleRawValue) ?? .rich
+    }
+
+    private func handleVersionInfoTap() {
+        versionTapCount += 1
+
+        guard versionTapCount >= 10 else { return }
+
+        showOnboardingOnNextLaunch = true
+        versionTapCount = 0
+        showGuideUnlockedAlert = true
     }
 }

@@ -20,10 +20,12 @@ struct HabitItemCard: View {
     var canToggle: Bool = true
     
     var onToggle: (() -> Void)? = nil
+    var onToggleSelect: (() -> Void)? = nil
     var onLongPress: (() -> Void)? = nil
     
     private let corner: CGFloat = 24
     private let height: CGFloat = 72
+    @State private var suppressNextTapAfterLongPress = false
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -119,11 +121,24 @@ struct HabitItemCard: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: corner))
         .onTapGesture {
-            if canToggle { onToggle?() }
+            if suppressNextTapAfterLongPress {
+                suppressNextTapAfterLongPress = false
+                return
+            }
+            if selectionMode {
+                onToggleSelect?()
+            } else if canToggle {
+                onToggle?()
+            }
         }
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.5).onEnded { _ in
-                onLongPress?()
+                suppressNextTapAfterLongPress = true
+                if selectionMode {
+                    onToggleSelect?()
+                } else {
+                    onLongPress?()
+                }
             }
         )
     }

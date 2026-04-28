@@ -9,6 +9,7 @@ import SwiftUI
 
 enum ThemeAccentOption: String, CaseIterable, Identifiable, Sendable {
     case systemDefault
+    case cool
     case blue
     case brown
     case cyan
@@ -28,6 +29,7 @@ enum ThemeAccentOption: String, CaseIterable, Identifiable, Sendable {
     var displayName: String {
         switch self {
         case .systemDefault: return "经典"
+        case .cool: return "冷调"
         case .blue: return "晴空"
         case .brown: return "琥珀"
         case .cyan: return "冰川"
@@ -47,6 +49,7 @@ enum ThemeAccentOption: String, CaseIterable, Identifiable, Sendable {
     var color: Color {
         switch self {
         case .systemDefault, .blue: return .blue
+        case .cool: return Color(hex: "#7F9CB9")
         case .brown: return .brown
         case .cyan: return .cyan
         case .gray: return .gray
@@ -97,6 +100,12 @@ struct AIGlowPalette {
         switch accent {
         case .systemDefault:
             return .brandDefault
+        case .cool:
+            return .init(
+                blue: Color(hex: "#7F9CB9"),
+                pink: Color(hex: "#8DAECF"),
+                amber: Color(hex: "#B7CCD9")
+            )
         case .blue:
             return .init(
                 blue: .blue,

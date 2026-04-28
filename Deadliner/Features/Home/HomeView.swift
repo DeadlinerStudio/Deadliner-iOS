@@ -6,18 +6,20 @@
 //
 
 import SwiftUI
+import SwiftData
 import os
 
 struct HomeView: View {
     @Binding var query: String
     @Binding var taskSegment: TaskSegment
     var onScrollProgressChange: ((CGFloat) -> Void)? = nil
+    var onSelectionModeChange: ((Bool) -> Void)? = nil
     
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
 
     @StateObject private var vm = HomeViewModel()
-    @State private var pendingDeleteItem: DDLItem? = nil
-    @State private var pendingDeleteHabit: Habit? = nil
+    @State private var pendingDeleteItems: [DDLItem] = []
+    @State private var pendingDeleteHabits: [Habit] = []
     @State private var showDeleteConfirm: Bool = false
     @State private var pendingGiveUpItem: DDLItem? = nil
     @State private var showGiveUpConfirm: Bool = false
@@ -30,15 +32,50 @@ struct HomeView: View {
     
     @State private var editSheetItem: DDLItem? = nil
     @State private var editSheetHabit: Habit? = nil
+    @State private var detailSheetItem: DDLItem? = nil
+    @State private var detailSheetDetent: PresentationDetent = .medium
+    @State private var pendingOpenTaskDetailId: Int64? = nil
+    
+    @State private var selectionMode: Bool = false
+    @State private var selectedTaskIDs = Set<Int64>()
+    @State private var selectedHabitIDs = Set<Int64>()
 
     private var filteredTasks: [DDLItem] {
         let base = vm.tasks.filter { !$0.isArchived }
-        guard !query.isEmpty else { return base }
-        return base.filter {
+        let queried = query.isEmpty ? base : base.filter {
             $0.name.localizedCaseInsensitiveContains(query) ||
             $0.note.localizedCaseInsensitiveContains(query) ||
             $0.endTime.localizedCaseInsensitiveContains(query)
         }
+        let incomplete = queried.filter { !$0.isCompleted }
+        let completed = queried.filter(\.isCompleted)
+        return incomplete.filter(\.isStared)
+            + incomplete.filter { !$0.isStared }
+            + completed.filter(\.isStared)
+            + completed.filter { !$0.isStared }
+    }
+    
+    private var selectedTasks: [DDLItem] {
+        filteredTasks.filter { selectedTaskIDs.contains($0.id) }
+    }
+    
+    private var selectedHabits: [Habit] {
+        vm.displayHabits
+            .map(\.habit)
+            .filter { selectedHabitIDs.contains($0.id) }
+    }
+    
+    private var selectedCount: Int {
+        taskSegment == .tasks ? selectedTasks.count : selectedHabits.count
+    }
+
+    private var errorAlertPresented: Binding<Bool> {
+        Binding(
+            get: { vm.errorText != nil },
+            set: { isPresented in
+                if !isPresented { vm.errorText = nil }
+            }
+        )
     }
     
     var body: some View {
@@ -69,7 +106,22 @@ struct HomeView: View {
                                     progress: progress(for: item),
                                     isStarred: item.isStared,
                                     status: status(for: item),
-                                    onTap: { },
+                                    selectionMode: selectionMode,
+                                    selected: selectedTaskIDs.contains(item.id),
+                                    onTap: {
+                                        detailSheetDetent = .medium
+                                        detailSheetItem = item
+                                    },
+                                    onLongPressSelect: {
+                                        if selectionMode {
+                                            toggleTaskSelection(item.id)
+                                        } else {
+                                            enterTaskSelection(with: item.id)
+                                        }
+                                    },
+                                    onToggleSelect: {
+                                        toggleTaskSelection(item.id)
+                                    },
                                     onComplete: {
                                         let wasCompleted = item.isCompleted
                                         let isNowCompleted = withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -91,7 +143,8 @@ struct HomeView: View {
                                         Task { await vm.persistToggleComplete(original: item) }
                                     },
                                     onDelete: {
-                                        pendingDeleteItem = item
+                                        pendingDeleteItems = [item]
+                                        pendingDeleteHabits = []
                                         showDeleteConfirm = true
                                     },
                                     onGiveUp: {
@@ -153,6 +206,8 @@ struct HomeView: View {
                                     isCompleted: item.isCompleted,
                                     status: item.isCompleted ? .completed : .undergo,
                                     remainingText: ebState.text,
+                                    isSelected: selectedHabitIDs.contains(item.habit.id),
+                                    selectionMode: selectionMode,
                                     canToggle: (Calendar.current.startOfDay(for: vm.selectedDate) <= Calendar.current.startOfDay(for: Date())) && ebState.isDue,
                                     onToggle: {
                                         Task {
@@ -160,33 +215,45 @@ struct HomeView: View {
                                             if finished { confetti.fire() }
                                         }
                                     },
+                                    onToggleSelect: {
+                                        toggleHabitSelection(item.habit.id)
+                                    },
                                     onLongPress: {
-                                        editSheetHabit = item.habit
+                                        if selectionMode {
+                                            toggleHabitSelection(item.habit.id)
+                                        } else {
+                                            enterHabitSelection(with: item.habit.id)
+                                        }
                                     }
                                 )
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button {
-                                        pendingDeleteHabit = item.habit
-                                        showDeleteConfirm = true
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
+                                .swipeActions(edge: .trailing, allowsFullSwipe: !selectionMode) {
+                                    if !selectionMode {
+                                        Button {
+                                            pendingDeleteItems = []
+                                            pendingDeleteHabits = [item.habit]
+                                            showDeleteConfirm = true
+                                        } label: {
+                                            Label("删除", systemImage: "trash")
+                                        }
+                                        .tint(.red)
+                                        
+                                        Button {
+                                            editSheetHabit = item.habit
+                                        } label: {
+                                            Label("编辑", systemImage: "pencil")
+                                        }
+                                        .tint(.blue)
                                     }
-                                    .tint(.red)
-                                    
-                                    Button {
-                                        editSheetHabit = item.habit
-                                    } label: {
-                                        Label("编辑", systemImage: "pencil")
-                                    }
-                                    .tint(.blue)
                                 }
-                                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                    Button {
-                                        Task { await vm.archiveHabit(item.habit) }
-                                    } label: {
-                                        Label("归档", systemImage: "archivebox")
+                                .swipeActions(edge: .leading, allowsFullSwipe: !selectionMode) {
+                                    if !selectionMode {
+                                        Button {
+                                            Task { await vm.archiveHabit(item.habit) }
+                                        } label: {
+                                            Label("归档", systemImage: "archivebox")
+                                        }
+                                        .tint(.gray)
                                     }
-                                    .tint(.gray)
                                 }
                                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                                 .listRowSeparator(.hidden)
@@ -210,6 +277,9 @@ struct HomeView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(.clear)
+        .toolbar {
+            homeToolbar
+        }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: listAnimToken)
         .onScrollGeometryChange(for: CGFloat.self) { geo in
             max(0, geo.contentOffset.y + geo.contentInsets.top)
@@ -218,6 +288,11 @@ struct HomeView: View {
             onScrollProgressChange?(p)
         }
         .task {
+            do {
+                try await TaskRepository.shared.initializeIfNeeded(container: SharedModelContainer.shared)
+            } catch {
+                assertionFailure("Home init DB failed: \(error)")
+            }
             await vm.initialLoad()
             // 初始加载完成后触发一次动画
             enterAnimToken += 1
@@ -232,43 +307,66 @@ struct HomeView: View {
             if old != 0 && old != new {
                 enterAnimToken += 1
             }
+            sanitizeSelection()
+            tryOpenPendingTaskDetailIfNeeded()
         }
-        .onAppear {
-            vm.searchQuery = query
+        .onChange(of: vm.displayHabits.count) { _, _ in
+            sanitizeSelection()
         }
         .onChange(of: query) { _, newValue in
             vm.searchQuery = newValue
+            sanitizeSelection()
         }
-        .alert("提示", isPresented: Binding(
-            get: { vm.errorText != nil },
-            set: { if !$0 { vm.errorText = nil } }
-        )) {
+        .onChange(of: taskSegment) { _, _ in
+            clearSelection()
+        }
+        .onChange(of: selectionMode) { _, newValue in
+            onSelectionModeChange?(newValue)
+        }
+        .onAppear {
+            vm.searchQuery = query
+            onSelectionModeChange?(selectionMode)
+            tryOpenPendingTaskDetailIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ddlOpenTaskDetail)) { notification in
+            let rawId = notification.userInfo?["taskId"] as? Int64
+            pendingOpenTaskDetailId = rawId
+            tryOpenPendingTaskDetailIfNeeded()
+        }
+        .alert("提示", isPresented: errorAlertPresented) {
             Button("确定", role: .cancel) { vm.errorText = nil }
         } message: {
             Text(vm.errorText ?? "")
         }
         .alert(
-            pendingDeleteItem != nil ? "确认删除任务？" : "确认删除习惯？",
+            deleteConfirmTitle,
             isPresented: $showDeleteConfirm
         ) {
             Button("删除", role: .destructive) {
-                if let item = pendingDeleteItem {
-                    Task { await vm.delete(item) }
-                } else if let habit = pendingDeleteHabit {
-                    Task { await vm.deleteHabit(habit) }
+                let deletingItems = pendingDeleteItems
+                let deletingHabits = pendingDeleteHabits
+                pendingDeleteItems = []
+                pendingDeleteHabits = []
+                clearSelection()
+                if !deletingItems.isEmpty {
+                    Task { await vm.deleteTasks(deletingItems) }
+                } else if !deletingHabits.isEmpty {
+                    Task { await vm.deleteHabits(deletingHabits) }
                 }
-                pendingDeleteItem = nil
-                pendingDeleteHabit = nil
             }
             Button("取消", role: .cancel) {
-                pendingDeleteItem = nil
-                pendingDeleteHabit = nil
+                pendingDeleteItems = []
+                pendingDeleteHabits = []
             }
         } message: {
-            if let item = pendingDeleteItem {
+            if pendingDeleteItems.count == 1, let item = pendingDeleteItems.first {
                 Text("将删除「\(item.name)」。此操作不可撤销。")
-            } else if let habit = pendingDeleteHabit {
+            } else if pendingDeleteHabits.count == 1, let habit = pendingDeleteHabits.first {
                 Text("将删除「\(habit.name)」。此操作不可撤销。")
+            } else if !pendingDeleteItems.isEmpty {
+                Text("将删除选中的 \(pendingDeleteItems.count) 条任务。此操作不可撤销。")
+            } else if !pendingDeleteHabits.isEmpty {
+                Text("将删除选中的 \(pendingDeleteHabits.count) 条习惯。此操作不可撤销。")
             } else {
                 Text("此操作不可撤销。")
             }
@@ -308,6 +406,128 @@ struct HomeView: View {
                 }
             )
         }
+        .sheet(item: $detailSheetItem) { item in
+            TaskDetailSheetView(item: item, isExpanded: detailSheetDetent == .large)
+                .presentationDetents([.medium, .large], selection: $detailSheetDetent)
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var deleteConfirmTitle: String {
+        if pendingDeleteItems.count > 1 {
+            return "确认删除这些任务？"
+        }
+        if pendingDeleteHabits.count > 1 {
+            return "确认删除这些习惯？"
+        }
+        if !pendingDeleteItems.isEmpty {
+            return "确认删除任务？"
+        }
+        return "确认删除习惯？"
+    }
+
+    @ToolbarContentBuilder
+    private var homeToolbar: some ToolbarContent {
+        if selectionMode {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("", systemImage: "xmark") {
+                    clearSelection()
+                }
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task {
+                        if taskSegment == .tasks {
+                            await vm.archiveTasks(selectedTasks)
+                        } else {
+                            await vm.archiveHabits(selectedHabits)
+                        }
+                        clearSelection()
+                    }
+                } label: {
+                    Image(systemName: "archivebox")
+                }
+                .disabled(selectedCount == 0)
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(role: .destructive) {
+                    requestDeleteSelected()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .disabled(selectedCount == 0)
+            }
+        }
+    }
+
+    private func enterTaskSelection(with id: Int64) {
+        withAnimation(.smooth(duration: 0.24, extraBounce: 0)) {
+            selectionMode = true
+            selectedTaskIDs = [id]
+            selectedHabitIDs.removeAll()
+        }
+    }
+
+    private func enterHabitSelection(with id: Int64) {
+        withAnimation(.smooth(duration: 0.24, extraBounce: 0)) {
+            selectionMode = true
+            selectedHabitIDs = [id]
+            selectedTaskIDs.removeAll()
+        }
+    }
+
+    private func toggleTaskSelection(_ id: Int64) {
+        if selectedTaskIDs.contains(id) {
+            selectedTaskIDs.remove(id)
+        } else {
+            selectedTaskIDs.insert(id)
+        }
+    }
+
+    private func toggleHabitSelection(_ id: Int64) {
+        if selectedHabitIDs.contains(id) {
+            selectedHabitIDs.remove(id)
+        } else {
+            selectedHabitIDs.insert(id)
+        }
+    }
+
+    private func requestDeleteSelected() {
+        if taskSegment == .tasks {
+            pendingDeleteItems = selectedTasks
+            pendingDeleteHabits = []
+            showDeleteConfirm = !pendingDeleteItems.isEmpty
+            return
+        }
+        pendingDeleteHabits = selectedHabits
+        pendingDeleteItems = []
+        showDeleteConfirm = !pendingDeleteHabits.isEmpty
+    }
+
+    private func sanitizeSelection() {
+        selectedTaskIDs = selectedTaskIDs.intersection(Set(filteredTasks.map(\.id)))
+        selectedHabitIDs = selectedHabitIDs.intersection(Set(vm.displayHabits.map { $0.habit.id }))
+        if selectionMode && selectedCount == 0 {
+            selectionMode = false
+        }
+    }
+
+    private func clearSelection() {
+        withAnimation(.smooth(duration: 0.24, extraBounce: 0)) {
+            selectionMode = false
+            selectedTaskIDs.removeAll()
+            selectedHabitIDs.removeAll()
+        }
+    }
+
+    private func tryOpenPendingTaskDetailIfNeeded() {
+        guard let taskId = pendingOpenTaskDetailId else { return }
+        guard let item = vm.tasks.first(where: { $0.id == taskId }) else { return }
+        detailSheetDetent = .medium
+        detailSheetItem = item
+        pendingOpenTaskDetailId = nil
     }
 
     @ViewBuilder

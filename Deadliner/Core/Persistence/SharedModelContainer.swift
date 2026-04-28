@@ -71,9 +71,7 @@ public enum SharedModelContainer {
                 do {
                     let fallbackConfig = makeConfiguration(schema: schema, cloudKitDatabase: .none)
                     let fallback = try ModelContainer(for: schema, configurations: [fallbackConfig])
-                    UserDefaults.standard.set("webdav", forKey: syncProviderKey)
-                    UserDefaults.standard.set(false, forKey: cloudSyncEnabledKey)
-                    NSLog("[SharedModelContainer] Fallback to local store succeeded; iCloud sync disabled.")
+                    NSLog("[SharedModelContainer] Fallback to local store succeeded; keeping user iCloud sync preference.")
                     return fallback
                 } catch let fallbackError {
                     NSLog("[SharedModelContainer] Local fallback init failed. error=%{public}@",

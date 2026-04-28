@@ -7,45 +7,6 @@
 
 import SwiftUI
 
-// MARK: - 对话流模型（稳定 id）
-struct DisplayItem: Identifiable {
-    enum Kind {
-        case userQuery(String)
-        case aiChat(String)
-        case aiThinking(String)
-        case aiTask(AITask)
-        case aiHabit(AIHabit)
-        case aiMemory(String)
-        case aiToolRequest(AIToolRequest)
-        case aiToolResult(AIToolResult)
-    }
-
-    let id: String
-    let kind: Kind
-
-    init(kind: Kind) {
-        self.kind = kind
-        switch kind {
-        case .userQuery:
-            self.id = "user:\(UUID().uuidString)"
-        case .aiChat:
-            self.id = "chat:\(UUID().uuidString)"
-        case .aiThinking:
-            self.id = "thinking:\(UUID().uuidString)"
-        case .aiTask:
-            self.id = "task:\(UUID().uuidString)"
-        case .aiHabit:
-            self.id = "habit:\(UUID().uuidString)"
-        case .aiMemory:
-            self.id = "memory:\(UUID().uuidString)"
-        case .aiToolRequest(let r):
-            self.id = "tool-request:\(r.id)"
-        case .aiToolResult(let r):
-            self.id = "tool-result:\(r.id)"
-        }
-    }
-}
-
 struct AIFunctionView: View {
     let userTier: UserTier
     let useSheetDetents: Bool
@@ -74,6 +35,7 @@ struct AIFunctionView: View {
     
     @State private var pendingToolRequest: AIToolRequest?
     @State private var toolOriginalUserText: String = ""
+    @State private var lastSubmittedToolName: String?
     @State private var submittedToolRequestIDs: Set<String> = []
     @State private var pendingMemoryNoticeTask: Task<Void, Never>?
     @State private var inputSectionHeight: CGFloat = 92
@@ -84,6 +46,9 @@ struct AIFunctionView: View {
     @State private var repoBusy: Bool = false               // 防连点
     
     @State private var showMemoryManageSheet: Bool = false
+    @State private var showFeedbackShareSheet: Bool = false
+    @State private var feedbackShareItems: [Any] = []
+    @State private var isPreparingFeedback: Bool = false
     let bottomAccessoryInset: CGFloat
 
     var body: some View {
@@ -113,6 +78,11 @@ struct AIFunctionView: View {
                                 }
                                 .padding(.leading)
                                 .id("loading_indicator")
+                            }
+
+                            if !displayItems.isEmpty {
+                                conversationFeedbackBar
+                                    .id("conversation_feedback")
                             }
 
                             Color.clear
@@ -189,6 +159,9 @@ struct AIFunctionView: View {
         .sheet(isPresented: $showMemoryManageSheet) {
             MemoryManageSheet()
         }
+        .sheet(isPresented: $showFeedbackShareSheet) {
+            ActivityView(activityItems: feedbackShareItems)
+        }
         .onChange(of: speechInput.composedText) { _, newValue in
             inputText = newValue
         }
@@ -198,9 +171,14 @@ struct AIFunctionView: View {
             showErrorMessage = true
         }
         .task {
-            await DeadlinerCoreBridge.shared.initializeIfNeeded()
-            DeadlinerCoreBridge.shared.setEventHandler { event in
-                handleCoreEvent(event)
+            do {
+                try await DeadlinerCoreBridge.shared.initializeIfNeeded()
+                DeadlinerCoreBridge.shared.setEventHandler { event in
+                    handleCoreEvent(event)
+                }
+            } catch {
+                errorMessage = "核心初始化失败：\(error.localizedDescription)"
+                showErrorMessage = true
             }
         }
         .onDisappear {
@@ -418,7 +396,7 @@ extension AIFunctionView {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "tray.full.fill").foregroundColor(.orange)
-                Text("需要读取任务列表").font(.caption.bold()).foregroundColor(.secondary)
+                Text(AIToolPresentation.toolRequestTitle(for: req.tool)).font(.caption.bold()).foregroundColor(.secondary)
                 Spacer()
             }
 
@@ -427,18 +405,16 @@ extension AIFunctionView {
                     .font(.callout)
                     .foregroundColor(.primary)
             } else {
-                Text("为了回答你的问题，我需要查看你近期的任务。")
+                Text(AIToolPresentation.toolRequestDefaultReason(for: req.tool))
                     .font(.callout)
                     .foregroundColor(.primary)
             }
 
-            // 查询范围摘要（先只展示，不做编辑 UI；编辑后面再加）
-            let days = req.args.timeRangeDays ?? 7
-            let status = req.args.status ?? "OPEN"
-            let kws = (req.args.keywords ?? []).joined(separator: "、")
-            Text("范围：未来 \(days) 天 · 状态：\(status)\(kws.isEmpty ? "" : " · 关键词：\(kws)")")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            if let scope = AIToolPresentation.toolRequestScopeSummary(req) {
+                Text(scope)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
 
             HStack(spacing: 10) {
                 Button(role: .cancel) {
@@ -474,13 +450,12 @@ extension AIFunctionView {
     }
 
     private func toolResultBubble(_ res: AIToolResult) -> some View {
-        let s = res.payload.summary
         return HStack {
             Image(systemName: "checklist")
                 .foregroundColor(.orange)
                 .font(.caption)
 
-            Text("已读取任务：\(s.count) 条（逾期 \(s.overdue)，24h 内 \(s.dueSoon24h)）")
+            Text(AIToolPresentation.toolResultDisplayText(res))
                 .font(.caption)
                 .foregroundColor(.secondary)
 
@@ -560,6 +535,34 @@ extension AIFunctionView {
                     }
             }
         )
+    }
+
+    private var conversationFeedbackBar: some View {
+        HStack {
+            Button {
+                Task { await prepareFeedbackAndShare() }
+            } label: {
+                HStack(spacing: 6) {
+                    if isPreparingFeedback {
+                        ProgressView()
+                            .tint(.secondary)
+                    } else {
+                        Image(systemName: "ladybug")
+                            .font(.caption)
+                    }
+                    Text(isPreparingFeedback ? "正在打包反馈..." : "反馈")
+                        .font(.caption)
+                }
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.secondary.opacity(0.1), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(isPreparingFeedback)
+            Spacer()
+        }
+        .padding(.horizontal, 4)
     }
 
     private var memoryHintView: some View {
@@ -799,6 +802,7 @@ extension AIFunctionView {
     private func runSmartAgent() async {
         let query = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
+        AILog.log("[Input] \(query)")
 
         withAnimation(.spring()) {
             isExpanded = true
@@ -911,51 +915,61 @@ extension AIFunctionView {
             repoBusy = false
         }
 
-        do {
-            guard ToolCallExecutor.shared.supports(req.tool) else {
-                displayItems.append(DisplayItem(kind: .aiChat("暂不支持的工具：\(req.tool)")))
-                isParsing = false
-                return
-            }
-
-            // 1) 本地查询
-            let payload = try await ToolCallExecutor.shared.execute(toolName: req.tool, args: req.args)
-
-            let toolResult = AIToolResult(
-                id: req.id,
-                tool: ToolCallExecutor.shared.normalizeToolName(req.tool),
-                appliedArgs: req.args,
-                payload: payload
-            )
-
-            withAnimation(.spring()) {
-                displayItems.append(DisplayItem(kind: .aiToolResult(toolResult)))
-            }
-
-            // 2) 二段回灌给 Rust Core，让它继续产出最终 chat + proposal
-            let encoder = JSONEncoder()
-            let payloadData = try encoder.encode(payload)
-            guard let payloadJson = String(data: payloadData, encoding: .utf8) else {
-                throw AIError.parsingFailed
-            }
-            print("[AIFunctionView] submitToolResult id=\(req.id) tool=\(req.tool) payloadJson=\(payloadJson)")
-            await DeadlinerCoreBridge.shared.submitToolResult(id: req.id, resultJson: payloadJson)
-        } catch {
-            submittedToolRequestIDs.remove(req.id)
+        guard ToolCallExecutor.shared.supports(req.tool) else {
+            displayItems.append(DisplayItem(kind: .aiChat("暂不支持的工具：\(req.tool)")))
             isParsing = false
-            errorMessage = error.localizedDescription
-            showErrorMessage = true
+            return
         }
+
+        // 1) 本地执行 ToolCallAdapter
+        let execution = await ToolCallExecutor.shared.execute(toolName: req.tool, argsJson: req.argsJson)
+        AILog.log("[ToolResult] id=\(req.id) tool=\(execution.normalizedToolName) result=\(execution.resultJson)")
+        lastSubmittedToolName = execution.normalizedToolName
+
+        let toolResult = AIToolResult(
+            id: req.id,
+            tool: execution.normalizedToolName,
+            requestArgsJson: req.argsJson,
+            resultJson: execution.resultJson,
+            displayMessage: execution.displayMessage
+        )
+
+        withAnimation(.spring()) {
+            displayItems.append(DisplayItem(kind: .aiToolResult(toolResult)))
+            if execution.normalizedToolName == "create_task", let args = req.createTaskArgs {
+                let proposal = AITask(name: args.name, dueTime: args.dueTime, note: args.note)
+                displayItems.append(DisplayItem(kind: .aiTask(proposal)))
+            }
+            if execution.normalizedToolName == "create_habit", let args = req.createHabitArgs {
+                let proposal = AIHabit(
+                    name: args.name,
+                    period: args.period.uppercased(),
+                    timesPerPeriod: max(1, args.timesPerPeriod),
+                    goalType: args.goalType.uppercased(),
+                    totalTarget: args.totalTarget
+                )
+                displayItems.append(DisplayItem(kind: .aiHabit(proposal)))
+            }
+        }
+
+        // 2) 回灌给 Rust Core，让其继续下一阶段
+        print("[AIFunctionView] submitToolResult id=\(req.id) tool=\(execution.normalizedToolName) payloadJson=\(execution.resultJson)")
+        await DeadlinerCoreBridge.shared.submitToolResult(id: req.id, resultJson: execution.resultJson)
     }
 
     @MainActor
     private func handleCoreEvent(_ event: DeadlinerCoreBridgeEvent) {
         switch event {
         case .thinking(let agentName, let phase, let message):
+            if let message, !message.isEmpty {
+                AILog.log("[Thinking] agent=\(agentName) phase=\(phase) message=\(message)")
+            } else {
+                AILog.log("[Thinking] agent=\(agentName) phase=\(phase)")
+            }
             if phase != "memory" {
                 isParsing = true
             }
-            let thinkingText = collaborationMessage(for: agentName, phase: phase, fallbackMessage: message)
+            let thinkingText = AIToolPresentation.collaborationMessage(for: agentName, phase: phase, fallbackMessage: message)
             if shouldAppendThinkingMessage(thinkingText) {
                 withAnimation(.spring()) {
                     displayItems.append(DisplayItem(kind: .aiThinking(thinkingText)))
@@ -964,18 +978,32 @@ extension AIFunctionView {
         case .textStream:
             break
         case .toolRequest(let req):
+            AILog.log("[ToolRequest] id=\(req.id) tool=\(req.tool) mode=\(req.executionMode ?? "N/A") args=\(req.argsJson)")
             isParsing = false
-            let sanitizedReq = AIToolRequest(
-                id: req.id,
-                tool: req.tool,
-                args: sanitizeReadTasksArgs(req.args, userQuery: toolOriginalUserText),
-                reason: req.reason,
-                executionMode: req.executionMode
-            )
+            let normalizedTool = ToolCallExecutor.shared.normalizeToolName(req.tool)
+            let sanitizedReq: AIToolRequest
+            if normalizedTool == "read_tasks", let readArgs = req.readTasksArgs {
+                let sanitized = sanitizeReadTasksArgs(readArgs, userQuery: toolOriginalUserText)
+                sanitizedReq = AIToolRequest(
+                    id: req.id,
+                    tool: normalizedTool,
+                    argsJson: encodeReadTasksArgsJson(sanitized),
+                    reason: req.reason,
+                    executionMode: req.executionMode
+                )
+            } else {
+                sanitizedReq = AIToolRequest(
+                    id: req.id,
+                    tool: normalizedTool,
+                    argsJson: req.argsJson,
+                    reason: req.reason,
+                    executionMode: req.executionMode
+                )
+            }
 
-            if (sanitizedReq.executionMode ?? "").uppercased() == "AUTO" {
+            if AIToolPresentation.shouldAutoApproveToolRequest(sanitizedReq) {
                 withAnimation(.spring()) {
-                    displayItems.append(DisplayItem(kind: .aiThinking(toolCollaborationMessage(for: sanitizedReq.tool))))
+                    displayItems.append(DisplayItem(kind: .aiThinking(AIToolPresentation.toolCollaborationMessage(for: sanitizedReq.tool))))
                 }
                 pendingToolRequest = sanitizedReq
                 Task { await approveAndRunTool(sanitizedReq) }
@@ -983,10 +1011,11 @@ extension AIFunctionView {
             }
 
             withAnimation(.spring()) {
-                displayItems.append(DisplayItem(kind: .aiThinking(toolCollaborationMessage(for: sanitizedReq.tool))))
+                displayItems.append(DisplayItem(kind: .aiThinking(AIToolPresentation.toolCollaborationMessage(for: sanitizedReq.tool))))
                 displayItems.append(DisplayItem(kind: .aiToolRequest(sanitizedReq)))
             }
         case .finish(let payload):
+            AILog.log("[Finish] intent=\(payload.primaryIntent) tasks=\(payload.tasks.count) habits=\(payload.habits.count) chat=\((payload.chatResponse ?? "").prefix(120))")
             isParsing = false
             pendingMemoryNoticeTask?.cancel()
             pendingMemoryNoticeTask = nil
@@ -995,18 +1024,31 @@ extension AIFunctionView {
                 sessionSummary = String(s.prefix(600))
             }
 
+            let suppressProposalCardsForReadOnlyTool = {
+                guard let tool = lastSubmittedToolName else { return false }
+                let normalized = ToolCallExecutor.shared.normalizeToolName(tool)
+                return normalized == "read_tasks"
+                    || normalized == "read_habits"
+                    || normalized == "create_task"
+                    || normalized == "create_habit"
+            }()
+            lastSubmittedToolName = nil
+
             withAnimation(.spring()) {
-                for task in payload.tasks {
-                    displayItems.append(DisplayItem(kind: .aiTask(task)))
-                }
-                for habit in payload.habits {
-                    displayItems.append(DisplayItem(kind: .aiHabit(habit)))
+                if !suppressProposalCardsForReadOnlyTool {
+                    for task in payload.tasks {
+                        displayItems.append(DisplayItem(kind: .aiTask(task)))
+                    }
+                    for habit in payload.habits {
+                        displayItems.append(DisplayItem(kind: .aiHabit(habit)))
+                    }
                 }
                 if let chat = payload.chatResponse, !chat.isEmpty {
                     displayItems.append(DisplayItem(kind: .aiChat(chat)))
                 }
             }
         case .memoryCommitted(let payload):
+            AILog.log("[MemoryCommitted] added=\(payload.addedMemories.count) profileUpdated=\(payload.profileUpdated) revision=\(payload.newRevision)")
             isParsing = false
             pendingMemoryNoticeTask?.cancel()
             pendingMemoryNoticeTask = Task { @MainActor in
@@ -1019,9 +1061,11 @@ extension AIFunctionView {
                 }
             }
         case .error(let message):
+            AILog.log("[Error] \(message)")
             isParsing = false
             pendingMemoryNoticeTask?.cancel()
             pendingMemoryNoticeTask = nil
+            lastSubmittedToolName = nil
             errorMessage = message
             showErrorMessage = true
         }
@@ -1061,62 +1105,6 @@ extension AIFunctionView {
         )
     }
 
-    private func collaborationMessage(for agentName: String, phase: String, fallbackMessage: String?) -> String {
-        if let fallbackMessage, !fallbackMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return fallbackMessage
-        }
-
-        switch agentName {
-        case "Supervisor":
-            switch phase {
-            case "routing":
-                return "总控代理正在分析请求并分派子任务"
-            case "memory":
-                return "总控代理正在整理本轮记忆更新"
-            default:
-                return "总控代理正在协调整体流程"
-            }
-        case "TaskAgent":
-            switch phase {
-            case "routing":
-                return "任务代理已接手，准备分析时间与待办"
-            case "tool_wait":
-                return "任务代理正在等待本地任务工具结果"
-            default:
-                return "任务代理正在整理待办与时间信息"
-            }
-        case "HabitAgent":
-            switch phase {
-            case "routing":
-                return "习惯代理已接手，准备分析周期性行为"
-            case "tool_wait":
-                return "习惯代理正在等待工具结果"
-            default:
-                return "习惯代理正在分析周期性行为"
-            }
-        case "ChatAgent":
-            switch phase {
-            case "routing":
-                return "聊天代理已接手，准备组织回复"
-            case "memory":
-                return "聊天代理正在整理回复相关记忆"
-            default:
-                return "聊天代理正在组织回复与记忆"
-            }
-        default:
-            return "\(agentName) 正在\(phase)阶段协作处理中"
-        }
-    }
-
-    private func toolCollaborationMessage(for toolName: String) -> String {
-        switch toolName {
-        case "readTasks", "read_tasks", "ReadTaskContext":
-            return "任务代理请求读取本地任务列表"
-        default:
-            return "\(toolName) 工具正在参与协作"
-        }
-    }
-
     private func shouldAppendThinkingMessage(_ message: String) -> Bool {
         guard let last = displayItems.last?.kind else { return true }
         switch last {
@@ -1142,24 +1130,70 @@ extension AIFunctionView {
         return signals.contains { s.contains($0.lowercased()) }
     }
 
-}
+    private func encodeReadTasksArgsJson(_ args: ReadTasksArgs) -> String {
+        guard let data = try? JSONEncoder().encode(args),
+              let json = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return json
+    }
 
-// MARK: - 辅助组件
-struct RoundedCorner: Shape {
-    var radius: CGFloat = .infinity
-    var corners: UIRectCorner = .allCorners
-    func path(in rect: CGRect) -> Path {
-        let path = UIBezierPath(
-            roundedRect: rect,
-            byRoundingCorners: corners,
-            cornerRadii: CGSize(width: radius, height: radius)
+    @MainActor
+    private func prepareFeedbackAndShare() async {
+        if isPreparingFeedback { return }
+        isPreparingFeedback = true
+        defer { isPreparingFeedback = false }
+
+        let info = Bundle.main.infoDictionary
+        let version = (info?["CFBundleShortVersionString"] as? String) ?? "unknown"
+        let build = (info?["CFBundleVersion"] as? String) ?? "unknown"
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let context = AIFeedbackService.Context(
+            appVersion: version,
+            buildNumber: build,
+            timestamp: iso.string(from: Date()),
+            timezone: TimeZone.current.identifier,
+            locale: Locale.current.identifier,
+            lastCoreEventSummary: DeadlinerCoreBridge.shared.lastEventSummary ?? "(none)",
+            sessionSummary: sessionSummary.isEmpty ? "(empty)" : sessionSummary,
+            memoryFragmentsCount: memoryBank.fragments.count,
+            memoryProfile: memoryBank.userProfile,
+            transcriptLines: makeFeedbackTranscriptLines(maxItems: 120),
+            coreLastFinishJson: DeadlinerCoreBridge.shared.getLastFinishJson(),
+            coreLastMemorySyncJson: DeadlinerCoreBridge.shared.getLastMemorySyncJson()
         )
-        return Path(path.cgPath)
-    }
-}
 
-extension View {
-    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
-        clipShape(RoundedCorner(radius: radius, corners: corners))
+        let items = await AIFeedbackService.makeShareItems(context: context)
+        feedbackShareItems = items
+        showFeedbackShareSheet = true
     }
+
+    private func makeFeedbackTranscriptLines(maxItems: Int) -> [String] {
+        let recent = Array(displayItems.suffix(maxItems))
+        return recent.map { item in
+            switch item.kind {
+            case .userQuery(let text):
+                return "[User] \(text)"
+            case .aiChat(let text):
+                return "[AI] \(text)"
+            case .aiThinking(let text):
+                return "[Thinking] \(text)"
+            case .aiTask(let task):
+                let due = (task.dueTime?.isEmpty == false) ? task.dueTime! : "N/A"
+                return "[TaskCard] name=\(task.name) due=\(due)"
+            case .aiHabit(let habit):
+                return "[HabitCard] name=\(habit.name) period=\(habit.period) times=\(habit.timesPerPeriod)"
+            case .aiMemory(let text):
+                return "[Memory] \(text)"
+            case .aiToolRequest(let req):
+                return "[ToolRequest] tool=\(req.tool) mode=\(req.executionMode ?? "N/A") args=\(req.argsJson)"
+            case .aiToolResult(let result):
+                return "[ToolResult] tool=\(result.tool) result=\(result.resultJson)"
+            }
+        }
+    }
+
 }

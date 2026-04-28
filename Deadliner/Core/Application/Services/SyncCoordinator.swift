@@ -9,6 +9,7 @@ import os
 
 actor SyncCoordinator {
     static let shared = SyncCoordinator(db: .shared)
+    private static let taskStatusControlKind = "com.aritxonly.Deadliner.DeadlinerTaskStatusControl"
 
     private let db: DatabaseHelper
     private let logger = Logger(subsystem: "Deadliner", category: "SyncCoordinator")
@@ -134,6 +135,7 @@ actor SyncCoordinator {
     private func handleLocalChanges() async {
         NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
         WidgetCenter.shared.reloadAllTimelines()
+        ControlCenter.shared.reloadControls(ofKind: Self.taskStatusControlKind)
 
         do {
             let allTasks = try await db.getDDLsByType(.task)
@@ -154,6 +156,7 @@ actor SyncCoordinator {
                 logger.info("Pruned \(deleted, privacy: .public) expired tombstones")
                 NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
                 WidgetCenter.shared.reloadAllTimelines()
+                ControlCenter.shared.reloadControls(ofKind: Self.taskStatusControlKind)
             }
         } catch {
             logger.error("Failed to prune expired tombstones: \(error.localizedDescription)")

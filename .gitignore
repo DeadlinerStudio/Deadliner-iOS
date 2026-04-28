@@ -64,3 +64,4 @@ fastlane/test_output
 *.xcframework
 .derived_data
 .DerivedData
+.deadliner-core/

@@ -10,7 +10,7 @@ import SwiftData
 
 private enum AppReleaseGate {
     // TODO: Turn this off before shipping the post-Rust public build.
-    static let unlockGeekForCurrentRelease = true
+    static let unlockGeekForCurrentRelease = false
 }
 
 @main
@@ -22,11 +22,31 @@ struct DeadlinerApp: App {
     
     let sharedModelContainer: ModelContainer = SharedModelContainer.shared
 
+    init() {
+        // Keep only logs for current app launch session.
+        AILog.clearForNewLaunchSession()
+        SyncDebugLog.clearForNewLaunchSession()
+
+        // Capture process stdout/stderr and mirror to AI log file without changing Rust side.
+        AIStdStreamCapture.shared.startIfNeeded()
+        AILog.log("[Session] New launch session started")
+        SyncDebugLog.log("[Session] New launch session started")
+    }
+
     var body: some Scene {
         WindowGroup {
-            MainView()
+            AppRootView()
                 .environmentObject(themeStore)
                 .task {
+                    do {
+                        try await TaskRepository.shared.initializeIfNeeded(container: sharedModelContainer)
+                        try await DeadlinerCoreBridge.shared.initializeIfNeeded()
+                    } catch {
+                        AILog.log("Core init failed on launch task: \(error.localizedDescription)")
+                        SyncDebugLog.log("Core init failed on launch task: \(error.localizedDescription)")
+                        assertionFailure("DB init failed: \(error)")
+                    }
+
                     if AppReleaseGate.unlockGeekForCurrentRelease {
                         userTier = .geek
                     } else if userTier == .pro {
@@ -35,27 +55,44 @@ struct DeadlinerApp: App {
 
                     // 请求通知权限
                     NotificationManager.shared.requestAuthorization()
+
+                    // 启动时自动校验一次会员权益（先本地，后限时网络），弱网不阻塞体验
+                    await StoreManager.shared.refreshEntitlementsOnLaunch()
                     
                     // 刷新习惯提醒
                     HabitRepository.shared.scheduleReminderRefresh()
-                    
-                    do {
-                        try await TaskRepository.shared.initializeIfNeeded(container: sharedModelContainer)
-                        await DeadlinerCoreBridge.shared.initializeIfNeeded()
-                    } catch {
-                        assertionFailure("DB init failed: \(error)")
-                    }
                 }
                 .onAppear {
                     // 启动时也跑一次（有时不会立刻触发 scenePhase 变化）
                     applyAutoSeasonIconIfNeeded()
-                    HabitRepository.shared.scheduleReminderRefresh()
+                    Task {
+                        do {
+                            try await TaskRepository.shared.initializeIfNeeded(container: sharedModelContainer)
+                            try await DeadlinerCoreBridge.shared.initializeIfNeeded()
+                            HabitRepository.shared.scheduleReminderRefresh()
+                        } catch {
+                            AILog.log("Core init failed on appear: \(error.localizedDescription)")
+                            SyncDebugLog.log("Core init failed on appear: \(error.localizedDescription)")
+                            assertionFailure("DB init failed on appear: \(error)")
+                        }
+                    }
                 }
                 .onChange(of: scenePhase) { phase in
                     // 回到前台时刷新一次即可
                     guard phase == .active else { return }
                     applyAutoSeasonIconIfNeeded()
-                    HabitRepository.shared.scheduleReminderRefresh()
+                    Task { await StoreManager.shared.refreshEntitlementsOnLaunch() }
+                    Task {
+                        do {
+                            try await TaskRepository.shared.initializeIfNeeded(container: sharedModelContainer)
+                            try await DeadlinerCoreBridge.shared.initializeIfNeeded()
+                            HabitRepository.shared.scheduleReminderRefresh()
+                        } catch {
+                            AILog.log("Core init failed on active: \(error.localizedDescription)")
+                            SyncDebugLog.log("Core init failed on active: \(error.localizedDescription)")
+                            assertionFailure("DB init failed on active: \(error)")
+                        }
+                    }
                 }
 
             

@@ -13,6 +13,7 @@ enum DeadlinerIcon: String, CaseIterable, Identifiable {
     case deadlinerDefault = "DeadlinerDefault"
     case blackGold        = "DeadlinerBlackGold"
     case pixel            = "DeadlinerPixel"
+    case lifi             = "LifiAI"
     case spring           = "DeadlinerSpring"
     case summer           = "DeadlinerSummer"
     case autumn           = "DeadlinerAutumn"
@@ -26,6 +27,7 @@ enum DeadlinerIcon: String, CaseIterable, Identifiable {
         case .deadlinerDefault: return "默认"
         case .blackGold:        return "黑金"
         case .pixel:            return "像素"
+        case .lifi:             return "Lifi AI"
         case .spring:           return "春"
         case .summer:           return "夏"
         case .autumn:           return "秋"
@@ -67,6 +69,7 @@ enum DeadlinerIcon: String, CaseIterable, Identifiable {
         case .deadlinerDefault: return nil
         case .blackGold:        return "DeadlinerBlackGold"
         case .pixel:            return "DeadlinerPixel"
+        case .lifi:             return "LifiAI"
         case .spring:           return "DeadlinerSpring"
         case .summer:           return "DeadlinerSummer"
         case .autumn:           return "DeadlinerAutumn"
@@ -81,8 +84,10 @@ enum DeadlinerIcon: String, CaseIterable, Identifiable {
 // MARK: - View
 struct IconSettingsView: View {
     @AppStorage("selectedAppIcon") private var selectedAppIconRaw: String = DeadlinerIcon.deadlinerDefault.rawValue
+    @AppStorage("userTier") private var userTier: UserTier = .free
     @State private var isApplying = false
     @State private var errorMessage: String?
+    @State private var showPaywall = false
 
     private var selectedIcon: DeadlinerIcon {
         get { DeadlinerIcon(rawValue: selectedAppIconRaw) ?? .deadlinerDefault }
@@ -96,6 +101,12 @@ struct IconSettingsView: View {
                     Text("选择你喜欢的 Deadliner 图标。更换后会立即生效。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+
+                    if userTier == .free {
+                        Text("当前为 FREE 用户：可浏览全部图标预览，升级 Geek 后可切换图标。")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
 
                     if !UIApplication.shared.supportsAlternateIcons {
                         Text("当前系统不支持自定义图标。")
@@ -150,6 +161,9 @@ struct IconSettingsView: View {
         }
         .navigationTitle("自定义图标")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showPaywall) {
+            ProPaywallView().presentationDetents([.large])
+        }
         .onAppear {
             syncFromSystemIconIfPossible()
             applyAutoSeasonIfNeeded()
@@ -168,6 +182,11 @@ struct IconSettingsView: View {
     }
 
     private func apply(_ icon: DeadlinerIcon) {
+        guard userTier != .free else {
+            showPaywall = true
+            return
+        }
+
         guard UIApplication.shared.supportsAlternateIcons else {
             errorMessage = "系统不支持自定义图标。"
             return

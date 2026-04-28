@@ -14,6 +14,7 @@ struct ThemeSettingsView: View {
     @State private var showPaywall = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
+    private var isFreeUser: Bool { userTier == .free }
 
     var body: some View {
         Form {
@@ -24,17 +25,32 @@ struct ThemeSettingsView: View {
             }
 
             Section {
-                Toggle("启用顶部光效 Overlay", isOn: overlayEnabledBinding)
+                Toggle(
+                    "启用顶部光效 Overlay",
+                    isOn: Binding(
+                        get: { themeStore.overlayEnabled },
+                        set: { themeStore.setOverlayEnabled($0) }
+                    )
+                )
 
-                Toggle("AI 使用强调色三色方案", isOn: aiAccentPaletteBinding)
-                    .disabled(!themeStore.overlayEnabled || userTier == .free)
+                Toggle(
+                    "AI 使用强调色三色方案",
+                    isOn: Binding(
+                        get: { themeStore.useAccentPaletteWhenAI },
+                        set: { themeStore.setUseAccentPaletteWhenAI($0) }
+                    )
+                )
+                .disabled(!themeStore.overlayEnabled || isFreeUser)
             } header: {
                 Text("顶部 Overlay")
             } footer: {
-                Text(userTier == .free
-                     ? "这一项对所有用户开放。关闭后，首页顶栏不会显示任何光效。"
+                Text(isFreeUser
+                     ? "FREE 用户当前为只读预览。升级 Geek 后可启用并自定义顶部光效。"
                      : "关闭后，首页顶栏不会显示任何光效。开启后，无 AI 时始终使用你这套强调色三色映射；有 AI 时默认使用品牌 AI 光效，但你可以切回强调色三色方案。")
             }
+            .disabled(isFreeUser)
+            .opacity(isFreeUser ? 0.58 : 1)
+            .saturation(isFreeUser ? 0 : 1)
 
             Section {
                 LazyVGrid(columns: columns, spacing: 14) {
@@ -43,11 +59,24 @@ struct ThemeSettingsView: View {
                     }
                 }
                 .padding(.vertical, 8)
-                .disabled(userTier == .free)
+                .disabled(isFreeUser)
+                .saturation(isFreeUser ? 0 : 1)
+                .opacity(isFreeUser ? 0.58 : 1)
             } header: {
                 Text("强调色")
             } footer: {
-                Text("Geek 及以上可用。默认主题保持蓝色 accent，同时保留系统默认开关轨道色和你当前的右下角自定义按钮色。选择任意 Apple 颜色后，accent、开关轨道和右下角按钮会一起切换。")
+                Text(isFreeUser
+                     ? "FREE 用户可查看主题方案；升级 Geek 后可切换强调色。"
+                     : "Geek 及以上可用。默认主题保持蓝色 accent，同时保留系统默认开关轨道色和你当前的右下角自定义按钮色。选择任意 Apple 颜色后，accent、开关轨道和右下角按钮会一起切换。")
+            }
+
+            if isFreeUser {
+                Section {
+                    Button("升级 Geek 解锁主题自定义") {
+                        showPaywall = true
+                    }
+                    .frame(maxWidth: .infinity)
+                }
             }
 
         }
@@ -57,32 +86,6 @@ struct ThemeSettingsView: View {
         .sheet(isPresented: $showPaywall) {
             ProPaywallView().presentationDetents([.large])
         }
-    }
-
-    private var overlayEnabledBinding: Binding<Bool> {
-        Binding(
-            get: { themeStore.overlayEnabled },
-            set: { newValue in
-                if userTier == .free {
-                    showPaywall = true
-                } else {
-                    themeStore.setOverlayEnabled(newValue)
-                }
-            }
-        )
-    }
-
-    private var aiAccentPaletteBinding: Binding<Bool> {
-        Binding(
-            get: { themeStore.useAccentPaletteWhenAI },
-            set: { newValue in
-                if userTier == .free {
-                    showPaywall = true
-                } else {
-                    themeStore.setUseAccentPaletteWhenAI(newValue)
-                }
-            }
-        )
     }
 
     private var previewCard: some View {
@@ -131,17 +134,26 @@ struct ThemeSettingsView: View {
             .buttonStyle(.plain)
             .padding(18)
             .allowsHitTesting(false)
+
+            if isFreeUser {
+                Text("仅预览")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
         }
         .frame(height: 180)
+        .saturation(isFreeUser ? 0 : 1)
+        .opacity(isFreeUser ? 0.72 : 1)
     }
 
     private func accentCell(_ option: ThemeAccentOption) -> some View {
         Button {
-            if userTier == .free {
-                showPaywall = true
-            } else {
-                themeStore.setAccentOption(option)
-            }
+            themeStore.setAccentOption(option)
         } label: {
             VStack(spacing: 8) {
                 ZStack {
@@ -156,7 +168,7 @@ struct ThemeSettingsView: View {
                     }
 
                     if option == .systemDefault {
-                        Image("lifi.logo.v1")
+                        Image(systemName: "sparkles")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.white)
                     }

@@ -56,6 +56,8 @@ actor LocalValues {
         
         static let monthlyAnalysis = "settings.ai.monthly_analysis"
         static let lastAnalyzedMonth = "settings.ai.last_analyzed_month"
+        static let onboardingHasSeen = "onboarding.has_seen"
+        static let onboardingShowOnNextLaunch = "onboarding.show_on_next_launch"
     }
 
     // MARK: - DTO
@@ -294,7 +296,9 @@ actor LocalValues {
             Key.aiUseHosted,
             Key.aiConfigured,
             Key.aiEnabled,
-            Key.progressDir
+            Key.progressDir,
+            Key.onboardingHasSeen,
+            Key.onboardingShowOnNextLaunch
         ]
         keys.forEach { defaults.removeObject(forKey: $0) }
         registerDefaults()

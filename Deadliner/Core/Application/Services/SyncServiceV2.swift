@@ -79,7 +79,7 @@ actor SyncServiceV2: SyncService {
                 name: entity.name,
                 start_time: entity.startTime,
                 end_time: entity.endTime,
-                state: entity.resolvedState().rawValue,
+                state: entity.resolvedStateForSync().rawValue,
                 complete_time: entity.completeTime,
                 note: entity.note,
                 is_stared: entity.isStared ? 1 : 0,
@@ -103,6 +103,29 @@ actor SyncServiceV2: SyncService {
         if a.ctr != b.ctr { return a.ctr > b.ctr }
         if a.dev != b.dev { return a.dev > b.dev }
         return false
+    }
+
+    private func isHabitPayloadCaughtUp(habitUpdatedAt: String, carrierVerTs: String) -> Bool {
+        if habitUpdatedAt == carrierVerTs { return true }
+        guard let left = DeadlineDateParser.safeParseOptional(habitUpdatedAt),
+              let right = DeadlineDateParser.safeParseOptional(carrierVerTs) else {
+            // Fallback: if timestamps match to second-level granularity, treat as caught up.
+            return normalizeToSecond(habitUpdatedAt) == normalizeToSecond(carrierVerTs)
+        }
+        // Accept formatter/precision drift in the same-second to tens-of-ms range.
+        if abs(left.timeIntervalSince(right)) <= 0.050 {
+            return true
+        }
+        // Secondary fallback for mixed timestamp formats where parser precision may differ.
+        return normalizeToSecond(habitUpdatedAt) == normalizeToSecond(carrierVerTs)
+    }
+
+    private func normalizeToSecond(_ raw: String) -> String {
+        // Keep "yyyy-MM-ddTHH:mm:ss" part only; ignore fractional/timezone decoration.
+        if raw.count >= 19 {
+            return String(raw.prefix(19))
+        }
+        return raw
     }
 
     private func merge(local: SnapshotV2Root, remoteRoots: [SnapshotV2Root]) -> SnapshotV2Root {
@@ -378,18 +401,19 @@ actor SyncServiceV2: SyncService {
             if let applied = entity.habitAppliedSnapshotVersionRaw() {
                 let appliedVer = SnapshotVer(ts: applied.ts, ctr: applied.ctr, dev: applied.dev)
                 let carrierAheadOfApplied = isVerNewer(ver, appliedVer)
-                let habitPayloadCaughtUp = (habit.updatedAt == ver.ts)
+                let habitPayloadCaughtUp = isHabitPayloadCaughtUp(habitUpdatedAt: habit.updatedAt, carrierVerTs: ver.ts)
                 if carrierAheadOfApplied && !habitPayloadCaughtUp {
-                    trace("buildLocalHabitSnapshotV2 skip stale-local-habit uid=\(uid) carrierVer=\(ver.ts)#\(ver.ctr)#\(ver.dev) appliedVer=\(appliedVer.ts)#\(appliedVer.ctr)#\(appliedVer.dev) records=\(habit.records.count) updatedAt=\(habit.updatedAt)")
+                    trace("buildLocalHabitSnapshotV2 skip stale-local-habit uid=\(uid) carrierVer=\(ver.ts)#\(ver.ctr)#\(ver.dev) appliedVer=\(appliedVer.ts)#\(appliedVer.ctr)#\(appliedVer.dev) status=\(habit.statusRaw) records=\(habit.records.count) updatedAt=\(habit.updatedAt)")
                     return nil
                 }
             }
 
-            trace("buildLocalHabitSnapshotV2 emit doc uid=\(uid) carrierVer=\(ver.ts)#\(ver.ctr)#\(ver.dev) records=\(habit.records.count) updatedAt=\(habit.updatedAt)")
+            trace("buildLocalHabitSnapshotV2 emit doc uid=\(uid) carrierVer=\(ver.ts)#\(ver.ctr)#\(ver.dev) status=\(habit.statusRaw) records=\(habit.records.count) updatedAt=\(habit.updatedAt)")
 
             let doc = HabitSnapshotV2Doc(
                 ddl_uid: uid,
-                habit: habit.toHabitSnapshotV2Payload(),
+                // Always align payload timestamp to carrier version to avoid stale-gate loops.
+                habit: habit.toHabitSnapshotV2Payload(updatedAtOverride: ver.ts),
                 records: habit.records
                     .sorted { lhs, rhs in
                         if lhs.date != rhs.date { return lhs.date < rhs.date }
@@ -400,6 +424,10 @@ actor SyncServiceV2: SyncService {
 
             return HabitSnapshotV2Item(uid: uid, ver: ver, deleted: false, doc: doc)
         }
+
+        let emittedDocCount = snapshotItems.reduce(0) { $0 + ($1.deleted ? 0 : 1) }
+        let emittedTombstoneCount = snapshotItems.reduce(0) { $0 + ($1.deleted ? 1 : 0) }
+        trace("buildLocalHabitSnapshotV2 summary items=\(snapshotItems.count) emittedDocCount=\(emittedDocCount) emittedTombstoneCount=\(emittedTombstoneCount)")
 
         let now = Date().toLocalISOString()
         return HabitSnapshotV2Root(version: .init(ts: now, dev: dev), items: snapshotItems)
@@ -497,25 +525,33 @@ actor SyncServiceV2: SyncService {
             let local = try await buildLocalHabitSnapshotV2()
             let remote = try await loadRemoteHabitV2IfPresent(decoder: decoder)
             let merged = merge(local: local, remote: remote.root)
+            let localBytes = try encoder.encode(local)
             let mergedBytes = try encoder.encode(merged)
+            let mergedChanged = (localBytes != mergedBytes)
+            trace("syncHabitSnapshotOnce mergedChanged=\(mergedChanged) localItems=\(local.items.count) mergedItems=\(merged.items.count)")
 
             do {
                 _ = await web.ensureDir("Deadliner")
-                _ = try await web.putBytes(
+                trace("syncHabitSnapshotOnce willPut path=\(habitSnapshotV2Path) size=\(mergedBytes.count)")
+                let putEtag = try await web.putBytes(
                     path: habitSnapshotV2Path,
                     bytes: mergedBytes,
                     ifMatch: remote.etag,
                     ifNoneMatchStar: remote.root == nil
                 )
+                trace("syncHabitSnapshotOnce didPut path=\(habitSnapshotV2Path) etag=\(putEtag ?? "")")
             } catch is PreconditionFailedError {
                 let refreshed = try await loadRemoteHabitV2IfPresent(decoder: decoder)
                 let mergedRetry = merge(local: local, remote: refreshed.root)
-                _ = try await web.putBytes(
+                let retryBytes = try encoder.encode(mergedRetry)
+                trace("syncHabitSnapshotOnce retry willPut path=\(habitSnapshotV2Path) size=\(retryBytes.count)")
+                let retryEtag = try await web.putBytes(
                     path: habitSnapshotV2Path,
-                    bytes: try encoder.encode(mergedRetry),
+                    bytes: retryBytes,
                     ifMatch: refreshed.etag,
                     ifNoneMatchStar: refreshed.root == nil
                 )
+                trace("syncHabitSnapshotOnce retry didPut path=\(habitSnapshotV2Path) etag=\(retryEtag ?? "")")
                 let hasChanges = try await applyHabitSnapshotToLocal(mergedRetry)
                 return .init(success: true, hasLocalChanges: hasChanges)
             }
@@ -575,7 +611,7 @@ private extension InnerTodo {
 }
 
 private extension HabitEntity {
-    func toHabitSnapshotV2Payload() -> HabitSnapshotV2Payload {
+    func toHabitSnapshotV2Payload(updatedAtOverride: String? = nil) -> HabitSnapshotV2Payload {
         HabitSnapshotV2Payload(
             name: name,
             description: descText,
@@ -586,7 +622,7 @@ private extension HabitEntity {
             goal_type: goalTypeRaw,
             total_target: totalTarget,
             created_at: createdAt,
-            updated_at: updatedAt,
+            updated_at: updatedAtOverride ?? updatedAt,
             status: statusRaw,
             sort_order: sortOrder,
             alarm_time: alarmTime

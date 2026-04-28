@@ -91,10 +91,7 @@ class HabitRepository {
     }
     
     func updateHabit(_ habit: Habit) async throws {
-        var updated = habit
-        updated.updatedAt = nowISO()
-        try await db.updateHabit(updated)
-        try await db.touchDDLVersion(legacyId: updated.ddlId)
+        try await db.updateHabit(habit)
         await SyncCoordinator.shared.scheduleSync()
         scheduleReminderRefresh()
     }

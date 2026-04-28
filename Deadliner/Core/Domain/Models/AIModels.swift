@@ -89,43 +89,221 @@ public struct ReadTasksArgs: Codable {
     let sort: String?           // "DUE_ASC" | "UPDATED_DESC"
 }
 
+public struct ReadHabitsArgs: Codable {
+    let keywords: [String]?
+}
+
+public struct CreateTaskArgs: Codable {
+    let name: String
+    let dueTime: String?
+    let note: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case dueTime
+        case due_time
+        case note
+    }
+
+    public init(name: String, dueTime: String?, note: String?) {
+        self.name = name
+        self.dueTime = dueTime
+        self.note = note
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        dueTime = try container.decodeIfPresent(String.self, forKey: .dueTime)
+            ?? container.decodeIfPresent(String.self, forKey: .due_time)
+        note = try container.decodeIfPresent(String.self, forKey: .note)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(dueTime, forKey: .dueTime)
+        try container.encodeIfPresent(note, forKey: .note)
+    }
+}
+
+public struct UpdateDeadlineArgs: Codable {
+    let taskId: String
+    let newDueTime: String
+
+    enum CodingKeys: String, CodingKey {
+        case taskId
+        case task_id
+        case newDueTime
+        case new_due_time
+    }
+
+    public init(taskId: String, newDueTime: String) {
+        self.taskId = taskId
+        self.newDueTime = newDueTime
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try container.decodeIfPresent(String.self, forKey: .taskId)
+            ?? container.decodeIfPresent(String.self, forKey: .task_id) {
+            taskId = id
+        } else if let id = try container.decodeIfPresent(Int64.self, forKey: .taskId)
+            ?? container.decodeIfPresent(Int64.self, forKey: .task_id) {
+            taskId = String(id)
+        } else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .taskId,
+                in: container,
+                debugDescription: "taskId is required"
+            )
+        }
+        newDueTime = try container.decodeIfPresent(String.self, forKey: .newDueTime)
+            ?? container.decode(String.self, forKey: .new_due_time)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(taskId, forKey: .taskId)
+        try container.encode(newDueTime, forKey: .newDueTime)
+    }
+}
+
+public struct CreateHabitArgs: Codable {
+    let name: String
+    let period: String
+    let timesPerPeriod: Int
+    let goalType: String
+    let totalTarget: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case period
+        case timesPerPeriod
+        case times_per_period
+        case goalType
+        case goal_type
+        case totalTarget
+        case total_target
+    }
+
+    public init(name: String, period: String, timesPerPeriod: Int, goalType: String, totalTarget: Int?) {
+        self.name = name
+        self.period = period
+        self.timesPerPeriod = timesPerPeriod
+        self.goalType = goalType
+        self.totalTarget = totalTarget
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        period = try container.decode(String.self, forKey: .period)
+        timesPerPeriod = try container.decodeIfPresent(Int.self, forKey: .timesPerPeriod)
+            ?? container.decode(Int.self, forKey: .times_per_period)
+        goalType = try container.decodeIfPresent(String.self, forKey: .goalType)
+            ?? container.decode(String.self, forKey: .goal_type)
+        totalTarget = try container.decodeIfPresent(Int.self, forKey: .totalTarget)
+            ?? container.decodeIfPresent(Int.self, forKey: .total_target)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(period, forKey: .period)
+        try container.encode(timesPerPeriod, forKey: .timesPerPeriod)
+        try container.encode(goalType, forKey: .goalType)
+        try container.encodeIfPresent(totalTarget, forKey: .totalTarget)
+    }
+}
+
 // MARK: - Tool Request / Result (App-side)
 
 public struct AIToolRequest: Identifiable, Codable {
     public let id: String
-    public let tool: String              // "readTasks"
-    public let args: ReadTasksArgs       // 当前只支持 readTasks
+    public let tool: String
+    public let argsJson: String
     public let reason: String?
     public let executionMode: String?
 
-    public init(id: String = UUID().uuidString, tool: String, args: ReadTasksArgs, reason: String? = nil, executionMode: String? = nil) {
+    public init(
+        id: String = UUID().uuidString,
+        tool: String,
+        argsJson: String,
+        reason: String? = nil,
+        executionMode: String? = nil
+    ) {
         self.id = id
         self.tool = tool
-        self.args = args
+        self.argsJson = argsJson
         self.reason = reason
         self.executionMode = executionMode
+    }
+
+    public init(
+        id: String = UUID().uuidString,
+        tool: String,
+        args: ReadTasksArgs,
+        reason: String? = nil,
+        executionMode: String? = nil
+    ) {
+        self.init(
+            id: id,
+            tool: tool,
+            argsJson: Self.encodeJSON(args) ?? "{}",
+            reason: reason,
+            executionMode: executionMode
+        )
+    }
+
+    var args: ReadTasksArgs {
+        readTasksArgs ?? ReadTasksArgs(timeRangeDays: 7, status: "OPEN", keywords: nil, limit: 20, sort: "DUE_ASC")
+    }
+
+    var readTasksArgs: ReadTasksArgs? { Self.decodeJSON(ReadTasksArgs.self, from: argsJson) }
+    var readHabitsArgs: ReadHabitsArgs? { Self.decodeJSON(ReadHabitsArgs.self, from: argsJson) }
+    var createTaskArgs: CreateTaskArgs? { Self.decodeJSON(CreateTaskArgs.self, from: argsJson) }
+    var updateDeadlineArgs: UpdateDeadlineArgs? { Self.decodeJSON(UpdateDeadlineArgs.self, from: argsJson) }
+    var createHabitArgs: CreateHabitArgs? { Self.decodeJSON(CreateHabitArgs.self, from: argsJson) }
+
+    private static func decodeJSON<T: Decodable>(_ type: T.Type, from json: String) -> T? {
+        guard let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    private static func encodeJSON<T: Encodable>(_ value: T) -> String? {
+        guard let data = try? JSONEncoder().encode(value) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 }
 
 public struct AIToolResult: Identifiable, Codable {
     public let id: String
-    public let tool: String              // "readTasks"
-    public let appliedArgs: ReadTasksArgs
-    public let payload: ReadTasksResultPayload
+    public let tool: String
+    public let requestArgsJson: String
+    public let resultJson: String
+    public let displayMessage: String?
     public let generatedAt: Date
 
     public init(
         id: String = UUID().uuidString,
         tool: String,
-        appliedArgs: ReadTasksArgs,
-        payload: ReadTasksResultPayload,
+        requestArgsJson: String,
+        resultJson: String,
+        displayMessage: String? = nil,
         generatedAt: Date = Date()
     ) {
         self.id = id
         self.tool = tool
-        self.appliedArgs = appliedArgs
-        self.payload = payload
+        self.requestArgsJson = requestArgsJson
+        self.resultJson = resultJson
+        self.displayMessage = displayMessage
         self.generatedAt = generatedAt
+    }
+
+    var readTasksPayload: ReadTasksResultPayload? {
+        guard let data = resultJson.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(ReadTasksResultPayload.self, from: data)
     }
 }
 

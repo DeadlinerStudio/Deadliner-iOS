@@ -12,4 +12,5 @@ extension Notification.Name {
     static let ddlDeleteAllArchived = Notification.Name("ddl_delete_all_archived")
     static let ddlRequestMonthlyAnalysis = Notification.Name("ddl_request_monthly_analysis")
     static let captureInboxChanged = Notification.Name("capture_inbox_changed")
+    static let ddlOpenTaskDetail = Notification.Name("ddl_open_task_detail")
 }

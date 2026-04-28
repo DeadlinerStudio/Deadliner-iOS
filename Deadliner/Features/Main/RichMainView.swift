@@ -52,6 +52,7 @@ struct RichMainView: View {
     private let repo: TaskRepository = TaskRepository.shared
     private let widgetLaunchDefaults = UserDefaults(suiteName: "group.top.aritxonly.deadliner.group")
     private let widgetLaunchKey = "widget.pending_add_entry_type"
+    private let widgetLaunchTaskDetailIdKey = "widget.pending_task_detail_id"
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -128,18 +129,17 @@ struct RichMainView: View {
         }
         .onAppear {
             consumePendingWidgetLaunch()
+            applyTabBarSelectedTint()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             consumePendingWidgetLaunch()
+            applyTabBarSelectedTint()
         }
         .onOpenURL { url in
             handleIncomingURL(url)
         }
-        .task {
-            applyTabBarAccent()
-        }
         .onChange(of: themeStore.accentOption) { _, _ in
-            applyTabBarAccent()
+            applyTabBarSelectedTint()
         }
     }
 
@@ -165,6 +165,10 @@ struct RichMainView: View {
 
     private func handleIncomingURL(_ url: URL) {
         guard url.scheme == "deadliner" else { return }
+        if url.host == "ai" {
+            selectedTab = .ai
+            return
+        }
         guard url.host == "add" else { return }
 
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
@@ -187,10 +191,41 @@ struct RichMainView: View {
         widgetLaunchDefaults?.removeObject(forKey: widgetLaunchKey)
 
         switch rawValue {
-        case "habit", "habits":
+        case "open_ai":
+            selectedTab = .ai
+        case "open_inspiration":
+            selectedTab = .inspiration
+        case "open_home":
+            selectedTab = .home
+            homeTaskSegment = .tasks
+        case "open_home_or_urgent":
+            selectedTab = .home
+            homeTaskSegment = .tasks
+            let rawTaskId = widgetLaunchDefaults?.object(forKey: widgetLaunchTaskDetailIdKey)
+            let taskId: Int64? = {
+                if let v = rawTaskId as? Int64 { return v }
+                if let v = rawTaskId as? Int { return Int64(v) }
+                if let v = rawTaskId as? NSNumber { return v.int64Value }
+                return nil
+            }()
+            if let taskId {
+                widgetLaunchDefaults?.removeObject(forKey: widgetLaunchTaskDetailIdKey)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    NotificationCenter.default.post(
+                        name: .ddlOpenTaskDetail,
+                        object: nil,
+                        userInfo: ["taskId": taskId]
+                    )
+                }
+            }
+        case "open_add_habits", "habit", "habits":
             selectedTab = .home
             homeTaskSegment = .habits
             presentAddSheet(selection: .habits)
+        case "open_add_tasks":
+            selectedTab = .home
+            homeTaskSegment = .tasks
+            presentAddSheet(selection: .tasks)
         default:
             selectedTab = .home
             homeTaskSegment = .tasks
@@ -198,24 +233,54 @@ struct RichMainView: View {
         }
     }
 
-    private func applyTabBarAccent() {
+    private func applyTabBarSelectedTint() {
         let selectedColor = UIColor(themeStore.accentColor)
-        let unselectedColor = UIColor.secondaryLabel
-
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
+        applySelectedColor(to: appearance.stackedLayoutAppearance, selectedColor: selectedColor)
+        applySelectedColor(to: appearance.inlineLayoutAppearance, selectedColor: selectedColor)
+        applySelectedColor(to: appearance.compactInlineLayoutAppearance, selectedColor: selectedColor)
 
-        configureTabBarItemAppearance(appearance.stackedLayoutAppearance, selectedColor: selectedColor, unselectedColor: unselectedColor)
-        configureTabBarItemAppearance(appearance.inlineLayoutAppearance, selectedColor: selectedColor, unselectedColor: unselectedColor)
-        configureTabBarItemAppearance(appearance.compactInlineLayoutAppearance, selectedColor: selectedColor, unselectedColor: unselectedColor)
+        let tabBarProxy = UITabBar.appearance()
+        tabBarProxy.standardAppearance = appearance
+        tabBarProxy.scrollEdgeAppearance = appearance
+        tabBarProxy.tintColor = selectedColor
+        tabBarProxy.unselectedItemTintColor = nil
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                applyTabBarTintRecursively(
+                    from: window.rootViewController,
+                    selectedColor: selectedColor,
+                    appearance: appearance
+                )
+            }
+        }
+    }
 
-        let tabBar = UITabBar.appearance()
-        tabBar.standardAppearance = appearance
-        tabBar.scrollEdgeAppearance = appearance
-        tabBar.tintColor = selectedColor
-        tabBar.unselectedItemTintColor = unselectedColor
+    private func applySelectedColor(to itemAppearance: UITabBarItemAppearance, selectedColor: UIColor) {
+        itemAppearance.selected.iconColor = selectedColor
+        itemAppearance.selected.titleTextAttributes = [.foregroundColor: selectedColor]
+    }
 
-        updateVisibleTabBars(appearance: appearance, selectedColor: selectedColor, unselectedColor: unselectedColor)
+    private func applyTabBarTintRecursively(
+        from viewController: UIViewController?,
+        selectedColor: UIColor,
+        appearance: UITabBarAppearance
+    ) {
+        guard let viewController else { return }
+        if let tabBarController = viewController as? UITabBarController {
+            tabBarController.tabBar.standardAppearance = appearance
+            tabBarController.tabBar.scrollEdgeAppearance = appearance
+            tabBarController.tabBar.tintColor = selectedColor
+            tabBarController.tabBar.unselectedItemTintColor = nil
+            tabBarController.tabBar.setNeedsLayout()
+            tabBarController.tabBar.layoutIfNeeded()
+        }
+        for child in viewController.children {
+            applyTabBarTintRecursively(from: child, selectedColor: selectedColor, appearance: appearance)
+        }
+        applyTabBarTintRecursively(from: viewController.presentedViewController, selectedColor: selectedColor, appearance: appearance)
     }
 
     private func resetScroll(for tab: RichMainTab) {
@@ -233,66 +298,4 @@ struct RichMainView: View {
         }
     }
 
-    private func configureTabBarItemAppearance(
-        _ itemAppearance: UITabBarItemAppearance,
-        selectedColor: UIColor,
-        unselectedColor: UIColor
-    ) {
-        itemAppearance.selected.iconColor = selectedColor
-        itemAppearance.selected.titleTextAttributes = [.foregroundColor: selectedColor]
-        itemAppearance.normal.iconColor = unselectedColor
-        itemAppearance.normal.titleTextAttributes = [.foregroundColor: unselectedColor]
-    }
-
-    private func updateVisibleTabBars(
-        appearance: UITabBarAppearance,
-        selectedColor: UIColor,
-        unselectedColor: UIColor
-    ) {
-        for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
-                applyTabBarAppearanceRecursively(
-                    from: window.rootViewController,
-                    appearance: appearance,
-                    selectedColor: selectedColor,
-                    unselectedColor: unselectedColor
-                )
-            }
-        }
-    }
-
-    private func applyTabBarAppearanceRecursively(
-        from viewController: UIViewController?,
-        appearance: UITabBarAppearance,
-        selectedColor: UIColor,
-        unselectedColor: UIColor
-    ) {
-        guard let viewController else { return }
-
-        if let tabBarController = viewController as? UITabBarController {
-            tabBarController.tabBar.standardAppearance = appearance
-            tabBarController.tabBar.scrollEdgeAppearance = appearance
-            tabBarController.tabBar.tintColor = selectedColor
-            tabBarController.tabBar.unselectedItemTintColor = unselectedColor
-            tabBarController.tabBar.setNeedsLayout()
-            tabBarController.tabBar.layoutIfNeeded()
-        }
-
-        for child in viewController.children {
-            applyTabBarAppearanceRecursively(
-                from: child,
-                appearance: appearance,
-                selectedColor: selectedColor,
-                unselectedColor: unselectedColor
-            )
-        }
-
-        applyTabBarAppearanceRecursively(
-            from: viewController.presentedViewController,
-            appearance: appearance,
-            selectedColor: selectedColor,
-            unselectedColor: unselectedColor
-        )
-    }
 }

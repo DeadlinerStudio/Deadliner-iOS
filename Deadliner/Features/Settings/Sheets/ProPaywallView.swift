@@ -7,67 +7,115 @@
 
 import SwiftUI
 import StoreKit
+import UIKit
+
+private enum PaywallPreviewMacro {
+    #if PAYWALL_FORCE_FREE
+    static let tierOverride: UserTier? = .free
+    #else
+    static let tierOverride: UserTier? = nil
+    #endif
+}
 
 struct ProPaywallView: View {
+    enum PresentationMode {
+        case sheetUpsell
+        case membershipCenter
+    }
+
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.openURL) private var openURL
     
     @AppStorage("userTier") private var userTier: UserTier = .free
         
     @StateObject private var storeManager = StoreManager.shared
-    @State private var selectedTier: UserTier = .geek
     @State private var isPurchasing = false
+    @State private var isRestoring = false
+    @State private var restoreResultMessage = ""
+    @State private var showRestoreResult = false
+
+    let presentationMode: PresentationMode
+
+    init(presentationMode: PresentationMode = .sheetUpsell) {
+        self.presentationMode = presentationMode
+    }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                
-                // MARK: - 1. 顶部常驻 Header
-                headerView
-                    .padding(.top, 16)
-                    .padding(.bottom, 16)
-                
-                // MARK: - 2. 中间可滑动区域
-                ScrollView {
-                    VStack(spacing: 24) {
-                        
-                        // 方案选择卡片
-                        HStack(spacing: 16) {
-                            let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID })
-                            
-                            TierSelectionCard(
-                                title: "极客版 (Geek)",
-                                price: geekProduct?.displayPrice ?? "￥28",
-                                period: "永久买断",
-                                isSelected: true
-                            ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    selectedTier = .geek
+        Group {
+            if presentationMode == .sheetUpsell {
+                NavigationStack {
+                    paywallContent
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button { dismiss() } label: {
+                                    Image(systemName: "xmark")
                                 }
                             }
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 16)
+                }
+            } else {
+                paywallContent
+                    .navigationTitle("会员中心")
+                    .navigationBarTitleDisplayMode(.inline)
+            }
+        }
+        .alert("恢复购买", isPresented: $showRestoreResult) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(restoreResultMessage)
+        }
+        .task {
+            await storeManager.updatePurchasedProducts()
+        }
+    }
 
-                        // 动态权益列表
-                        featuresList
-                        
-                        // MARK: 新增：开发者的一封信
-                        developerLetterCard
+    private var paywallContent: some View {
+        ZStack(alignment: .bottom) {
+            paywallBackground
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 28) {
+                    headerView
+                        .padding(.top, 18)
+
+                    if effectiveTier == .free {
+                        HStack(spacing: 16) {
+                            let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID })
+
+                            TierSelectionCard(
+                                title: "极客版 (Geek)",
+                                price: geekProduct?.displayPrice ?? "加载中",
+                                period: "永久买断",
+                                isSelected: true
+                            ) {}
+                        }
+                        .padding(.horizontal, 24)
+                    } else {
+                        memberStatusCard
+                            .padding(.horizontal, 24)
                     }
-                    .padding(.bottom, 24)
+
+                    featuresList
+                    developerLetterCard
+
+                    Color.clear
+                        .frame(height: 132)
                 }
-                
-                // MARK: - 3. 底部常驻购买区
-                footerView
+                .padding(.bottom, 22)
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                    }
+
+            VStack(spacing: 10) {
+                if effectiveTier == .free {
+                    purchaseButton
+                        .padding(.horizontal, 40)
                 }
+
+                floatingLegalCapsule
+                    .padding(.horizontal, 40)
             }
+            .padding(.bottom, 14)
         }
     }
     
@@ -75,45 +123,126 @@ struct ProPaywallView: View {
     
     private var headerView: some View {
         VStack(spacing: 12) {
-            Image(systemName: "crown.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 56, height: 56)
-                .foregroundStyle(
-                    LinearGradient(colors: [.orange, .red], startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
-                .shadow(color: .red.opacity(0.3), radius: 10, x: 0, y: 5)
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [.orange.opacity(0.18), .pink.opacity(0.12)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .background(
+                        .ultraThinMaterial,
+                        in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    )
+                    .frame(width: 88, height: 88)
+                    .shadow(color: Color.orange.opacity(0.14), radius: 20, x: 0, y: 8)
+
+                Image(systemName: "crown.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 50, height: 50)
+                    .foregroundStyle(
+                        LinearGradient(colors: [.orange, .red], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+            }
 
             Text("Deadliner+")
                 .font(.largeTitle)
                 .fontWeight(.heavy)
 
-            Text("加入赞助计划，解锁 Deadliner 的 Geek 能力")
+            Text(headerSubtitle)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
     }
+
+    private var memberStatusCard: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundStyle(.green)
+                .font(.title3)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("当前会员：\(effectiveTier.displayName)")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text("会员权益已启用，可继续在此页恢复购买或查看权益说明。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Color.orange.opacity(0.035))
+                )
+        )
+    }
     
     private var featuresList: some View {
         VStack(spacing: 24) {
-            FeatureRow(icon: "key.horizontal", color: .purple, title: "自带密钥 (BYOK) AI", description: "填入自定义 DeepSeek API Key，本地直连，数据绝对私密。")
-            FeatureRow(icon: "icloud.fill", color: .cyan, title: "iCloud 与 WebDAV 同步", description: "解锁更完整的同步能力，按你的使用习惯自由选择。")
-            FeatureRow(icon: "chart.line.uptrend.xyaxis", color: .blue, title: "本地艾宾浩斯引擎", description: "解锁离线计算的科学记忆与复习日程规划功能。")
-            FeatureRow(icon: "paintbrush.fill", color: .orange, title: "高级视觉与交互", description: "解锁全部专属主题、交互光效与自定义 App 图标。")
+            FeatureRow(
+                icon: "lifi.logo.v1",
+                color: .indigo,
+                title: "Lifi AI（Rust 跨平台 Agent）",
+                description: "Deadliner+ 的核心能力：基于 Rust 的跨平台通用 Agent，围绕任务流提供智能理解、拆解与建议。",
+                systemIcon: false
+            )
+            FeatureRow(
+                icon: "sparkles",
+                color: .purple,
+                title: "任务管理智能体与记忆能力",
+                description: "围绕「收集 - 规划 - 执行 - 复盘」持续辅助，并逐步记住你的偏好与上下文，让 AI 越用越懂你。"
+            )
+            FeatureRow(
+                icon: "icloud.fill",
+                color: .cyan,
+                title: "iCloud 与 WebDAV 同步",
+                description: "解锁更完整的同步能力，按你的使用习惯自由选择。"
+            )
+            FeatureRow(
+                icon: "chart.line.uptrend.xyaxis",
+                color: .blue,
+                title: "本地艾宾浩斯引擎",
+                description: "解锁离线计算的科学记忆与复习日程规划功能。"
+            )
+            FeatureRow(
+                icon: "paintbrush.fill",
+                color: .orange,
+                title: "高级视觉与交互",
+                description: "解锁全部专属主题、交互光效与自定义 App 图标。"
+            )
+            FeatureRow(
+                icon: "key.horizontal",
+                color: .gray,
+                title: "BYOK 私有接入",
+                description: "填写你自己的模型 API Key（如 DeepSeek），本地优先，数据链路可控。"
+            )
         }
-        .padding(.horizontal, 24)
+        .padding(20)
         .frame(minHeight: 220, alignment: .top)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(Color.orange.opacity(0.025))
+                )
+        )
+        .padding(.horizontal, 24)
+        .shadow(color: .black.opacity(0.04), radius: 12, x: 0, y: 7)
     }
     
     // 开发者来信卡片
     private var developerLetterCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image("avatar")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 32, height: 32)
-                    .clipShape(Circle())
+                developerAvatar
                 
                 Text("致 iOS 用户的一封信")
                     .font(.subheadline)
@@ -134,70 +263,70 @@ struct ProPaywallView: View {
             .lineSpacing(4)
         }
         .padding(20)
-        .background(Color(uiColor: .secondarySystemBackground).opacity(0.5))
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(Color.orange.opacity(0.03))
+                )
         )
         .padding(.horizontal, 24)
+        .shadow(color: .black.opacity(0.04), radius: 14, x: 0, y: 8)
     }
 
     
-    // 底部常驻购买区
-    private var footerView: some View {
-        VStack(spacing: 12) {
-            let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID })
-            
+    private var purchaseButton: some View {
+        let geekProduct = storeManager.products.first(where: { $0.id == storeManager.geekProductID })
+
+        return Button {
+            Task { await purchaseSelectedTier() }
+        } label: {
+            HStack {
+                if isPurchasing {
+                    ProgressView()
+                } else {
+                    let buttonText = geekProduct != nil ? "支付 \(geekProduct!.displayPrice) 永久解锁" : "暂不可用..."
+                    Text(buttonText)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 36)
+        }
+        .tint(.purple)
+        .buttonStyle(.glassProminent)
+        .disabled(isPurchasing)
+    }
+
+    private var floatingLegalCapsule: some View {
+        HStack(spacing: 0) {
             Button {
-                Task { await purchaseSelectedTier() }
+                restorePurchases()
             } label: {
-                HStack {
-                    if isPurchasing {
-                        ProgressView().tint(.white)
-                    } else {
-                        let buttonText = geekProduct != nil ? "支付 \(geekProduct!.displayPrice) 永久解锁" : "支付 ￥28.00 永久解锁"
-                        Text(buttonText)
-                            .font(.title3)
-                            .fontWeight(.bold)
+                HStack(spacing: 6) {
+                    Text("恢复购买")
+                    if isRestoring {
+                        ProgressView()
+                            .controlSize(.small)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    LinearGradient(
-                        colors: [.blue, .cyan],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .foregroundColor(.white)
-                // 关键点：使用 Capsule() 实现两端完全半圆，等同于 cornerRadius(48)
-                .clipShape(Capsule())
-                .shadow(color: Color.blue.opacity(0.3), radius: 12, x: 0, y: 6)
             }
-            .disabled(isPurchasing)
+            .disabled(isRestoring)
+            .frame(maxWidth: .infinity)
 
-            // 恢复购买与协议
-            HStack(spacing: 16) {
-                Button("恢复购买") {
-                    Task { await storeManager.restorePurchases() }
-                }
-                Text("|").foregroundColor(.secondary.opacity(0.5))
-                Button("服务条款") {
-                    // TODO: 打开隐私协议
-                }
+            Divider()
+                .frame(height: 14)
+
+            Button("服务条款") {
+                openPrivacyPolicy()
             }
-            .font(.footnote)
-            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
-        .background(
-            Color(uiColor: .systemBackground)
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: -4)
-                .ignoresSafeArea(edges: .bottom)
-        )
+        .font(.footnote)
+        .foregroundColor(.secondary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .glassEffect()
     }
 
     // MARK: - 购买逻辑
@@ -209,7 +338,9 @@ struct ProPaywallView: View {
             do {
                 let success = try await storeManager.purchase(geekProduct)
                 if success {
-                    dismiss()
+                    if presentationMode == .sheetUpsell {
+                        dismiss()
+                    }
                 }
             } catch {
                 print("❌ 购买失败: \(error)")
@@ -218,6 +349,224 @@ struct ProPaywallView: View {
         
         isPurchasing = false
     }
+
+    private var headerSubtitle: String {
+        if effectiveTier == .free {
+            return "加入赞助计划，解锁 Deadliner 的完整体验"
+        }
+        return "感谢支持独立开发，会员权益已处于可用状态"
+    }
+
+    private func restorePurchases() {
+        guard !isRestoring else { return }
+        isRestoring = true
+
+        Task {
+            await storeManager.restorePurchases()
+            await storeManager.updatePurchasedProducts()
+            await MainActor.run {
+                isRestoring = false
+                restoreResultMessage = effectiveTier == .free
+                    ? "已完成恢复校验，当前未找到可恢复的会员权益。"
+                    : "恢复成功，当前会员权益已同步。"
+                showRestoreResult = true
+            }
+        }
+    }
+
+    private func openPrivacyPolicy() {
+        guard let url = URL(string: "https://www.aritxonly.top/privacy_ios") else { return }
+        openURL(url)
+    }
+
+    private var effectiveTier: UserTier {
+        PaywallPreviewMacro.tierOverride ?? userTier
+    }
+
+    private var paywallBackground: some View {
+        ZStack {
+            TimelineView(.animation) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                MeshGradient(
+                    width: 3,
+                    height: 3,
+                    points: animatedMeshPoints(at: t),
+                    colors: [
+                        Color(uiColor: .systemBackground),
+                        Color.orange.opacity(0.12),
+                        Color.cyan.opacity(0.1),
+                        Color.pink.opacity(0.08),
+                        Color(uiColor: .secondarySystemBackground).opacity(0.96),
+                        Color.blue.opacity(0.08),
+                        Color(uiColor: .systemGroupedBackground),
+                        Color.teal.opacity(0.07),
+                        Color(uiColor: .systemBackground)
+                    ],
+                    background: Color(uiColor: .systemBackground),
+                    smoothsColors: true
+                )
+                .ignoresSafeArea()
+            }
+
+            brandAtmosphereLayer
+            contentReadabilityVeil
+        }
+        .ignoresSafeArea()
+    }
+
+    private func animatedMeshPoints(at time: TimeInterval) -> [SIMD2<Float>] {
+        func clamp(_ value: Double) -> Float {
+            Float(min(max(value, 0), 1))
+        }
+
+        let t = time
+
+        return [
+            .init(clamp(0.0), clamp(0.0)),
+            .init(clamp(0.50 + 0.04 * sin(t * 0.22)), clamp(0.0)),
+            .init(clamp(1.0), clamp(0.0)),
+
+            .init(clamp(0.0), clamp(0.50 + 0.06 * sin(t * 0.18))),
+            .init(
+                clamp(0.50 + 0.08 * sin(t * 0.16)),
+                clamp(0.50 + 0.08 * cos(t * 0.19))
+            ),
+            .init(clamp(1.0), clamp(0.50 + 0.05 * cos(t * 0.15))),
+
+            .init(clamp(0.0), clamp(1.0)),
+            .init(clamp(0.50 + 0.03 * cos(t * 0.17)), clamp(1.0)),
+            .init(clamp(1.0), clamp(1.0))
+        ]
+    }
+
+    private var brandAtmosphereLayer: some View {
+        GeometryReader { proxy in
+            TimelineView(.animation) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+
+                ZStack {
+                    floatingBrandIcon("IconPreview-DeadlinerDefault", time: t, x: 0.12, y: 0.17, size: 50, phase: 0.1, in: proxy.size)
+                    floatingBrandIcon("IconPreview-DeadlinerSpring", time: t, x: 0.9, y: 0.2, size: 38, phase: 1.0, in: proxy.size)
+                    floatingBrandIcon("IconPreview-DeadlinerSummer", time: t, x: 0.88, y: 0.66, size: 44, phase: 0.6, in: proxy.size)
+                    floatingBrandIcon("IconPreview-DeadlinerAutumn", time: t, x: 0.14, y: 0.74, size: 42, phase: 1.7, in: proxy.size)
+                    floatingBrandIcon("IconPreview-DeadlinerWinter", time: t, x: 0.52, y: 0.91, size: 34, phase: 2.2, in: proxy.size)
+
+                    floatingBrandGlyph(system: "calendar.badge.clock", time: t, x: 0.5, y: 0.12, phase: 0.3, in: proxy.size)
+                    floatingBrandGlyph(system: "repeat.circle", time: t, x: 0.84, y: 0.43, phase: 1.2, in: proxy.size)
+                    floatingBrandGlyph(system: "iphone", time: t, x: 0.16, y: 0.45, phase: 2.0, in: proxy.size)
+                    floatingBrandGlyph(system: "brain.head.profile", time: t, x: 0.26, y: 0.9, phase: 1.6, in: proxy.size)
+                    floatingBrandGlyph(system: "icloud", time: t, x: 0.74, y: 0.9, phase: 2.6, in: proxy.size)
+
+                    Image("lifi.logo.v1")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 58, height: 58)
+                        .foregroundStyle(.white.opacity(0.16))
+                        .rotationEffect(.degrees(4 * sin(t * 0.25)))
+                        .offset(
+                            x: proxy.size.width * 0.02,
+                            y: -proxy.size.height * 0.14 + 6 * cos(t * 0.3)
+                        )
+                        .blur(radius: 0.4)
+                }
+                .allowsHitTesting(false)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func floatingBrandIcon(
+        _ assetName: String,
+        time: TimeInterval,
+        x: CGFloat,
+        y: CGFloat,
+        size: CGFloat,
+        phase: Double,
+        in container: CGSize
+    ) -> some View {
+        let dx = CGFloat(8 * sin(time * 0.34 + phase))
+        let dy = CGFloat(10 * cos(time * 0.28 + phase))
+        let angle = 4 * sin(time * 0.20 + phase)
+
+        Image(assetName)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .padding(6)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: size * 0.34, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+            .opacity(0.22)
+            .rotationEffect(.degrees(angle))
+            .position(x: container.width * x + dx, y: container.height * y + dy)
+    }
+
+    @ViewBuilder
+    private func floatingBrandGlyph(
+        system: String,
+        time: TimeInterval,
+        x: CGFloat,
+        y: CGFloat,
+        phase: Double,
+        in container: CGSize
+    ) -> some View {
+        let dx = CGFloat(6 * sin(time * 0.18 + phase))
+        let dy = CGFloat(7 * cos(time * 0.14 + phase))
+
+        Image(systemName: system)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(8)
+        .background(.ultraThinMaterial, in: Capsule())
+        .opacity(0.5)
+        .position(x: container.width * x + dx, y: container.height * y + dy)
+    }
+
+    private var contentReadabilityVeil: some View {
+        LinearGradient(
+            colors: [
+                Color(uiColor: .systemBackground).opacity(colorScheme == .dark ? 0.38 : 0.2),
+                .clear,
+                Color(uiColor: .systemBackground).opacity(colorScheme == .dark ? 0.30 : 0.16)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    private var developerAvatar: some View {
+        if let name = developerAvatarAssetName {
+            Image(name)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 32, height: 32)
+                .clipShape(Circle())
+        } else {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.orange.opacity(0.2), .pink.opacity(0.15)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 32, height: 32)
+        }
+    }
+
+    private var developerAvatarAssetName: String? {
+        if UIImage(named: "avatar") != nil { return "avatar" }
+        if UIImage(named: "Avatar") != nil { return "Avatar" }
+        return nil
+    }
+
 }
 
 // MARK: - 辅助组件：层级选择卡片
@@ -247,17 +596,18 @@ struct TierSelectionCard: View {
                     .foregroundColor(.secondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 24) // 统一的高度间距
+            .padding(.vertical, 16)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isSelected ? Color(uiColor: .secondarySystemBackground) : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(isSelected ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(Color.clear))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(isSelected ? Color.orange.opacity(0.035) : Color.clear)
+                    )
             )
         }
         .buttonStyle(.plain)
+        .shadow(color: isSelected ? .orange.opacity(0.16) : .clear, radius: 16, x: 0, y: 8)
     }
 }
 
@@ -268,13 +618,21 @@ struct FeatureRow: View {
     let color: Color
     let title: String
     let description: String
+    var systemIcon: Bool = true
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-                .frame(width: 32)
+            if systemIcon {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(color)
+                    .frame(width: 32)
+            } else {
+                Image(icon)
+                    .font(.title2)
+                    .foregroundColor(color)
+                    .frame(width: 32)
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)

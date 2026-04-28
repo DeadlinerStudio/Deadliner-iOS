@@ -266,6 +266,21 @@ final class HomeViewModel: ObservableObject {
         }
     }
     
+    func archiveHabits(_ habits: [Habit]) async {
+        guard !habits.isEmpty else { return }
+        do {
+            for habit in habits {
+                var updated = habit
+                updated.status = .archived
+                try await habitRepo.updateHabit(updated)
+            }
+            await refreshAllHabits(date: selectedDate)
+            NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        } catch {
+            logger.error("Archive habits failed: \(error.localizedDescription)")
+        }
+    }
+    
     func deleteHabit(_ habit: Habit) async {
         do {
             try await habitRepo.deleteHabitByDdlId(ddlId: habit.ddlId)
@@ -273,6 +288,19 @@ final class HomeViewModel: ObservableObject {
             NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
         } catch {
             logger.error("Delete habit failed: \(error.localizedDescription)")
+        }
+    }
+    
+    func deleteHabits(_ habits: [Habit]) async {
+        guard !habits.isEmpty else { return }
+        do {
+            for habit in habits {
+                try await habitRepo.deleteHabitByDdlId(ddlId: habit.ddlId)
+            }
+            await refreshAllHabits(date: selectedDate)
+            NotificationCenter.default.post(name: .ddlDataChanged, object: nil)
+        } catch {
+            logger.error("Delete habits failed: \(error.localizedDescription)")
         }
     }
     
@@ -403,6 +431,20 @@ final class HomeViewModel: ObservableObject {
             errorText = "更新失败：\(error.localizedDescription)"
         }
     }
+    
+    func archiveTasks(_ items: [DDLItem]) async {
+        guard !items.isEmpty else { return }
+        do {
+            for item in items {
+                var updated = item
+                try updated.transition(using: .markArchive)
+                try await repo.updateDDL(updated)
+            }
+            await reload()
+        } catch {
+            errorText = "批量归档失败：\(error.localizedDescription)"
+        }
+    }
 
     func toggleGiveUpItem(item: DDLItem) async {
         var updated = item
@@ -447,6 +489,18 @@ final class HomeViewModel: ObservableObject {
             errorText = "删除失败：\(error.localizedDescription)"
         }
     }
+    
+    func deleteTasks(_ items: [DDLItem]) async {
+        guard !items.isEmpty else { return }
+        do {
+            for item in items {
+                try await repo.deleteDDL(item.id)
+            }
+            await reload()
+        } catch {
+            errorText = "批量删除失败：\(error.localizedDescription)"
+        }
+    }
 
     // MARK: - Reload Pipeline
 
@@ -477,6 +531,7 @@ final class HomeViewModel: ObservableObject {
             errorText = nil
         } catch {
             tasks = []
+            logger.error("reload failed: \(error.localizedDescription, privacy: .public)")
             errorText = "加载失败：\(error.localizedDescription)"
         }
         if pendingReload {

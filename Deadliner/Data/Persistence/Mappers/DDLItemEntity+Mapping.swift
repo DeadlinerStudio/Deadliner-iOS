@@ -92,6 +92,17 @@ extension DDLItemEntity {
         return .active
     }
 
+    /// For habit carriers, derive archive state from habit.status as the single source of truth.
+    func resolvedStateForSync() -> DDLState {
+        guard typeRaw == DeadlineType.habit.rawValue else {
+            return resolvedState()
+        }
+        guard let habit, let status = HabitStatus(rawValue: habit.statusRaw) else {
+            return resolvedState()
+        }
+        return status == .archived ? .archived : .active
+    }
+
     func habitAppliedSnapshotVersionRaw() -> (ts: String, ctr: Int, dev: String)? {
         guard let ts = habitAppliedVerTs,
               let ctr = habitAppliedVerCtr,

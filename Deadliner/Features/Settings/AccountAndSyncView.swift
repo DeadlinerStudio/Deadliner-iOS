@@ -117,7 +117,7 @@ struct AccountAndSyncView: View {
                     if isSaving {
                         ProgressView().frame(maxWidth: .infinity)
                     } else {
-                        Text("保存配置")
+                        Text("保存 WebDAV 配置")
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -158,10 +158,21 @@ struct AccountAndSyncView: View {
         .navigationBarTitleDisplayMode(.inline)
         .optionalTint(themeStore.switchTint)
         .task { await load() }
-        .onChange(of: syncProvider) { newValue in
+        .onChange(of: cloudSyncEnabled) { oldValue, newValue in
+            guard !isLoading, oldValue != newValue else { return }
+            Task { await persistSyncSwitches() }
+        }
+        .onChange(of: syncProvider) { oldValue, newValue in
+            guard !isLoading, oldValue != newValue else { return }
             guard newValue == .iCloud, !iCloudAvailable else { return }
             syncProvider = .webDAV
             showPaywall = true
+            return
+        }
+        .onChange(of: syncProvider) { oldValue, newValue in
+            guard !isLoading, oldValue != newValue else { return }
+            guard !(newValue == .iCloud && !iCloudAvailable) else { return }
+            Task { await persistSyncSwitches() }
         }
         .sheet(isPresented: $showPaywall) {
             ProPaywallView().presentationDetents([.large])
@@ -214,17 +225,19 @@ struct AccountAndSyncView: View {
         isSaving = true
         defer { isSaving = false }
 
-        await LocalValues.shared.setCloudSyncEnabled(cloudSyncEnabled)
-        await LocalValues.shared.setSyncProvider(syncProvider)
+        await persistSyncSwitches()
         await LocalValues.shared.setWebDAVURL(trimmedURL.isEmpty ? nil : trimmedURL)
         await LocalValues.shared.setWebDAVAuth(user: webdavUser, pass: webdavPass)
 
-        let providerChanged = syncProvider != loadedSyncProvider
-        loadedSyncProvider = syncProvider
-        message = providerChanged
-            ? "同步设置已保存。已切换为 \(syncProvider.displayName)，重启 App 后会完全生效。"
-            : "同步设置已保存"
+        message = "WebDAV 配置已保存"
         showMessage = true
+    }
+
+    @MainActor
+    private func persistSyncSwitches() async {
+        await LocalValues.shared.setCloudSyncEnabled(cloudSyncEnabled)
+        await LocalValues.shared.setSyncProvider(syncProvider)
+        loadedSyncProvider = syncProvider
     }
     
     @MainActor

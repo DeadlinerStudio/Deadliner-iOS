@@ -162,7 +162,7 @@ public final class AIService {
         要求：
         1. 总结要口语化、温暖且有洞察力（例如：发现用户在下午最高效，或者月初比较勤奋）。
         2. 总结字数在 80-120 字左右。
-        3. 提取 5-10 个关键词标签。这些标签必须深度结合“上月完成任务名”所反映的内容（例如：如果是很多学习任务，关键词可以是“学术探索”、“深度学习”；如果是很多健身任务，可以是“自律健身”等）。
+        3. 提取 5-10 个关键词标签。这些标签必须深度结合"上月完成任务名"所反映的内容（例如：如果是很多学习任务，关键词可以是"学术探索"、"深度学习"；如果是很多健身任务，可以是"自律健身"等）。
         4. 关键词要有代表性，用于生成词云图。
         
         必须输出纯 JSON 格式：
@@ -208,16 +208,13 @@ public final class AIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         
-        // 兼容 MiMo 的 api-key Header
-        if baseUrl.contains("xiaomimimo.com") {
-            request.addValue(apiKey, forHTTPHeaderField: "api-key")
-        } else {
-            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        }
+        // 统一使用 Bearer Token 认证
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let chatRequest = ChatRequest(model: modelId, messages: messages, temperature: 0.1)
+        let temperature = resolveTemperature(for: baseUrl)
+        let chatRequest = ChatRequest(model: modelId, messages: messages, temperature: temperature)
         request.httpBody = try JSONEncoder().encode(chatRequest)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -247,16 +244,13 @@ public final class AIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         
-        // 兼容 MiMo 的 api-key Header
-        if baseUrl.contains("xiaomimimo.com") {
-            request.addValue(apiKey, forHTTPHeaderField: "api-key")
-        } else {
-            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        }
+        // 统一使用 Bearer Token 认证
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let chatRequest = ChatRequest(model: modelId, messages: messages, temperature: 0.1)
+        let temperature = resolveTemperature(for: baseUrl)
+        let chatRequest = ChatRequest(model: modelId, messages: messages, temperature: temperature)
         request.httpBody = try JSONEncoder().encode(chatRequest)
 
         do {
@@ -297,6 +291,16 @@ public final class AIService {
         }
         
         return "\(noTailSlash)/chat/completions"
+    }
+
+    /// 根据服务商返回对应的 temperature。
+    /// Kimi (moonshot) 只接受 1；其余平台使用 0.1 以获得更稳定输出。
+    private func resolveTemperature(for baseUrl: String) -> Double {
+        let lowercased = baseUrl.lowercased()
+        if lowercased.contains("moonshot.cn") {
+            return 1.0
+        }
+        return 0.1
     }
 
     // MARK: - Shared JSON Helpers
@@ -375,7 +379,7 @@ public final class AIService {
         let ltm = String(longTermContext.prefix(900))
 
         return """
-    你是 Deadliner AI，一个“日程/习惯/闲聊”全能解析器（Agent Core）。
+    你是 Deadliner AI，一个"日程/习惯/闲聊"全能解析器（Agent Core）。
     
     \(toolHint.map { "【工具阶段提示】\n\($0)\n" } ?? "")
     
@@ -392,7 +396,7 @@ public final class AIService {
     【短期对话窗口（最近内容，<=1200字符）】
     \(ctx)
 
-    要求：保持连续性。若与“短期窗口/会话摘要”冲突，优先以短期为准；若与“用户画像”冲突，优先以短期为准并可在 newMemories/userProfile 中修正。
+    要求：保持连续性。若与"短期窗口/会话摘要"冲突，优先以短期为准；若与"用户画像"冲突，优先以短期为准并可在 newMemories/userProfile 中修正。
 
     必须输出纯 JSON（禁止 markdown/解释文字），字段规则如下：
 
@@ -402,7 +406,7 @@ public final class AIService {
     3) habits：当 primaryIntent="ExtractHabits" 时填充，否则可以省略或空数组
     4) newMemories：抽取新的稳定偏好/事实（短句数组；可为空）
     5) chatResponse：仅当 primaryIntent="Chat" 时给一句简短回复（否则可省略或空）
-    6) sessionSummary：必须输出。用 5-10 条要点总结“当前会话状态/未完成事项/确认流程”，总长度 <= 600 字符
+    6) sessionSummary：必须输出。用 5-10 条要点总结"当前会话状态/未完成事项/确认流程"，总长度 <= 600 字符
     7) userProfile：仅当你认为需要更新画像时输出（1段话，<= 420 字符）；否则可以省略或输出空字符串
     8) toolCalls：当你需要读取用户真实任务列表才能回答时，输出 toolCalls（数组）。否则省略或输出空数组。
 
@@ -417,22 +421,22 @@ public final class AIService {
     - reason: 用 1 句话解释为什么要读任务（给用户授权卡展示）
     
     【关键词强规则（必须遵守）】：
-    - toolCalls.args.keywords 只能来自“用户本轮输入 text”中明确出现的词或短语。
+    - toolCalls.args.keywords 只能来自"用户本轮输入 text"中明确出现的词或短语。
     - 禁止从长期记忆、会话摘要、短期窗口中推断/补充 keywords。
-    - 若用户输入是泛查询（如“这周/最近/有哪些任务/列出任务”）且未指定主题词，则 keywords 必须是空数组或省略。
+    - 若用户输入是泛查询（如"这周/最近/有哪些任务/列出任务"）且未指定主题词，则 keywords 必须是空数组或省略。
 
     【二段工具回灌规则】：
     - 如果你在用户消息中看到以 "TOOL_RESULT_JSON:" 开头的工具结果，表示任务数据已提供。
       你必须基于工具结果直接给出最终 JSON 输出。
     - 你可以输出新的 tasks/habits proposal（用于新增、补全或纠错），但必须遵循：
-      1) 除非用户明确要求“刷新/再查”，否则不要再次输出 toolCalls。
-      2) 若工具结果中已存在高度相似的任务（同名或同义，且截止时间接近），不要重复输出同一任务；可以在 chatResponse 里提示“已存在，是否需要调整/合并”。
-      3) 若用户的请求是“列出/查看/总结”，优先给 chatResponse；proposal 仅在确实需要用户确认新增/变更时输出。
+      1) 除非用户明确要求"刷新/再查"，否则不要再次输出 toolCalls。
+      2) 若工具结果中已存在高度相似的任务（同名或同义，且截止时间接近），不要重复输出同一任务；可以在 chatResponse 里提示"已存在，是否需要调整/合并"。
+      3) 若用户的请求是"列出/查看/总结"，优先给 chatResponse；proposal 仅在确实需要用户确认新增/变更时输出。
     
     【记忆抽取强规则】：
-    - newMemories 只能包含“长期稳定偏好/事实/约束”（例如：时间格式偏好、语言偏好、工作流偏好、长期项目背景）。
-    - 禁止把任何“待办/任务/提醒/本次要做的事”写入 newMemories（包括用户说的任务、你解析出的 tasks、你从 repo 读到的 tasks）。
-    - 如果用户输入是“提取任务/列出任务/这周有什么任务/添加任务”等任务相关请求，则 newMemories 必须为空数组或省略。
+    - newMemories 只能包含"长期稳定偏好/事实/约束"（例如：时间格式偏好、语言偏好、工作流偏好、长期项目背景）。
+    - 禁止把任何"待办/任务/提醒/本次要做的事"写入 newMemories（包括用户说的任务、你解析出的 tasks、你从 repo 读到的 tasks）。
+    - 如果用户输入是"提取任务/列出任务/这周有什么任务/添加任务"等任务相关请求，则 newMemories 必须为空数组或省略。
 
     【时间推算强规则】：
     - dueTime 必须严格是 "yyyy-MM-dd HH:mm" 或 ""。
@@ -441,8 +445,8 @@ public final class AIService {
       - 中午 -> 12:00
       - 下午 -> 15:00
       - 晚上/夜里 -> 20:00
-      - 只说“明天/下周/周三”等无时段词 -> 09:00
-    - 若用户明确说“不确定时间/到时候再说” -> dueTime = ""
+      - 只说"明天/下周/周三"等无时段词 -> 09:00
+    - 若用户明确说"不确定时间/到时候再说" -> dueTime = ""
 
     【任务字段规则】：
     - name：2-8字最佳，不超过15字；去冗词。
@@ -451,7 +455,7 @@ public final class AIService {
     【去重规则（强制）】：
     - 若 readTasks 返回的 tasks 列表中存在 name 与新任务 name 相同或非常相似（编辑距离很近/同义），且 dueTime 相差 <= 6 小时：
       - 不要输出新的 tasks proposal
-      - 在 chatResponse 中询问是否要“修改原任务的截止时间/备注”或“合并”
+      - 在 chatResponse 中询问是否要"修改原任务的截止时间/备注"或"合并"
 
     【习惯字段规则】：
     - period：只能 "DAILY"/"WEEKLY"/"MONTHLY"，未提及默认 "DAILY"
@@ -559,13 +563,13 @@ public final class AIService {
             .filter { m in
                 let s = m.lowercased()
 
-                // 2.1 过滤“像任务”的句子（含时间、deadline、明天、本周、提交、完成 等）
+                // 2.1 过滤"像任务"的句子（含时间、deadline、明天、本周、提交、完成 等）
                 if looksLikeTaskMemory(s) { return false }
 
                 // 2.2 过滤与任务名/习惯名重合的
                 if taskNames.contains(s) || habitNames.contains(s) { return false }
 
-                // 2.3 过滤包含任何任务名的（防止“记住：交系统论作业”）
+                // 2.3 过滤包含任何任务名的（防止"记住：交系统论作业"）
                 if taskNames.contains(where: { !($0.isEmpty) && s.contains($0) }) { return false }
 
                 return true
@@ -585,7 +589,7 @@ public final class AIService {
         let hasTime = timeHints.contains { s.contains($0) }
         let hasAction = actionHints.contains { s.contains($0) }
 
-        // 很粗暴但有效：像“任务”的就别存
+        // 很粗暴但有效：像"任务"的就别存
         return hasTime && hasAction
     }
 }
