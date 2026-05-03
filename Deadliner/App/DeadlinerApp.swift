@@ -26,6 +26,7 @@ struct DeadlinerApp: App {
         // Keep only logs for current app launch session.
         AILog.clearForNewLaunchSession()
         SyncDebugLog.clearForNewLaunchSession()
+        IconDebugLog.clearForNewLaunchSession()
 
         // Capture process stdout/stderr and mirror to AI log file without changing Rust side.
         AIStdStreamCapture.shared.startIfNeeded()

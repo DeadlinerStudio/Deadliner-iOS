@@ -11,6 +11,7 @@ import UIKit
 // MARK: - App Icon Model
 enum DeadlinerIcon: String, CaseIterable, Identifiable {
     case deadlinerDefault = "DeadlinerDefault"
+    case mono             = "DeadlinerMono"
     case blackGold        = "DeadlinerBlackGold"
     case pixel            = "DeadlinerPixel"
     case lifi             = "LifiAI"
@@ -25,6 +26,7 @@ enum DeadlinerIcon: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .deadlinerDefault: return "默认"
+        case .mono:             return "液态"
         case .blackGold:        return "黑金"
         case .pixel:            return "像素"
         case .lifi:             return "Lifi AI"
@@ -67,6 +69,7 @@ enum DeadlinerIcon: String, CaseIterable, Identifiable {
     var alternateIconName: String? {
         switch self {
         case .deadlinerDefault: return nil
+        case .mono:             return "DeadlinerMono"
         case .blackGold:        return "DeadlinerBlackGold"
         case .pixel:            return "DeadlinerPixel"
         case .lifi:             return "LifiAI"
@@ -158,6 +161,7 @@ struct IconSettingsView: View {
                     .disabled(isApplying)
                 }
             }
+
         }
         .navigationTitle("自定义图标")
         .navigationBarTitleDisplayMode(.inline)
@@ -167,6 +171,7 @@ struct IconSettingsView: View {
         .onAppear {
             syncFromSystemIconIfPossible()
             applyAutoSeasonIfNeeded()
+            logRegisteredAlternateIcons()
         }
     }
     
@@ -204,8 +209,15 @@ struct IconSettingsView: View {
             DispatchQueue.main.async {
                 self.isApplying = false
                 if let error {
+                    let nsError = error as NSError
+                    let message = "[IconSwitch] failed target=\(targetAlternateName ?? "PRIMARY") current=\(UIApplication.shared.alternateIconName ?? "PRIMARY") domain=\(nsError.domain) code=\(nsError.code) desc=\(nsError.localizedDescription) userInfo=\(nsError.userInfo)"
+                    print(message)
+                    IconDebugLog.log(message)
                     self.errorMessage = "更换失败：\(error.localizedDescription)"
                 } else {
+                    let message = "[IconSwitch] success target=\(targetAlternateName ?? "PRIMARY") current=\(UIApplication.shared.alternateIconName ?? "PRIMARY")"
+                    print(message)
+                    IconDebugLog.log(message)
                     self.selectedAppIconRaw = icon.rawValue
                 }
             }
@@ -243,5 +255,13 @@ struct IconSettingsView: View {
         guard currentIcon != target else { return }
 
         UIApplication.shared.setAlternateIconName(target.alternateIconName, completionHandler: nil)
+    }
+
+    private func logRegisteredAlternateIcons() {
+        let icons = (Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any])
+        let alternates = (icons?["CFBundleAlternateIcons"] as? [String: Any])?.keys.sorted() ?? []
+        let message = "[IconSwitch] bundle alternates=\(alternates) current=\(UIApplication.shared.alternateIconName ?? "PRIMARY") selected=\(selectedIcon.rawValue)"
+        print(message)
+        IconDebugLog.log(message)
     }
 }

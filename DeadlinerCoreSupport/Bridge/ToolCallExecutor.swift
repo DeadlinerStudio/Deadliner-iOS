@@ -58,16 +58,29 @@ actor ToolCallExecutor {
                 guard let args = decodeArgs(CreateTaskArgs.self, from: argsJson) else {
                     return makeFailureResult(tool: normalized, code: "INVALID_ARGS", message: "create_task 缺少必要参数")
                 }
+                let normalizedItems = args.normalizedItems
+                guard !normalizedItems.isEmpty else {
+                    return makeFailureResult(tool: normalized, code: "INVALID_ARGS", message: "create_task 需要 name/dueTime（旧格式）或非空 tasks 数组（新格式）")
+                }
+
+                let itemResults = normalizedItems.map(validateTaskCreateItem)
+                let createdItems = itemResults.compactMap(\.item)
+                let successCount = createdItems.count
+                let failureCount = itemResults.count - successCount
+
                 let payload = CreateTaskResultPayload(
-                    ok: true,
-                    task: TaskWriteBackItem(id: nil, name: args.name, due: args.dueTime ?? "", note: args.note ?? ""),
-                    pendingUserConfirmation: true
+                    ok: successCount > 0,
+                    task: createdItems.first,
+                    createdTasks: createdItems,
+                    items: itemResults,
+                    summary: BatchExecutionSummary(total: itemResults.count, success: successCount, failed: failureCount),
+                    pendingUserConfirmation: successCount > 0
                 )
                 let resultJson = try encodeResult(payload)
                 return ToolExecutionResult(
                     normalizedToolName: normalized,
                     resultJson: resultJson,
-                    displayMessage: "已生成任务草案，请确认添加：\(args.name)"
+                    displayMessage: "已生成任务草案 \(successCount) 条，失败 \(failureCount) 条，请确认是否创建"
                 )
 
             case "update_deadline":
@@ -133,28 +146,28 @@ actor ToolCallExecutor {
                 guard let args = decodeArgs(CreateHabitArgs.self, from: argsJson) else {
                     return makeFailureResult(tool: normalized, code: "INVALID_ARGS", message: "create_habit 缺少必要参数")
                 }
+                let normalizedItems = args.normalizedItems
+                guard !normalizedItems.isEmpty else {
+                    return makeFailureResult(tool: normalized, code: "INVALID_ARGS", message: "create_habit 需要 name/period 等旧格式字段，或非空 habits 数组（新格式）")
+                }
 
-                let period = HabitPeriod(rawValue: args.period.uppercased()) ?? .daily
-                let normalizedGoalType = normalizeHabitGoalType(args.goalType)
-                let goalType = HabitGoalType(rawValue: normalizedGoalType) ?? .perPeriod
-
+                let itemResults = normalizedItems.map(validateHabitCreateItem)
+                let createdItems = itemResults.compactMap(\.item)
+                let successCount = createdItems.count
+                let failureCount = itemResults.count - successCount
                 let payload = CreateHabitResultPayload(
-                    ok: true,
-                    habit: HabitWriteBackItem(
-                        id: nil,
-                        name: args.name,
-                        period: period.rawValue,
-                        timesPerPeriod: max(1, args.timesPerPeriod),
-                        goalType: goalType.rawValue,
-                        totalTarget: goalType == .total ? args.totalTarget : nil
-                    ),
-                    pendingUserConfirmation: true
+                    ok: successCount > 0,
+                    habit: createdItems.first,
+                    createdHabits: createdItems,
+                    items: itemResults,
+                    summary: BatchExecutionSummary(total: itemResults.count, success: successCount, failed: failureCount),
+                    pendingUserConfirmation: successCount > 0
                 )
                 let resultJson = try encodeResult(payload)
                 return ToolExecutionResult(
                     normalizedToolName: normalized,
                     resultJson: resultJson,
-                    displayMessage: "已生成习惯草案，请确认添加：\(args.name)"
+                    displayMessage: "已生成习惯草案 \(successCount) 条，失败 \(failureCount) 条，请确认是否创建"
                 )
 
             default:
@@ -300,6 +313,53 @@ actor ToolCallExecutor {
         }
     }
 
+    private func validateTaskCreateItem(_ args: CreateTaskItemArgs) -> CreateTaskResultItem {
+        let trimmedName = args.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            return CreateTaskResultItem(ok: false, item: nil, message: "name 不能为空")
+        }
+
+        let normalizedDue = (args.dueTime ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !normalizedDue.isEmpty,
+           DeadlineDateParser.parseAIGeneratedDate(normalizedDue) == nil,
+           DeadlineDateParser.safeParseOptional(normalizedDue) == nil {
+            return CreateTaskResultItem(ok: false, item: nil, message: "dueTime 格式无效，需为 yyyy-MM-dd HH:mm")
+        }
+
+        return CreateTaskResultItem(
+            ok: true,
+            item: TaskWriteBackItem(id: nil, name: trimmedName, due: normalizedDue, note: args.note ?? ""),
+            message: nil
+        )
+    }
+
+    private func validateHabitCreateItem(_ args: CreateHabitItemArgs) -> CreateHabitResultItem {
+        let trimmedName = args.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            return CreateHabitResultItem(ok: false, item: nil, message: "name 不能为空")
+        }
+
+        let period = HabitPeriod(rawValue: args.period.uppercased()) ?? .daily
+        let normalizedGoalType = normalizeHabitGoalType(args.goalType)
+        let goalType = HabitGoalType(rawValue: normalizedGoalType) ?? .perPeriod
+        if goalType == .total, args.totalTarget == nil {
+            return CreateHabitResultItem(ok: false, item: nil, message: "goalType=TOTAL 时 totalTarget 必填")
+        }
+
+        return CreateHabitResultItem(
+            ok: true,
+            item: HabitWriteBackItem(
+                id: nil,
+                name: trimmedName,
+                period: period.rawValue,
+                timesPerPeriod: max(1, args.timesPerPeriod),
+                goalType: goalType.rawValue,
+                totalTarget: goalType == .total ? args.totalTarget : nil
+            ),
+            message: nil
+        )
+    }
+
     private func decodeArgs<T: Decodable>(_ type: T.Type, from argsJson: String) -> T? {
         guard let data = argsJson.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
@@ -339,7 +399,10 @@ private struct TaskWriteBackItem: Codable {
 
 private struct CreateTaskResultPayload: Codable {
     let ok: Bool
-    let task: TaskWriteBackItem
+    let task: TaskWriteBackItem?
+    let createdTasks: [TaskWriteBackItem]
+    let items: [CreateTaskResultItem]
+    let summary: BatchExecutionSummary
     let pendingUserConfirmation: Bool
 }
 
@@ -380,8 +443,29 @@ private struct HabitWriteBackItem: Codable {
 
 private struct CreateHabitResultPayload: Codable {
     let ok: Bool
-    let habit: HabitWriteBackItem
+    let habit: HabitWriteBackItem?
+    let createdHabits: [HabitWriteBackItem]
+    let items: [CreateHabitResultItem]
+    let summary: BatchExecutionSummary
     let pendingUserConfirmation: Bool
+}
+
+private struct BatchExecutionSummary: Codable {
+    let total: Int
+    let success: Int
+    let failed: Int
+}
+
+private struct CreateTaskResultItem: Codable {
+    let ok: Bool
+    let item: TaskWriteBackItem?
+    let message: String?
+}
+
+private struct CreateHabitResultItem: Codable {
+    let ok: Bool
+    let item: HabitWriteBackItem?
+    let message: String?
 }
 
 private struct ToolAdapterRule: Codable {

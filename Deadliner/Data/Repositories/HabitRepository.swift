@@ -214,9 +214,18 @@ class HabitRepository {
         let todayCount = recordsToday.reduce(0) { $0 + $1.count }
         trace("toggleRecord habitId=\(habitId) date=\(dateStr) todayCount=\(todayCount) period=\(habit.period.rawValue)")
         
-        if habit.period == .daily || habit.period == .once || habit.period == .ebbinghaus {
-            // === 简单模式 (0/1) ===
+        if habit.period == .once || habit.period == .ebbinghaus {
+            // === 单次模式 (0/1) ===
             if todayCount > 0 {
+                try await deleteRecordsForHabitOnDate(habitId: habitId, date: date)
+            } else {
+                try await insertRecord(habitId: habitId, date: date, count: 1, status: .completed)
+            }
+        } else if habit.period == .daily {
+            // === 每日模式 ===
+            // 支持同一天多次打卡：未达标时每次 +1，达标后再点重置为 0。
+            let target = max(1, habit.timesPerPeriod)
+            if todayCount >= target {
                 try await deleteRecordsForHabitOnDate(habitId: habitId, date: date)
             } else {
                 try await insertRecord(habitId: habitId, date: date, count: 1, status: .completed)

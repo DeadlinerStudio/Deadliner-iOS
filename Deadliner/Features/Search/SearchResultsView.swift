@@ -198,7 +198,7 @@ struct SearchResultsView: View {
             Button {
                 inspirationActions.onAIConvertToTask(item.item)
             } label: {
-                Label("AI 任务", image: "lifi.logo.v1")
+                Label("AI 任务", image: "sparkles")
             }
             .tint(.blue)
         }

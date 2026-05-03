@@ -64,7 +64,7 @@ enum OnboardingScenes {
         ),
         .init(
             id: "guide_scene_5",
-            fileName: "Scene-5-iOS.json",
+            fileName: "Scene-5-iOS.patched.json",
             title: "轻点任务，查看详情与子任务",
             subtitle: "短按任务可以进入详情页，继续补充信息或拆分子任务。",
             detail: "当一件事需要更多上下文时，详情页就是你继续展开和整理的地方。"
@@ -78,8 +78,6 @@ enum OnboardingScenes {
         )
     ]
 }
-
-#if canImport(Lottie)
 
 struct OnboardingLottieView: UIViewRepresentable {
     let animationName: String
@@ -133,27 +131,3 @@ struct OnboardingLottieView: UIViewRepresentable {
         var currentAnimationName: String?
     }
 }
-
-#else
-
-struct OnboardingLottieView: View {
-    let animationName: String
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "sparkles.rectangle.stack")
-                .font(.system(size: 54, weight: .regular))
-                .foregroundStyle(.blue.opacity(0.8))
-            Text(animationName)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
-            Text("添加 Lottie Swift Package 后会显示动画")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-#endif

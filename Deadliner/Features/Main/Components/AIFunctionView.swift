@@ -10,7 +10,11 @@ import SwiftUI
 struct AIFunctionView: View {
     let userTier: UserTier
     let useSheetDetents: Bool
+    let onScrollProgressChange: ((CGFloat) -> Void)?
     @AppStorage("userName") private var userName: String = "用户"
+    @AppStorage("settings.ai.auto_approve_read_tasks") private var autoApproveReadTasks: Bool = false
+    @AppStorage("settings.ai.silent_task_add") private var silentTaskAdd: Bool = true
+    @AppStorage("settings.ai.hide_thinking_process") private var hideThinkingProcess: Bool = false
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var speechInput = SpeechInputService()
 
@@ -18,6 +22,7 @@ struct AIFunctionView: View {
     @State private var inputText: String = ""
     @State private var isParsing = false
     @State private var isExpanded = false
+    @FocusState private var isInputFocused: Bool
 
     @State private var displayItems: [DisplayItem] = []
 
@@ -27,21 +32,22 @@ struct AIFunctionView: View {
     @State private var sessionSummary: String = ""
     @StateObject private var memoryBank = MemoryBank.shared
     
-    @State private var pendingTaskToCreate: AITask?
-    @State private var showCreateTaskDialog: Bool = false
-
-    @State private var pendingHabitToCreate: AIHabit?
-    @State private var showCreateHabitDialog: Bool = false
-    
     @State private var pendingToolRequest: AIToolRequest?
+    @State private var pendingCreateToolConfirmation: AIToolRequest?
     @State private var toolOriginalUserText: String = ""
     @State private var lastSubmittedToolName: String?
     @State private var submittedToolRequestIDs: Set<String> = []
     @State private var pendingMemoryNoticeTask: Task<Void, Never>?
     @State private var inputSectionHeight: CGFloat = 92
+    @State private var readTasksPromptCount: Int = 0
+    @State private var sessionAutoApproveReadTasks: Bool = false
+    @State private var pendingReadTasksApprovalRequest: AIToolRequest?
+    @State private var showReadTasksApprovalDialog: Bool = false
 
     @State private var addedTaskKeys: Set<String> = []      // 用于把卡片变“已添加”
+    @State private var createdTaskIDsByKey: [String: Int64] = [:]
     @State private var addedHabitKeys: Set<String> = []
+    @State private var createdHabitDdlIDsByKey: [String: Int64] = [:]
 
     @State private var repoBusy: Bool = false               // 防连点
     
@@ -71,7 +77,7 @@ struct AIFunctionView: View {
                             if isParsing {
                                 HStack(spacing: 12) {
                                     ProgressView().tint(.purple)
-                                    Text("Lifi AI 正在思考...")
+                                    Text(hideThinkingProcess ? "Lifi AI 正在处理中..." : "Lifi AI 正在思考...")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                     Spacer()
@@ -91,6 +97,13 @@ struct AIFunctionView: View {
                         }
                         .padding()
                     }
+                    .scrollDismissesKeyboard(.interactively)
+                    .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                        geometry.contentOffset.y
+                    } action: { _, newOffsetY in
+                        let progress = min(max(newOffsetY / 180.0, 0), 1)
+                        onScrollProgressChange?(progress)
+                    }
                     .onChange(of: displayItems.count) { _ in
                         guard let lastId = displayItems.last?.id else { return }
                         withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
@@ -105,6 +118,13 @@ struct AIFunctionView: View {
                 initialGuideView
             }
         }
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                if isInputFocused {
+                    isInputFocused = false
+                }
+            }
+        )
         .frame(
             maxWidth: .infinity,
             maxHeight: .infinity,
@@ -116,6 +136,14 @@ struct AIFunctionView: View {
         }
         .navigationTitle(isExpanded ? "Lifi AI" : "")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("收起") {
+                    isInputFocused = false
+                }
+            }
+        }
         // 根据是否展开自动调整 Sheet 高度
         .modifier(AIFunctionDetentsModifier(
             useSheetDetents: useSheetDetents,
@@ -127,40 +155,50 @@ struct AIFunctionView: View {
             Text(errorMessage ?? "未知错误")
         }
         .confirmationDialog(
-            "确认创建任务？",
-            isPresented: $showCreateTaskDialog,
+            "允许读取任务列表？",
+            isPresented: $showReadTasksApprovalDialog,
             titleVisibility: .visible
         ) {
-            Button("创建任务", role: .none) {
-                guard let t = pendingTaskToCreate else { return }
-                Task { await createTaskFromProposal(t) }
+            Button("允许一次") {
+                guard let req = pendingReadTasksApprovalRequest else { return }
+                pendingReadTasksApprovalRequest = nil
+                pendingToolRequest = req
+                Task { await approveAndRunTool(req) }
             }
-            Button("取消", role: .cancel) {}
+            Button("记住本会话") {
+                guard let req = pendingReadTasksApprovalRequest else { return }
+                sessionAutoApproveReadTasks = true
+                pendingReadTasksApprovalRequest = nil
+                pendingToolRequest = req
+                withAnimation(.spring()) {
+                    displayItems.append(DisplayItem(kind: .aiChat("已记住本会话：后续读取任务列表将自动确认。")))
+                }
+                Task { await approveAndRunTool(req) }
+            }
+            Button("永久开启") {
+                guard let req = pendingReadTasksApprovalRequest else { return }
+                autoApproveReadTasks = true
+                pendingReadTasksApprovalRequest = nil
+                pendingToolRequest = req
+                withAnimation(.spring()) {
+                    displayItems.append(DisplayItem(kind: .aiChat("已永久开启“自动确认读取任务列表”。")))
+                }
+                Task { await approveAndRunTool(req) }
+            }
+            Button("取消", role: .cancel) {
+                pendingReadTasksApprovalRequest = nil
+            }
         } message: {
-            if let t = pendingTaskToCreate {
-                Text(makeTaskConfirmMessage(t))
-            }
-        }
-        .confirmationDialog(
-            "确认开启习惯？",
-            isPresented: $showCreateHabitDialog,
-            titleVisibility: .visible
-        ) {
-            Button("开启习惯", role: .none) {
-                guard let h = pendingHabitToCreate else { return }
-                Task { await createHabitFromProposal(h) }
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            if let h = pendingHabitToCreate {
-                Text("习惯：\(h.name)\n频率：\(h.period) / \(h.timesPerPeriod) 次")
-            }
+            Text("你可以只允许本次，也可以记住本会话，或直接永久开启自动确认。")
         }
         .sheet(isPresented: $showMemoryManageSheet) {
             MemoryManageSheet()
         }
         .sheet(isPresented: $showFeedbackShareSheet) {
             ActivityView(activityItems: feedbackShareItems)
+        }
+        .sheet(item: $pendingCreateToolConfirmation) { req in
+            createToolConfirmationSheet(for: req)
         }
         .onChange(of: speechInput.composedText) { _, newValue in
             inputText = newValue
@@ -184,17 +222,20 @@ struct AIFunctionView: View {
         .onDisappear {
             DeadlinerCoreBridge.shared.clearEventHandler()
             Task { await speechInput.cancelRecording() }
+            onScrollProgressChange?(0)
         }
     }
 
     init(
         userTier: UserTier,
         bottomAccessoryInset: CGFloat = 0,
-        useSheetDetents: Bool = true
+        useSheetDetents: Bool = true,
+        onScrollProgressChange: ((CGFloat) -> Void)? = nil
     ) {
         self.userTier = userTier
         self.bottomAccessoryInset = bottomAccessoryInset
         self.useSheetDetents = useSheetDetents
+        self.onScrollProgressChange = onScrollProgressChange
     }
 }
 
@@ -216,11 +257,13 @@ private struct AIFunctionDetentsModifier: ViewModifier {
 extension AIFunctionView {
     private var messageBubbleRadius: CGFloat { 28 }
     private var proposalCardRadius: CGFloat { 28 }
-    private var proposalCardFill: Color {
-        colorScheme == .dark ? Color(hex: "#111111").opacity(0.8) : Color.white.opacity(0.8)
+    private var proposalCardBaseFill: Color {
+        colorScheme == .dark
+            ? Color(uiColor: .secondarySystemBackground)
+            : Color(uiColor: .systemBackground)
     }
     private var proposalCardStroke: Color {
-        colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05)
+        colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.06)
     }
 
     @ViewBuilder
@@ -321,34 +364,53 @@ extension AIFunctionView {
     }
 
     private func proposalCard(task: AITask) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "doc.text.fill").foregroundColor(.blue)
-                Text("识别到任务").font(.caption.bold()).foregroundColor(.secondary)
-            }
-            Text(task.name).font(.headline)
-            if let due = task.dueTime, !due.isEmpty {
-                Text(due).font(.subheadline).foregroundColor(.blue)
-            }
-            
-            let taskKey = makeTaskKey(task)
+        let taskKey = makeTaskKey(task)
+        let hasAdded = addedTaskKeys.contains(taskKey)
 
-            Button(action: {
-                pendingTaskToCreate = task
-                showCreateTaskDialog = true
-            }) {
-                Text(addedTaskKeys.contains(taskKey) ? "已添加" : "确认添加")
-                    .font(.subheadline.bold())
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(addedTaskKeys.contains(taskKey) ? Color.gray.opacity(0.4) : Color.blue)
-                    .foregroundColor(.white)
-                    .clipShape(Capsule())
+        return HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("任务")
+                    .font(.caption2.weight(.bold))
+                    .foregroundColor(.secondary)
+                Text(task.name).font(.headline.weight(.semibold))
+                Text("截止：\((task.dueTime?.isEmpty == false) ? task.dueTime! : "未指定")")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                if let note = task.note, !note.isEmpty {
+                    Text("备注：\(note)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
             }
-            .disabled(addedTaskKeys.contains(taskKey) || repoBusy)
+            Spacer(minLength: 8)
+            Button(action: {
+                if hasAdded {
+                    Task { await undoTaskFromProposal(task) }
+                } else {
+                    Task { await createTaskFromProposal(task) }
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: hasAdded ? "arrow.uturn.backward.circle" : "plus.circle")
+                    Text(hasAdded ? "撤回" : "添加")
+                }
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(hasAdded ? Color.orange.opacity(0.15) : Color.blue.opacity(0.15))
+                .foregroundColor(hasAdded ? .orange : .blue)
+                .clipShape(Capsule())
+            }
+            .disabled(repoBusy)
         }
-        .padding()
-        .background(proposalCardFill)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
+                .fill(proposalCardBaseFill)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
                 .stroke(proposalCardStroke, lineWidth: 1)
@@ -357,34 +419,51 @@ extension AIFunctionView {
     }
 
     private func habitCard(habit: AIHabit) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "arrow.triangle.2.circlepath").foregroundColor(.purple)
-                Text("识别到习惯").font(.caption.bold()).foregroundColor(.secondary)
+        let habitKey = makeHabitKey(habit)
+        let hasAdded = addedHabitKeys.contains(habitKey)
+
+        return HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("习惯")
+                    .font(.caption2.weight(.bold))
+                    .foregroundColor(.secondary)
+                Text(habit.name).font(.headline.weight(.semibold))
+                Text("\(habit.period) / \(habit.timesPerPeriod) 次")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                let target = habit.goalType.uppercased() == "TOTAL" ? " · 总目标\(habit.totalTarget ?? 0)" : ""
+                Text("目标：\(habit.goalType)\(target)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
-            Text(habit.name).font(.headline)
-            Text("\(habit.period) / \(habit.timesPerPeriod)次")
-                .font(.subheadline)
-                .foregroundColor(.purple)
-
-            let habitKey = makeHabitKey(habit)
-
+            Spacer(minLength: 8)
             Button(action: {
-                pendingHabitToCreate = habit
-                showCreateHabitDialog = true
+                if hasAdded {
+                    Task { await undoHabitFromProposal(habit) }
+                } else {
+                    Task { await createHabitFromProposal(habit) }
+                }
             }) {
-                Text(addedHabitKeys.contains(habitKey) ? "已开启" : "开启习惯")
-                    .font(.subheadline.bold())
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(addedHabitKeys.contains(habitKey) ? Color.gray.opacity(0.4) : Color.purple)
-                    .foregroundColor(.white)
-                    .clipShape(Capsule())
+                HStack(spacing: 4) {
+                    Image(systemName: hasAdded ? "arrow.uturn.backward.circle" : "plus.circle")
+                    Text(hasAdded ? "撤回" : "添加")
+                }
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(hasAdded ? Color.orange.opacity(0.15) : Color.purple.opacity(0.15))
+                .foregroundColor(hasAdded ? .orange : .purple)
+                .clipShape(Capsule())
             }
-            .disabled(addedHabitKeys.contains(habitKey) || repoBusy)
+            .disabled(repoBusy)
         }
-        .padding()
-        .background(proposalCardFill)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
+                .fill(proposalCardBaseFill)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
                 .stroke(proposalCardStroke, lineWidth: 1)
@@ -429,8 +508,16 @@ extension AIFunctionView {
                 .buttonBorderShape(.capsule)
 
                 Button {
-                    pendingToolRequest = req
-                    Task { await approveAndRunTool(req) }
+                    let normalized = ToolCallExecutor.shared.normalizeToolName(req.tool)
+                    if normalized == "create_habit" {
+                        pendingCreateToolConfirmation = req
+                    } else if normalized == "read_tasks" && !autoApproveReadTasks && !sessionAutoApproveReadTasks {
+                        pendingReadTasksApprovalRequest = req
+                        showReadTasksApprovalDialog = true
+                    } else {
+                        pendingToolRequest = req
+                        Task { await approveAndRunTool(req) }
+                    }
                 } label: {
                     Text("允许一次")
                         .frame(maxWidth: .infinity)
@@ -441,12 +528,70 @@ extension AIFunctionView {
             }
         }
         .padding()
-        .background(proposalCardFill)
+        .background(
+            RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
+                .fill(proposalCardBaseFill)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous)
                 .stroke(proposalCardStroke, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: proposalCardRadius, style: .continuous))
+    }
+
+    private func createToolConfirmationSheet(for req: AIToolRequest) -> some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(ToolCallExecutor.shared.normalizeToolName(req.tool) == "create_task" ? "请确认本次批量创建任务清单" : "请确认本次批量创建习惯清单")
+                    .font(.headline)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if ToolCallExecutor.shared.normalizeToolName(req.tool) == "create_task" {
+                            ForEach(Array(req.createTaskItems.enumerated()), id: \.offset) { idx, item in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("\(idx + 1). \(item.name)").font(.subheadline.bold())
+                                    Text("截止：\((item.dueTime?.isEmpty == false) ? item.dueTime! : "未指定")").font(.caption).foregroundColor(.secondary)
+                                    Text("备注：\((item.note?.isEmpty == false) ? item.note! : "无")").font(.caption).foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(10)
+                                .background(Color(uiColor: .secondarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                        } else {
+                            ForEach(Array(req.createHabitItems.enumerated()), id: \.offset) { idx, item in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("\(idx + 1). \(item.name)").font(.subheadline.bold())
+                                    Text("周期：\(item.period) · 频次：\(item.timesPerPeriod)").font(.caption).foregroundColor(.secondary)
+                                    let target = item.goalType.uppercased() == "TOTAL" ? " · totalTarget：\(item.totalTarget.map(String.init) ?? "缺失")" : ""
+                                    Text("目标类型：\(item.goalType)\(target)").font(.caption).foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(10)
+                                .background(Color(uiColor: .secondarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                        }
+                    }
+                }
+                HStack(spacing: 12) {
+                    Button("取消", role: .cancel) {
+                        pendingCreateToolConfirmation = nil
+                    }
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.bordered)
+                    Button("确认并提交整批") {
+                        pendingCreateToolConfirmation = nil
+                        pendingToolRequest = req
+                        Task { await approveAndRunTool(req) }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .padding()
+        }
     }
 
     private func toolResultBubble(_ res: AIToolResult) -> some View {
@@ -475,6 +620,7 @@ extension AIFunctionView {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.primary)
                         .lineLimit(1...6)
+                        .focused($isInputFocused)
                         .submitLabel(.send)
                         .onSubmit {
                             Task { await runSmartAgent() }
@@ -482,6 +628,19 @@ extension AIFunctionView {
 
                     HStack(spacing: 10) {
                         Spacer(minLength: 0)
+
+                        if isInputFocused {
+                            Button {
+                                isInputFocused = false
+                            } label: {
+                                Image(systemName: "keyboard.chevron.compact.down")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 36, height: 36)
+                                    .background(Color.secondary.opacity(0.12), in: Circle())
+                            }
+                            .accessibilityLabel("收起键盘")
+                        }
 
                         voicePlaceholderButton
 
@@ -803,6 +962,7 @@ extension AIFunctionView {
         let query = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
         AILog.log("[Input] \(query)")
+        isInputFocused = false
 
         withAnimation(.spring()) {
             isExpanded = true
@@ -824,10 +984,11 @@ extension AIFunctionView {
         do {
             let params = try makeDDLInsertParams(from: task)
 
-            _ = try await TaskRepository.shared.insertDDL(params)
+            let insertedId = try await TaskRepository.shared.insertDDL(params)
 
             let key = makeTaskKey(task)
             addedTaskKeys.insert(key)
+            createdTaskIDsByKey[key] = insertedId
 
             withAnimation(.spring()) {
                 displayItems.append(DisplayItem(kind: .aiChat("已添加任务：\(task.name)")))
@@ -878,6 +1039,7 @@ extension AIFunctionView {
 
             let key = makeHabitKey(habit)
             addedHabitKeys.insert(key)
+            createdHabitDdlIDsByKey[key] = ddlId
 
             withAnimation(.spring()) {
                 displayItems.append(DisplayItem(kind: .aiChat("已开启习惯：\(habit.name)")))
@@ -895,12 +1057,54 @@ extension AIFunctionView {
     }
 
     private func makeHabitKey(_ habit: AIHabit) -> String {
-        return "\(habit.name)#\(habit.period)#\(habit.timesPerPeriod)"
+        let goal = habit.goalType.uppercased()
+        let total = habit.totalTarget.map(String.init) ?? "none"
+        return "\(habit.name)#\(habit.period)#\(habit.timesPerPeriod)#\(goal)#\(total)"
     }
 
-    private func makeTaskConfirmMessage(_ task: AITask) -> String {
-        let due = (task.dueTime?.isEmpty == false) ? task.dueTime! : "无"
-        return "任务：\(task.name)\n截止：\(due)"
+    @MainActor
+    private func undoTaskFromProposal(_ task: AITask) async {
+        if repoBusy { return }
+        let key = makeTaskKey(task)
+        guard let taskId = createdTaskIDsByKey[key] else { return }
+
+        repoBusy = true
+        defer { repoBusy = false }
+
+        do {
+            try await TaskRepository.shared.deleteDDL(taskId)
+            addedTaskKeys.remove(key)
+            createdTaskIDsByKey.removeValue(forKey: key)
+            withAnimation(.spring()) {
+                displayItems.append(DisplayItem(kind: .aiChat("已撤回任务：\(task.name)")))
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorMessage = true
+        }
+    }
+
+    @MainActor
+    private func undoHabitFromProposal(_ habit: AIHabit) async {
+        if repoBusy { return }
+        let key = makeHabitKey(habit)
+        guard let ddlId = createdHabitDdlIDsByKey[key] else { return }
+
+        repoBusy = true
+        defer { repoBusy = false }
+
+        do {
+            try await HabitRepository.shared.deleteHabitByDdlId(ddlId: ddlId)
+            try await TaskRepository.shared.deleteDDL(ddlId)
+            addedHabitKeys.remove(key)
+            createdHabitDdlIDsByKey.removeValue(forKey: key)
+            withAnimation(.spring()) {
+                displayItems.append(DisplayItem(kind: .aiChat("已撤回习惯：\(habit.name)")))
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorMessage = true
+        }
     }
     
     @MainActor
@@ -936,25 +1140,82 @@ extension AIFunctionView {
 
         withAnimation(.spring()) {
             displayItems.append(DisplayItem(kind: .aiToolResult(toolResult)))
-            if execution.normalizedToolName == "create_task", let args = req.createTaskArgs {
-                let proposal = AITask(name: args.name, dueTime: args.dueTime, note: args.note)
-                displayItems.append(DisplayItem(kind: .aiTask(proposal)))
+            if execution.normalizedToolName == "create_task" {
+                let proposals = req.createTaskItems.map { AITask(name: $0.name, dueTime: $0.dueTime, note: $0.note) }
+                if silentTaskAdd {
+                    Task { await autoCreateTasksFromProposals(proposals) }
+                }
+                for proposal in proposals {
+                    displayItems.append(DisplayItem(kind: .aiTask(proposal)))
+                }
             }
-            if execution.normalizedToolName == "create_habit", let args = req.createHabitArgs {
-                let proposal = AIHabit(
-                    name: args.name,
-                    period: args.period.uppercased(),
-                    timesPerPeriod: max(1, args.timesPerPeriod),
-                    goalType: args.goalType.uppercased(),
-                    totalTarget: args.totalTarget
-                )
-                displayItems.append(DisplayItem(kind: .aiHabit(proposal)))
+            if execution.normalizedToolName == "create_habit" {
+                let proposals = req.createHabitItems.map { item in
+                    AIHabit(
+                        name: item.name,
+                        period: item.period.uppercased(),
+                        timesPerPeriod: max(1, item.timesPerPeriod),
+                        goalType: item.goalType.uppercased(),
+                        totalTarget: item.totalTarget
+                    )
+                }
+                if silentTaskAdd {
+                    Task { await autoCreateHabitsFromProposals(proposals) }
+                }
+                for proposal in proposals {
+                    displayItems.append(DisplayItem(kind: .aiHabit(proposal)))
+                }
             }
         }
 
         // 2) 回灌给 Rust Core，让其继续下一阶段
         print("[AIFunctionView] submitToolResult id=\(req.id) tool=\(execution.normalizedToolName) payloadJson=\(execution.resultJson)")
         await DeadlinerCoreBridge.shared.submitToolResult(id: req.id, resultJson: execution.resultJson)
+    }
+
+    @MainActor
+    private func autoCreateHabitsFromProposals(_ proposals: [AIHabit]) async {
+        guard !proposals.isEmpty else { return }
+        var successCount = 0
+        for proposal in proposals {
+            do {
+                let ddlParams = DDLInsertParams(
+                    name: proposal.name,
+                    startTime: Date().toLocalISOString(),
+                    endTime: "",
+                    state: .active,
+                    completeTime: "",
+                    note: "",
+                    isStared: false,
+                    subTasks: [],
+                    type: .habit,
+                    calendarEventId: nil
+                )
+                let ddlId = try await TaskRepository.shared.insertDDL(ddlParams)
+                let periodEnum = HabitPeriod(rawValue: proposal.period.uppercased()) ?? .daily
+                let goalTypeEnum = HabitGoalType(rawValue: proposal.goalType.uppercased()) ?? .perPeriod
+                _ = try await HabitRepository.shared.createHabitForDdl(
+                    ddlId: ddlId,
+                    name: proposal.name,
+                    period: periodEnum,
+                    timesPerPeriod: proposal.timesPerPeriod,
+                    goalType: goalTypeEnum,
+                    totalTarget: proposal.totalTarget,
+                    description: ""
+                )
+                let key = makeHabitKey(proposal)
+                addedHabitKeys.insert(key)
+                createdHabitDdlIDsByKey[key] = ddlId
+                successCount += 1
+            } catch {
+                continue
+            }
+        }
+        if successCount > 0 {
+            withAnimation(.spring()) {
+                displayItems.append(DisplayItem(kind: .aiChat("已静默添加 \(successCount) 条习惯。若有误可点“撤回”。")))
+            }
+        }
     }
 
     @MainActor
@@ -970,7 +1231,7 @@ extension AIFunctionView {
                 isParsing = true
             }
             let thinkingText = AIToolPresentation.collaborationMessage(for: agentName, phase: phase, fallbackMessage: message)
-            if shouldAppendThinkingMessage(thinkingText) {
+            if !hideThinkingProcess && shouldAppendThinkingMessage(thinkingText) {
                 withAnimation(.spring()) {
                     displayItems.append(DisplayItem(kind: .aiThinking(thinkingText)))
                 }
@@ -1002,16 +1263,39 @@ extension AIFunctionView {
             }
 
             if AIToolPresentation.shouldAutoApproveToolRequest(sanitizedReq) {
-                withAnimation(.spring()) {
-                    displayItems.append(DisplayItem(kind: .aiThinking(AIToolPresentation.toolCollaborationMessage(for: sanitizedReq.tool))))
+                if !hideThinkingProcess {
+                    withAnimation(.spring()) {
+                        displayItems.append(DisplayItem(kind: .aiThinking(AIToolPresentation.toolCollaborationMessage(for: sanitizedReq.tool))))
+                    }
                 }
                 pendingToolRequest = sanitizedReq
                 Task { await approveAndRunTool(sanitizedReq) }
                 return
             }
 
+            if normalizedTool == "read_tasks", (autoApproveReadTasks || sessionAutoApproveReadTasks) {
+                if !hideThinkingProcess {
+                    withAnimation(.spring()) {
+                        displayItems.append(DisplayItem(kind: .aiThinking(AIToolPresentation.toolCollaborationMessage(for: sanitizedReq.tool))))
+                    }
+                }
+                pendingToolRequest = sanitizedReq
+                Task { await approveAndRunTool(sanitizedReq) }
+                return
+            }
+
+            if normalizedTool == "read_tasks", !autoApproveReadTasks && !sessionAutoApproveReadTasks {
+                readTasksPromptCount += 1
+                if readTasksPromptCount >= 3 {
+                    displayItems.append(DisplayItem(kind: .aiChat("你最近频繁用到“读取任务列表”，可以去设置 > Lifi AI 打开“自动确认读取任务列表”，减少重复点击。")))
+                    readTasksPromptCount = 0
+                }
+            }
+
             withAnimation(.spring()) {
-                displayItems.append(DisplayItem(kind: .aiThinking(AIToolPresentation.toolCollaborationMessage(for: sanitizedReq.tool))))
+                if !hideThinkingProcess {
+                    displayItems.append(DisplayItem(kind: .aiThinking(AIToolPresentation.toolCollaborationMessage(for: sanitizedReq.tool))))
+                }
                 displayItems.append(DisplayItem(kind: .aiToolRequest(sanitizedReq)))
             }
         case .finish(let payload):
@@ -1136,6 +1420,29 @@ extension AIFunctionView {
             return "{}"
         }
         return json
+    }
+
+    @MainActor
+    private func autoCreateTasksFromProposals(_ proposals: [AITask]) async {
+        guard !proposals.isEmpty else { return }
+        var successCount = 0
+        for proposal in proposals {
+            do {
+                let params = try makeDDLInsertParams(from: proposal)
+                let insertedId = try await TaskRepository.shared.insertDDL(params)
+                let key = makeTaskKey(proposal)
+                addedTaskKeys.insert(key)
+                createdTaskIDsByKey[key] = insertedId
+                successCount += 1
+            } catch {
+                continue
+            }
+        }
+        if successCount > 0 {
+            withAnimation(.spring()) {
+                displayItems.append(DisplayItem(kind: .aiChat("已静默添加 \(successCount) 条任务。若有误可点“撤回任务”。")))
+            }
+        }
     }
 
     @MainActor

@@ -97,6 +97,62 @@ public struct CreateTaskArgs: Codable {
     let name: String
     let dueTime: String?
     let note: String?
+    let tasks: [CreateTaskItemArgs]?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case dueTime
+        case due_time
+        case note
+        case tasks
+    }
+
+    public init(name: String, dueTime: String?, note: String?, tasks: [CreateTaskItemArgs]? = nil) {
+        self.name = name
+        self.dueTime = dueTime
+        self.note = note
+        self.tasks = tasks
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedTasks = try container.decodeIfPresent([CreateTaskItemArgs].self, forKey: .tasks)
+        tasks = decodedTasks
+
+        if let first = decodedTasks?.first {
+            name = first.name
+            dueTime = first.dueTime
+            note = first.note
+        } else {
+            name = try container.decode(String.self, forKey: .name)
+            dueTime = try container.decodeIfPresent(String.self, forKey: .dueTime)
+                ?? container.decodeIfPresent(String.self, forKey: .due_time)
+            note = try container.decodeIfPresent(String.self, forKey: .note)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(dueTime, forKey: .dueTime)
+        try container.encodeIfPresent(note, forKey: .note)
+        try container.encodeIfPresent(tasks, forKey: .tasks)
+    }
+
+    var normalizedItems: [CreateTaskItemArgs] {
+        let fromArray = (tasks ?? []).filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if !fromArray.isEmpty { return fromArray }
+
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        return [CreateTaskItemArgs(name: trimmed, dueTime: dueTime, note: note)]
+    }
+}
+
+public struct CreateTaskItemArgs: Codable {
+    let name: String
+    let dueTime: String?
+    let note: String?
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -170,6 +226,85 @@ public struct UpdateDeadlineArgs: Codable {
 }
 
 public struct CreateHabitArgs: Codable {
+    let name: String
+    let period: String
+    let timesPerPeriod: Int
+    let goalType: String
+    let totalTarget: Int?
+    let habits: [CreateHabitItemArgs]?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case period
+        case timesPerPeriod
+        case times_per_period
+        case goalType
+        case goal_type
+        case totalTarget
+        case total_target
+        case habits
+    }
+
+    public init(name: String, period: String, timesPerPeriod: Int, goalType: String, totalTarget: Int?, habits: [CreateHabitItemArgs]? = nil) {
+        self.name = name
+        self.period = period
+        self.timesPerPeriod = timesPerPeriod
+        self.goalType = goalType
+        self.totalTarget = totalTarget
+        self.habits = habits
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedHabits = try container.decodeIfPresent([CreateHabitItemArgs].self, forKey: .habits)
+        habits = decodedHabits
+        if let first = decodedHabits?.first {
+            name = first.name
+            period = first.period
+            timesPerPeriod = first.timesPerPeriod
+            goalType = first.goalType
+            totalTarget = first.totalTarget
+        } else {
+            name = try container.decode(String.self, forKey: .name)
+            period = try container.decode(String.self, forKey: .period)
+            timesPerPeriod = try container.decodeIfPresent(Int.self, forKey: .timesPerPeriod)
+                ?? container.decode(Int.self, forKey: .times_per_period)
+            goalType = try container.decodeIfPresent(String.self, forKey: .goalType)
+                ?? container.decode(String.self, forKey: .goal_type)
+            totalTarget = try container.decodeIfPresent(Int.self, forKey: .totalTarget)
+                ?? container.decodeIfPresent(Int.self, forKey: .total_target)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(period, forKey: .period)
+        try container.encode(timesPerPeriod, forKey: .timesPerPeriod)
+        try container.encode(goalType, forKey: .goalType)
+        try container.encodeIfPresent(totalTarget, forKey: .totalTarget)
+        try container.encodeIfPresent(habits, forKey: .habits)
+    }
+
+    var normalizedItems: [CreateHabitItemArgs] {
+        let fromArray = (habits ?? []).filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if !fromArray.isEmpty { return fromArray }
+
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        return [
+            CreateHabitItemArgs(
+                name: trimmed,
+                period: period,
+                timesPerPeriod: timesPerPeriod,
+                goalType: goalType,
+                totalTarget: totalTarget
+            )
+        ]
+    }
+}
+
+public struct CreateHabitItemArgs: Codable {
     let name: String
     let period: String
     let timesPerPeriod: Int
@@ -263,8 +398,10 @@ public struct AIToolRequest: Identifiable, Codable {
     var readTasksArgs: ReadTasksArgs? { Self.decodeJSON(ReadTasksArgs.self, from: argsJson) }
     var readHabitsArgs: ReadHabitsArgs? { Self.decodeJSON(ReadHabitsArgs.self, from: argsJson) }
     var createTaskArgs: CreateTaskArgs? { Self.decodeJSON(CreateTaskArgs.self, from: argsJson) }
+    var createTaskItems: [CreateTaskItemArgs] { createTaskArgs?.normalizedItems ?? [] }
     var updateDeadlineArgs: UpdateDeadlineArgs? { Self.decodeJSON(UpdateDeadlineArgs.self, from: argsJson) }
     var createHabitArgs: CreateHabitArgs? { Self.decodeJSON(CreateHabitArgs.self, from: argsJson) }
+    var createHabitItems: [CreateHabitItemArgs] { createHabitArgs?.normalizedItems ?? [] }
 
     private static func decodeJSON<T: Decodable>(_ type: T.Type, from json: String) -> T? {
         guard let data = json.data(using: .utf8) else { return nil }

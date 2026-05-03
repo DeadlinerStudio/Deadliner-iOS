@@ -14,6 +14,7 @@ struct DeadlinerAIPanel: View {
     let embedInNavigationStack: Bool
     let bottomAccessoryInset: CGFloat
     let useSheetDetents: Bool
+    let onScrollProgressChange: ((CGFloat) -> Void)?
     
     @AppStorage("userTier") private var userTier: UserTier = .free
     
@@ -37,12 +38,14 @@ struct DeadlinerAIPanel: View {
         showsDismissButton: Bool = true,
         embedInNavigationStack: Bool = true,
         bottomAccessoryInset: CGFloat = 0,
-        useSheetDetents: Bool = true
+        useSheetDetents: Bool = true,
+        onScrollProgressChange: ((CGFloat) -> Void)? = nil
     ) {
         self.showsDismissButton = showsDismissButton
         self.embedInNavigationStack = embedInNavigationStack
         self.bottomAccessoryInset = bottomAccessoryInset
         self.useSheetDetents = useSheetDetents
+        self.onScrollProgressChange = onScrollProgressChange
     }
 
     private var panelContent: some View {
@@ -60,7 +63,8 @@ struct DeadlinerAIPanel: View {
                 AIFunctionView(
                     userTier: userTier,
                     bottomAccessoryInset: bottomAccessoryInset,
-                    useSheetDetents: useSheetDetents
+                    useSheetDetents: useSheetDetents,
+                    onScrollProgressChange: onScrollProgressChange
                 )
             }
         }

@@ -12,6 +12,9 @@ struct AISettingsView: View {
 
     @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("settings.ai.enabled") private var aiEnabled: Bool = true
+    @AppStorage("settings.ai.auto_approve_read_tasks") private var autoApproveReadTasks: Bool = false
+    @AppStorage("settings.ai.silent_task_add") private var silentTaskAdd: Bool = true
+    @AppStorage("settings.ai.hide_thinking_process") private var hideThinkingProcess: Bool = false
     
     @State private var apiKey = ""
     @State private var baseUrl = ""
@@ -37,6 +40,16 @@ struct AISettingsView: View {
                 } else {
                     Text("关闭后，主页底栏和任务编辑器中的 AI 相关入口将隐藏。")
                 }
+            }
+
+            Section {
+                Toggle("自动确认读取任务列表", isOn: $autoApproveReadTasks)
+                Toggle("静默添加任务", isOn: $silentTaskAdd)
+                Toggle("隐藏思考过程", isOn: $hideThinkingProcess)
+            } header: {
+                Text("交互偏好")
+            } footer: {
+                Text("开启静默添加后，识别到的新任务会直接写入；任务按钮会变为“撤回任务”。关闭后会保留手动确认。")
             }
             
             Section("API 配置 (BYOK)") {

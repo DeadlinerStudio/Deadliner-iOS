@@ -113,9 +113,13 @@ enum AIToolPresentation {
             let keywords = (args.keywords ?? []).joined(separator: "、")
             return "范围：未来 \(days) 天 · 状态：\(status)\(keywords.isEmpty ? "" : " · 关键词：\(keywords)")"
         case "create_task":
-            guard let args = req.createTaskArgs else { return nil }
-            let due = args.dueTime?.isEmpty == false ? args.dueTime! : "未指定"
-            return "任务：\(args.name) · 截止：\(due)"
+            let items = req.createTaskItems
+            guard !items.isEmpty else { return nil }
+            if items.count == 1 {
+                let due = items[0].dueTime?.isEmpty == false ? items[0].dueTime! : "未指定"
+                return "任务：\(items[0].name) · 截止：\(due)"
+            }
+            return "批量任务：共 \(items.count) 条"
         case "update_deadline":
             guard let args = req.updateDeadlineArgs else { return nil }
             return "任务ID：\(args.taskId) · 新截止：\(args.newDueTime)"
@@ -123,8 +127,12 @@ enum AIToolPresentation {
             let keywords = (req.readHabitsArgs?.keywords ?? []).joined(separator: "、")
             return keywords.isEmpty ? "范围：全部习惯" : "关键词：\(keywords)"
         case "create_habit":
-            guard let args = req.createHabitArgs else { return nil }
-            return "习惯：\(args.name) · 周期：\(args.period) / \(args.timesPerPeriod) 次"
+            let items = req.createHabitItems
+            guard !items.isEmpty else { return nil }
+            if items.count == 1 {
+                return "习惯：\(items[0].name) · 周期：\(items[0].period) / \(items[0].timesPerPeriod) 次"
+            }
+            return "批量习惯：共 \(items.count) 条"
         default:
             return nil
         }

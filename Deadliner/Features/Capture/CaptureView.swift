@@ -258,7 +258,7 @@ struct CaptureInboxView: View {
                 Button {
                     conversionRequest = singleConversionRequest(kind: .aiTask, item: item)
                 } label: {
-                    Label("AI 任务", image: "lifi.logo.v1")
+                    Label("AI 任务", image: "sparkles")
                 }
                 .tint(.blue)
             }

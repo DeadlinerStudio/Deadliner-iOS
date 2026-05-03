@@ -215,7 +215,8 @@ struct RichAITabView: View {
                 showsDismissButton: false,
                 embedInNavigationStack: false,
                 bottomAccessoryInset: 16,
-                useSheetDetents: false
+                useSheetDetents: false,
+                onScrollProgressChange: { overlayProgress = $0 }
             )
             .toolbarBackground(.hidden, for: .navigationBar)
             .background {

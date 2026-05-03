@@ -24,6 +24,7 @@
 		E5A859692F9F8C8500C850B5 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = E5A859682F9F8C8500C850B5 /* Lottie */; };
 		E5B68B692F4B493500E603F3 /* DeadlinerBlackGold.icon in Resources */ = {isa = PBXBuildFile; fileRef = E5B68B672F4B493500E603F3 /* DeadlinerBlackGold.icon */; };
 		E5B68B6A2F4B493500E603F3 /* DeadlinerPixel.icon in Resources */ = {isa = PBXBuildFile; fileRef = E5B68B682F4B493500E603F3 /* DeadlinerPixel.icon */; };
+		E5C87EC12FA3B01F00419F89 /* DeadlinerMono.icon in Resources */ = {isa = PBXBuildFile; fileRef = E5C87EC02FA3B01F00419F89 /* DeadlinerMono.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,6 +87,7 @@
 		E5A856482F99377700C850B5 /* LifiAI.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = LifiAI.icon; sourceTree = "<group>"; };
 		E5B68B672F4B493500E603F3 /* DeadlinerBlackGold.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DeadlinerBlackGold.icon; sourceTree = "<group>"; };
 		E5B68B682F4B493500E603F3 /* DeadlinerPixel.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DeadlinerPixel.icon; sourceTree = "<group>"; };
+		E5C87EC02FA3B01F00419F89 /* DeadlinerMono.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DeadlinerMono.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -255,6 +257,7 @@
 				E5A1475A2F512B7D001845F7 /* DeadlinerSummer.icon */,
 				E5A1475D2F51DFA3001845F7 /* DeadlinerAutumn.icon */,
 				E5A1475F2F51E766001845F7 /* DeadlinerWinter.icon */,
+				E5C87EC02FA3B01F00419F89 /* DeadlinerMono.icon */,
 			);
 			path = Icons;
 			sourceTree = "<group>";
@@ -425,6 +428,7 @@
 				E5A147602F51E766001845F7 /* DeadlinerWinter.icon in Resources */,
 				E52763CF2F42F09F002162DF /* DeadlinerDefault.icon in Resources */,
 				E5A1475B2F512B7D001845F7 /* DeadlinerSummer.icon in Resources */,
+				E5C87EC12FA3B01F00419F89 /* DeadlinerMono.icon in Resources */,
 				E5A856492F99377800C850B5 /* LifiAI.icon in Resources */,
 				E5A1475C2F512B7D001845F7 /* DeadlinerSpring.icon in Resources */,
 			);
@@ -628,7 +632,7 @@
 		E52763062F3F618B002162DF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "DeadlinerBlackGold DeadlinerPixel";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "DeadlinerMono DeadlinerBlackGold DeadlinerPixel LifiAI DeadlinerSpring DeadlinerSummer DeadlinerAutumn DeadlinerWinter";
 				ASSETCATALOG_COMPILER_APPICON_NAME = DeadlinerDefault;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -675,7 +679,7 @@
 		E52763072F3F618B002162DF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "DeadlinerBlackGold DeadlinerPixel";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "DeadlinerMono DeadlinerBlackGold DeadlinerPixel LifiAI DeadlinerSpring DeadlinerSummer DeadlinerAutumn DeadlinerWinter";
 				ASSETCATALOG_COMPILER_APPICON_NAME = DeadlinerDefault;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -819,7 +823,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = top.aritxonly.deadliner.DeadlinerWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -855,7 +859,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = top.aritxonly.deadliner.DeadlinerWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

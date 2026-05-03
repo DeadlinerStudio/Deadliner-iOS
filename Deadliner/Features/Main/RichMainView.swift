@@ -107,6 +107,7 @@ struct RichMainView: View {
         .tabBarMinimizeBehavior(.onScrollDown)
         .animation(.smooth(duration: 0.28, extraBounce: 0), value: selectedTab)
         .onChange(of: selectedTab) { _, newTab in
+            navGradientProgress = 0
             resetScroll(for: newTab)
         }
         .sheet(isPresented: $showAddEntrySheet) {

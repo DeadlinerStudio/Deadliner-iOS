@@ -49,6 +49,9 @@ actor LocalValues {
         static let aiUseHosted = "settings.ai.use_hosted"
         static let aiConfigured = "settings.ai.is_configured"
         static let aiEnabled = "settings.ai.enabled"
+        static let aiAutoApproveReadTasks = "settings.ai.auto_approve_read_tasks"
+        static let aiSilentTaskAdd = "settings.ai.silent_task_add"
+        static let aiHideThinkingProcess = "settings.ai.hide_thinking_process"
         
         static let progressDir = "settings.progress.dir"
         static let overviewCardOrder = "settings.overview.card_order"
@@ -86,6 +89,9 @@ actor LocalValues {
             Key.aiUseHosted: false,
             Key.aiConfigured: false,
             Key.aiEnabled: true,
+            Key.aiAutoApproveReadTasks: false,
+            Key.aiSilentTaskAdd: true,
+            Key.aiHideThinkingProcess: false,
             Key.progressDir: false
         ])
     }
@@ -296,6 +302,9 @@ actor LocalValues {
             Key.aiUseHosted,
             Key.aiConfigured,
             Key.aiEnabled,
+            Key.aiAutoApproveReadTasks,
+            Key.aiSilentTaskAdd,
+            Key.aiHideThinkingProcess,
             Key.progressDir,
             Key.onboardingHasSeen,
             Key.onboardingShowOnNextLaunch

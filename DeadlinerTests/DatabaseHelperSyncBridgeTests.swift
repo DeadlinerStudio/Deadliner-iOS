@@ -442,4 +442,54 @@ final class DatabaseHelperSyncBridgeTests: XCTestCase {
         }
         wait(for: [exp], timeout: 2.0)
     }
+
+    func testDailyHabitCanCheckInMultipleTimesInSameDayUntilTarget() throws {
+        let exp = expectation(description: "daily multi check-in")
+        Task {
+            do {
+                let ddlId = try await DatabaseHelper.shared.insertDDL(.init(
+                    name: "Daily Multi Habit Carrier",
+                    startTime: "2026-05-01T08:00:00",
+                    endTime: "2026-05-01T09:00:00",
+                    state: .active,
+                    completeTime: "",
+                    note: "",
+                    isStared: false,
+                    subTasks: [],
+                    type: .habit,
+                    calendarEventId: nil
+                ))
+
+                let habitId = try await HabitRepository.shared.createHabitForDdl(
+                    ddlId: ddlId,
+                    name: "Drink Water",
+                    period: .daily,
+                    timesPerPeriod: 3
+                )
+
+                let day = Date()
+
+                try await HabitRepository.shared.toggleRecord(habitId: habitId, date: day)
+                var records = try await HabitRepository.shared.getRecordsForHabitOnDate(habitId: habitId, date: day)
+                XCTAssertEqual(records.reduce(0) { $0 + $1.count }, 1)
+
+                try await HabitRepository.shared.toggleRecord(habitId: habitId, date: day)
+                records = try await HabitRepository.shared.getRecordsForHabitOnDate(habitId: habitId, date: day)
+                XCTAssertEqual(records.reduce(0) { $0 + $1.count }, 2)
+
+                try await HabitRepository.shared.toggleRecord(habitId: habitId, date: day)
+                records = try await HabitRepository.shared.getRecordsForHabitOnDate(habitId: habitId, date: day)
+                XCTAssertEqual(records.reduce(0) { $0 + $1.count }, 3)
+
+                try await HabitRepository.shared.toggleRecord(habitId: habitId, date: day)
+                records = try await HabitRepository.shared.getRecordsForHabitOnDate(habitId: habitId, date: day)
+                XCTAssertEqual(records.reduce(0) { $0 + $1.count }, 0)
+
+                exp.fulfill()
+            } catch {
+                XCTFail("failed: \(error)")
+            }
+        }
+        wait(for: [exp], timeout: 3.0)
+    }
 }
