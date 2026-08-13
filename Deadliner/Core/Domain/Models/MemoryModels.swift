@@ -43,7 +43,7 @@ final class MemoryBank: ObservableObject {
             let persisted = try await PersistenceStores.memories.fragments()
             fragments = persisted.sorted { $0.timestamp > $1.timestamp }
             let database = await KMPPersistenceRuntime.shared.coreDatabase()
-            userProfile = database.profiles.getProfile() ?? ""
+            userProfile = database.memory.getUserProfile()
         } catch {
             AILog.log("[KMP] Memory refresh failed: \(error.localizedDescription)")
         }
@@ -70,7 +70,7 @@ final class MemoryBank: ObservableObject {
         userProfile = trimmed
         _Concurrency.Task {
             let database = await KMPPersistenceRuntime.shared.coreDatabase()
-            database.profiles.updateProfile(profileText: trimmed)
+            database.memory.updateUserProfile(profile: trimmed)
         }
     }
 
@@ -125,7 +125,7 @@ final class MemoryBank: ObservableObject {
                     try await PersistenceStores.memories.deleteMemory(uid: fragment.id.uuidString, updatedAt: Date())
                 }
                 let database = await KMPPersistenceRuntime.shared.coreDatabase()
-                database.profiles.updateProfile(profileText: "")
+                database.memory.updateUserProfile(profile: "")
             } catch {
                 await self.refresh()
             }
@@ -155,9 +155,9 @@ final class MemoryBank: ObservableObject {
             try await PersistenceStores.memories.importLegacyMemories(legacySnapshot.fragments)
             let database = await KMPPersistenceRuntime.shared.coreDatabase()
             let importedProfile: Bool
-            if database.profiles.getProfile() == nil,
+            if database.memory.getUserProfile().isEmpty,
                !legacySnapshot.profile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                database.profiles.updateProfile(profileText: legacySnapshot.profile)
+                database.memory.updateUserProfile(profile: legacySnapshot.profile)
                 importedProfile = true
             } else {
                 importedProfile = false
