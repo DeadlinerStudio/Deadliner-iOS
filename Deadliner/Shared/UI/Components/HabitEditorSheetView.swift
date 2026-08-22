@@ -14,6 +14,7 @@ struct HabitDraft: Equatable {
     var name: String
     var description: String
     var period: HabitPeriod
+    var weekdaysMask: Int = 127
     var goalType: HabitGoalType
     var timesPerPeriod: String
     var totalTarget: String
@@ -24,6 +25,7 @@ struct HabitDraft: Equatable {
             name: "",
             description: "",
             period: .daily,
+            weekdaysMask: HabitWeekdaySelection.allDaysMask,
             goalType: .perPeriod,
             timesPerPeriod: "1",
             totalTarget: "100",
@@ -36,6 +38,7 @@ struct HabitDraft: Equatable {
             name: h.name,
             description: h.description ?? "",
             period: h.period,
+            weekdaysMask: h.weekdaysMask,
             goalType: h.goalType,
             timesPerPeriod: String(h.timesPerPeriod),
             totalTarget: String(h.totalTarget ?? 100),
@@ -71,6 +74,7 @@ struct HabitEditorSheetView: View {
     @State private var name: String
     @State private var description: String
     @State private var period: HabitPeriod
+    @State private var weekdaysMask: Int
     @State private var goalType: HabitGoalType
     @State private var timesPerPeriod: String
     @State private var totalTarget: String
@@ -114,6 +118,7 @@ struct HabitEditorSheetView: View {
         _name = State(initialValue: initialDraft.name)
         _description = State(initialValue: initialDraft.description)
         _period = State(initialValue: initialDraft.period)
+        _weekdaysMask = State(initialValue: initialDraft.weekdaysMask)
         _goalType = State(initialValue: initialDraft.goalType)
         _timesPerPeriod = State(initialValue: initialDraft.timesPerPeriod)
         _totalTarget = State(initialValue: initialDraft.totalTarget)
@@ -225,6 +230,12 @@ struct HabitEditorSheetView: View {
                     }
                     .pickerStyle(.segmented)
                 }
+
+                if period != .ebbinghaus {
+                    Section("执行日") {
+                        HabitWeekdaySelection(mask: $weekdaysMask)
+                    }
+                }
                 
                 if period != .ebbinghaus {
                     Section("目标设置") {
@@ -270,7 +281,7 @@ struct HabitEditorSheetView: View {
                 }
                 
                 Section("提醒") {
-                    Toggle("每日打卡提醒", isOn: $isReminderEnabled)
+                    Toggle("按执行日提醒", isOn: $isReminderEnabled)
                     
                     if isReminderEnabled {
                         DatePicker("提醒时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
@@ -391,23 +402,18 @@ struct HabitEditorSheetView: View {
             }
             
             name = firstHabit.name
-            
-            // 解析周期
-            if let p = HabitPeriod(rawValue: firstHabit.period.uppercased()) {
-                period = p
-            } else if firstHabit.period.contains("艾宾浩斯") {
-                period = .ebbinghaus
-            }
-            
+            period = HabitPeriod(rawValue: firstHabit.period.uppercased()) ?? .daily
+            weekdaysMask = firstHabit.weekdaysMask ?? HabitWeekdaySelection.allDaysMask
             timesPerPeriod = String(firstHabit.timesPerPeriod)
-            
-            // 解析目标类型
-            if let g = HabitGoalType(rawValue: firstHabit.goalType.uppercased()) {
-                goalType = g
-            }
-            
+            goalType = HabitGoalType(rawValue: firstHabit.goalType.uppercased()) ?? .perPeriod
             if let total = firstHabit.totalTarget {
                 totalTarget = String(total)
+            }
+
+            if let alarmTime = firstHabit.alarmTime,
+               let parsedTime = Self.parseAlarmTime(alarmTime) {
+                isReminderEnabled = true
+                reminderTime = parsedTime
             }
             
             showToast("✨ AI 解析完成")
@@ -445,6 +451,7 @@ struct HabitEditorSheetView: View {
                 _ = try await habitRepository.createHabitWithCarrier(
                     name: trimmedName,
                     period: period,
+                    weekdaysMask: weekdaysMask,
                     timesPerPeriod: Int(timesPerPeriod) ?? 1,
                     goalType: goalType,
                     totalTarget: goalType == .total ? (Int(totalTarget) ?? 100) : nil,
@@ -466,6 +473,7 @@ struct HabitEditorSheetView: View {
                 updatedHabit.name = trimmedName
                 updatedHabit.description = description
                 updatedHabit.period = period
+                updatedHabit.weekdaysMask = weekdaysMask
                 updatedHabit.timesPerPeriod = Int(timesPerPeriod) ?? 1
                 updatedHabit.goalType = goalType
                 updatedHabit.totalTarget = goalType == .total ? (Int(totalTarget) ?? 100) : nil
@@ -498,5 +506,76 @@ struct HabitEditorSheetView: View {
             print("HabitEditorSheetView category reload failed: \(error)")
             // Keep existing category cache on transient failures.
         }
+    }
+}
+
+private struct HabitWeekdaySelection: View {
+    static let allDaysMask = 0b1111111
+    private static let workdaysMask = 0b0011111
+    private static let weekendMask = 0b1100000
+
+    @Binding var mask: Int
+
+    private let weekdays = ["一", "二", "三", "四", "五", "六", "日"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("常用", selection: presetSelection) {
+                Text("每天").tag(Self.allDaysMask)
+                Text("工作日").tag(Self.workdaysMask)
+                Text("周末").tag(Self.weekendMask)
+                Text("自定义").tag(0)
+            }
+            .pickerStyle(.segmented)
+
+            HStack(spacing: 8) {
+                ForEach(weekdays.indices, id: \.self) { index in
+                    let selected = contains(index)
+                    Button {
+                        toggle(index)
+                    } label: {
+                        Text(weekdays[index])
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 34)
+                            .foregroundStyle(selected ? Color.white : Color.primary)
+                            .background(selected ? Color.accentColor : Color.secondary.opacity(0.14))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("周\(weekdays[index])")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+
+            Text("提醒与打卡只会在选中的日期生效")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var presetSelection: Binding<Int> {
+        Binding(
+            get: {
+                switch mask {
+                case Self.allDaysMask, Self.workdaysMask, Self.weekendMask: mask
+                default: 0
+                }
+            },
+            set: { selected in
+                guard selected != 0 else { return }
+                mask = selected
+            }
+        )
+    }
+
+    private func contains(_ index: Int) -> Bool {
+        mask & (1 << index) != 0
+    }
+
+    private func toggle(_ index: Int) {
+        let updated = mask ^ (1 << index)
+        guard updated != 0 else { return }
+        mask = updated
     }
 }

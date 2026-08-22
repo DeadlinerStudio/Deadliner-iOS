@@ -65,8 +65,17 @@ enum KMPWidgetSnapshotReader {
 
         let sourceHabits = database.habits.list()
         let habits = sourceHabits.filter { !$0.isDeleted && $0.status == .active }
-        let habitSummary = habitSummary(for: habits, database: database, today: now)
-        let dueHabitCount = habits.filter { isHabitDueToday($0, on: now, calendar: .current) }.count
+        let habitOverview = HabitProgressEngine.shared.dayOverview(
+            habits: habits,
+            records: database.habits.allRecords(),
+            on: localDate(now)
+        )
+        let dueHabitCount = Int(habitOverview.dueHabitCount)
+        let completedHabitCount = Int(habitOverview.completedHabitCount)
+        let habitSummary = (
+            remaining: max(0, dueHabitCount - completedHabitCount),
+            total: dueHabitCount
+        )
         print(
             "[KMP][Widget] habits source=\(sourceHabits.count) visible=\(habits.count) "
                 + "deleted=\(sourceHabits.filter(\.isDeleted).count) "
@@ -161,75 +170,18 @@ enum KMPWidgetSnapshotReader {
         return max(0, Int(ceil(dueDate.timeIntervalSince(now) / 3600)))
     }
 
-    private static func habitSummary(
-        for habits: [Habit_],
-        database: DeadlinerDatabase,
-        today: Date
-    ) -> (remaining: Int, total: Int) {
-        let calendar = Calendar.current
-        return habits.reduce(into: (remaining: 0, total: 0)) { summary, habit in
-            guard isHabitDueToday(habit, on: today, calendar: calendar) else { return }
-            let records = database.habits.records(habitUid: habit.uid).filter {
-                !$0.isDeleted && $0.status == .completed
-            }
-            let completed: Int
-            let target: Int
-            if habit.goalType == .total {
-                completed = records.filter { $0.occurredOn <= dayString(today) }.reduce(0) { $0 + Int($1.count) }
-                let configuredTarget = habit.totalTarget.map { Int($0.intValue) } ?? completed
-                target = max(1, configuredTarget)
-            } else {
-                let bounds = periodBounds(for: habit.period, today: today, calendar: calendar)
-                let start = dayString(bounds.start)
-                let end = dayString(bounds.end)
-                completed = records.filter { $0.occurredOn >= start && $0.occurredOn <= end }
-                    .reduce(0) { $0 + Int($1.count) }
-                target = max(1, Int(habit.timesPerPeriod))
-            }
-            summary.total += 1
-            if completed < target { summary.remaining += 1 }
-        }
-    }
-
-    private static func isHabitDueToday(_ habit: Habit_, on date: Date, calendar: Calendar) -> Bool {
-        guard habit.period == .ebbinghaus, let createdAt = parseDate(habit.createdAt) else { return true }
-        let days = calendar.dateComponents(
-            [.day],
-            from: calendar.startOfDay(for: createdAt),
-            to: calendar.startOfDay(for: date)
-        ).day ?? 0
-        return [0, 1, 2, 4, 7, 15, 30, 60].contains(days)
-    }
-
-    private static func periodBounds(
-        for period: Shared.HabitPeriod,
-        today: Date,
-        calendar: Calendar
-    ) -> (start: Date, end: Date) {
-        let day = calendar.startOfDay(for: today)
-        switch period {
-        case .weekly:
-            let start = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: day)) ?? day
-            return (start, calendar.date(byAdding: .day, value: 6, to: start) ?? day)
-        case .monthly:
-            let start = calendar.date(from: calendar.dateComponents([.year, .month], from: day)) ?? day
-            return (start, calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start) ?? day)
-        default:
-            return (day, day)
-        }
-    }
-
     private static func parseDate(_ value: String) -> Date? {
         ISO8601DateFormatter().date(from: value)
             ?? ISO8601DateFormatter().date(from: value + "Z")
     }
 
-    private static func dayString(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = .current
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+    private static func localDate(_ date: Date) -> Kotlinx_datetimeLocalDate {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return Kotlinx_datetimeLocalDate(
+            year: Int32(components.year ?? 1970),
+            month: Int32(components.month ?? 1),
+            day: Int32(components.day ?? 1)
+        )
     }
 
 }

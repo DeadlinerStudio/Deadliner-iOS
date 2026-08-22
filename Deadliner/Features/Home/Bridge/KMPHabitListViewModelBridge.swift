@@ -31,6 +31,14 @@ final class KMPHabitListViewModelBridge {
         bridge.refresh()
     }
 
+    func selectDate(_ rawDate: String) {
+        bridge.selectDate(rawDate: rawDate)
+    }
+
+    func applyPrimaryAction(habitUID: String) {
+        bridge.applyPrimaryAction(habitUid: habitUID)
+    }
+
     deinit {
         bridge.close()
     }

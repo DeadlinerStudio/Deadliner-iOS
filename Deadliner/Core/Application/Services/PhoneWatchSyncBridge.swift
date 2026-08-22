@@ -164,30 +164,39 @@ final class PhoneWatchSyncBridge: NSObject, ObservableObject {
     }
 
     private func buildHabitPage() async -> WatchBoardSyncPage {
-        let calendar = Calendar.current
         let store = await KMPPersistenceRuntime.shared.habitStore()
         let sourceHabits = await store.allHabits()
         let habits = sourceHabits.filter { !$0.isDeleted && $0.status == .active }
+        let records = await store.allRecords()
+        let now = Date()
+        let statuses = HabitPresentationEngine.shared.statuses(
+            habits: habits,
+            records: records,
+            rawDate: now.toDateString(),
+            today: watchLocalDate(now)
+        )
+        let visibleStatuses = statuses.filter {
+            $0.habit.goal.window != .scheduledDay || $0.scheduleState.isDue
+        }
         let archivedCount = sourceHabits.filter { $0.status == .archived }.count
         SyncDebugLog.log(
-            "[KMP][Watch] habits liveSource=\(sourceHabits.count) visible=\(habits.count) "
+            "[KMP][Watch] habits liveSource=\(sourceHabits.count) visible=\(visibleStatuses.count) "
                 + "hiddenArchived=\(archivedCount)"
         )
 
-        var items: [WatchBoardSyncItem] = []
-        for habit in habits {
-            let records = await store.records(habitUID: habit.uid)
-            guard let snapshot = habitSnapshot(for: habit, records: records, calendar: calendar) else { continue }
-            items.append(
-                WatchBoardSyncItem(
-                    id: habit.uid,
-                    title: habit.name,
-                    subtitle: snapshot.periodLabel,
-                    badgeText: "\(snapshot.doneCount)/\(snapshot.targetCount)",
-                    isCompleted: snapshot.isCompleted,
-                    isUrgent: false,
-                    isOverdue: false
-                )
+        let items = visibleStatuses.map { status in
+            let projection = HabitSharedPresentationMapper.projection(status)
+            return WatchBoardSyncItem(
+                id: status.habit.uid,
+                title: status.habit.name,
+                subtitle: projection.scheduleHintText.isEmpty
+                    ? projection.scheduleLabel
+                    : projection.scheduleHintText,
+                badgeText: projection.progressText,
+                isCompleted: status.isCompleted,
+                isUrgent: false,
+                isOverdue: false,
+                canApplyPrimaryAction: status.canApplyPrimaryAction || status.isCompleted
             )
         }
 
@@ -314,7 +323,19 @@ final class PhoneWatchSyncBridge: NSObject, ObservableObject {
         case .habitToggle(let uid):
             do {
                 let store = await KMPPersistenceRuntime.shared.habitStore()
-                try await store.toggleRecord(habitUID: uid, date: Date())
+                guard let habit = await store.habit(uid: uid), !habit.isDeleted else { return }
+                let now = Date()
+                let status = HabitPresentationEngine.shared.statuses(
+                    habits: [habit],
+                    records: await store.records(habitUID: uid),
+                    rawDate: now.toDateString(),
+                    today: watchLocalDate(now)
+                ).first
+                if status?.isCompleted == true {
+                    try await store.clearRecords(habitUID: uid, date: now)
+                } else if status?.canApplyPrimaryAction == true {
+                    try await store.applyPrimaryRecordAction(habitUID: uid, date: now)
+                }
             } catch {
                 SyncDebugLog.log("Watch habit toggle failed: \(error.localizedDescription)")
             }
@@ -465,105 +486,17 @@ private extension Task_ {
     }
 }
 
-private extension Habit_ {
-    func watchArchivedCopy() -> Habit_ {
-        Habit_(
-            uid: uid,
-            name: name,
-            description: description_,
-            color: color,
-            iconKey: iconKey,
-            categoryUid: categoryUid,
-            period: period,
-            timesPerPeriod: timesPerPeriod,
-            goalType: goalType,
-            totalTarget: totalTarget,
-            status: .archived,
-            sortOrder: sortOrder,
-            reminder: reminder,
-            createdAt: createdAt,
-            updatedAt: Date().toLocalISOString(),
-            isDeleted: isDeleted
-        )
-    }
-}
-
 private func relativeDateText(for date: Date) -> String {
     let formatter = RelativeDateTimeFormatter()
     formatter.unitsStyle = .short
     return formatter.localizedString(for: date, relativeTo: Date())
 }
 
-private func habitSnapshot(
-    for habit: Habit_,
-    records: [KMPHabitRecord],
-    calendar: Calendar
-) -> (doneCount: Int, targetCount: Int, isCompleted: Bool, periodLabel: String)? {
-    let today = calendar.startOfDay(for: Date())
-    guard isHabitDueToday(habit, on: today, calendar: calendar) else { return nil }
-
-    let completedRecords = records.filter { !$0.isDeleted && $0.status == .completed }
-    if habit.goalType == .total {
-        let todayString = dayString(for: today)
-        let doneCount = completedRecords
-            .filter { $0.occurredOn <= todayString }
-            .reduce(0) { $0 + Int($1.count) }
-        let target = habit.totalTarget.map { max(1, Int($0.intValue)) } ?? max(1, doneCount)
-        return (doneCount, target, doneCount >= target, String(localized: "watch.board.page.habits.count-caption", defaultValue: "remaining / total"))
-    }
-
-    let period = habit.period
-    let bounds = periodBounds(for: period, today: today, calendar: calendar)
-    let startString = dayString(for: bounds.start)
-    let endString = dayString(for: bounds.end)
-    let doneCount = completedRecords
-        .filter { $0.occurredOn >= startString && $0.occurredOn <= endString }
-        .reduce(0) { $0 + Int($1.count) }
-    let target = max(1, Int(habit.timesPerPeriod))
-    return (doneCount, target, doneCount >= target, localizedPeriod(period))
-}
-
-private func isHabitDueToday(_ habit: Habit_, on date: Date, calendar: Calendar) -> Bool {
-    guard habit.period == .ebbinghaus else { return true }
-    guard let createdAt = DeadlineDateParser.safeParseOptional(habit.createdAt) else { return true }
-    let curve = [0, 1, 2, 4, 7, 15, 30, 60]
-    let diffDays = calendar.dateComponents([.day], from: calendar.startOfDay(for: createdAt), to: date).day ?? 0
-    return curve.contains(diffDays)
-}
-
-private func periodBounds(for period: Shared.HabitPeriod, today: Date, calendar: Calendar) -> (start: Date, end: Date) {
-    let day = calendar.startOfDay(for: today)
-    switch period {
-    case .daily, .once, .ebbinghaus:
-        return (day, day)
-    case .weekly:
-        let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: day)
-        let start = calendar.date(from: components) ?? day
-        let end = calendar.date(byAdding: .day, value: 6, to: start) ?? day
-        return (start, end)
-    case .monthly:
-        let components = calendar.dateComponents([.year, .month], from: day)
-        let start = calendar.date(from: components) ?? day
-        let end = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start) ?? day
-        return (start, end)
-    default:
-        return (day, day)
-    }
-}
-
-private func dayString(for date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "yyyy-MM-dd"
-    return formatter.string(from: date)
-}
-
-private func localizedPeriod(_ period: Shared.HabitPeriod) -> String {
-    switch period {
-    case .daily: return String(localized: "watch.board.period.daily", defaultValue: "Daily")
-    case .weekly: return String(localized: "watch.board.period.weekly", defaultValue: "Weekly")
-    case .monthly: return String(localized: "watch.board.period.monthly", defaultValue: "Monthly")
-    case .once: return String(localized: "watch.board.period.once", defaultValue: "Once")
-    case .ebbinghaus: return String(localized: "watch.board.period.ebbinghaus", defaultValue: "Review")
-    default: return String(localized: "watch.board.period.daily", defaultValue: "Daily")
-    }
+private func watchLocalDate(_ date: Date) -> Kotlinx_datetimeLocalDate {
+    let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+    return Kotlinx_datetimeLocalDate(
+        year: Int32(components.year ?? 1970),
+        month: Int32(components.month ?? 1),
+        day: Int32(components.day ?? 1)
+    )
 }

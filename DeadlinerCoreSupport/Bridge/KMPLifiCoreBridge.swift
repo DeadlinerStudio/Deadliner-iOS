@@ -376,12 +376,22 @@ private extension AiTaskProposal {
 
 private extension AiHabitProposal {
     var appHabit: AIHabit {
-        AIHabit(
+        let period: String = {
+            if schedule.kind == .once { return "ONCE" }
+            if schedule.kind == .algorithm { return "EBBINGHAUS" }
+            if goal.window == .week { return "WEEKLY" }
+            if goal.window == .month { return "MONTHLY" }
+            return "DAILY"
+        }()
+        let isLifetime = goal.window == .lifetime
+        return AIHabit(
             name: name,
-            period: period.name,
-            timesPerPeriod: Int(timesPerPeriod),
-            goalType: goalType.name,
-            totalTarget: totalTarget.map { Int($0.intValue) }
+            period: period,
+            timesPerPeriod: Int(goal.targetCount),
+            goalType: isLifetime ? "TOTAL" : "PER_PERIOD",
+            totalTarget: isLifetime ? Int(goal.targetCount) : nil,
+            weekdaysMask: schedule.weekdaysMask.map { Int($0.intValue) },
+            alarmTime: reminder?.isEnabled == true ? reminder?.localTime : nil
         )
     }
 }

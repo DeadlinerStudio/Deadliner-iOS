@@ -314,25 +314,9 @@ struct ArchiveView: View {
     }
     
     private func formatHabitDetail(_ habit: Habit) -> String {
-        let periodStr: String = {
-            switch habit.period {
-            case .daily: return "每日"
-            case .weekly: return "每周"
-            case .monthly: return "每月"
-            case .ebbinghaus: return "艾宾浩斯"
-            default: return "习惯"
-            }
-        }()
-        
-        let goalStr: String = {
-            if habit.goalType == .total {
-                return "总目标 \(habit.totalTarget ?? 0)"
-            } else {
-                return "\(habit.timesPerPeriod)次"
-            }
-        }()
-        
-        return "\(periodStr) · \(goalStr)"
+        let schedule = HabitSharedPresentationMapper.scheduleLabel(for: habit)
+        if habit.goalType == .total { return schedule }
+        return "\(schedule) · 目标 \(max(1, habit.timesPerPeriod))"
     }
 
     private func archivedTaskDetail(for item: DDLItem) -> String {

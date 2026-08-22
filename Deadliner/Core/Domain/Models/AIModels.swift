@@ -21,6 +21,26 @@ public struct AIHabit: Codable {
     let timesPerPeriod: Int
     let goalType: String
     let totalTarget: Int?
+    let weekdaysMask: Int?
+    let alarmTime: String?
+
+    init(
+        name: String,
+        period: String,
+        timesPerPeriod: Int,
+        goalType: String,
+        totalTarget: Int?,
+        weekdaysMask: Int? = nil,
+        alarmTime: String? = nil
+    ) {
+        self.name = name
+        self.period = period
+        self.timesPerPeriod = timesPerPeriod
+        self.goalType = goalType
+        self.totalTarget = totalTarget
+        self.weekdaysMask = weekdaysMask
+        self.alarmTime = alarmTime
+    }
 }
 
 public struct MixedResult: Codable {

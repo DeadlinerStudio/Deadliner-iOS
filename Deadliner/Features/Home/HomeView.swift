@@ -473,18 +473,19 @@ struct HomeBoardCoreView: View {
         } else {
             ForEach(state.habitRows) { row in
                 FloatUpRow(index: row.index + 1, maxLoad: 15, enable: true, animateToken: enterAnimToken) {
-                    let ebState = vm.getEbbinghausState(habit: row.item.habit, targetDate: vm.selectedDate)
                     HabitItemCard(
                         habit: row.item.habit,
                         doneCount: row.item.doneCount,
                         targetCount: row.item.targetCount,
                         isCompleted: row.item.isCompleted,
                         status: row.item.isCompleted ? .completed : .undergo,
-                        remainingText: ebState.text,
+                        remainingText: row.item.scheduleHintText,
+                        sharedProgressText: row.item.progressText,
+                        sharedScheduleLabel: row.item.scheduleLabel,
                         categoryBadge: row.categoryBadge,
                         isSelected: selection.containsHabit(row.item.habit.id),
                         selectionMode: selectionMode,
-                        canToggle: (Calendar.current.startOfDay(for: vm.selectedDate) <= Calendar.current.startOfDay(for: Date())) && ebState.isDue,
+                        canToggle: row.item.canApplyPrimaryAction,
                         onToggle: {
                             Task {
                                 let finished = await vm.toggleHabitRecord(item: row.item)

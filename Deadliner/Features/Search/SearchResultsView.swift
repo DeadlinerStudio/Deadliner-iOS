@@ -213,7 +213,6 @@ struct SearchResultsView: View {
 
     private func activeHabitRow(_ item: SearchHabitResult) -> some View {
         let status = habitStatusMap[item.habit.id] ?? SearchViewSupport.fallbackStatus(for: item.habit)
-        let ebbinghausState = SearchViewSupport.getEbbinghausState(habit: item.habit, targetDate: Date())
 
         return HabitItemCard(
             habit: status.habit,
@@ -221,9 +220,11 @@ struct SearchResultsView: View {
             targetCount: status.targetCount,
             isCompleted: status.isCompleted,
             status: status.isCompleted ? .completed : .undergo,
-            remainingText: ebbinghausState.text,
+            remainingText: status.scheduleHintText,
+            sharedProgressText: status.progressText,
+            sharedScheduleLabel: status.scheduleLabel,
             categoryBadge: CategoryPresentationSupport.badge(for: item.habit.categoryUID, categories: categoryMap),
-            canToggle: ebbinghausState.isDue,
+            canToggle: status.canApplyPrimaryAction,
             onToggle: {
                 Task { await habitActions.onToggle(status) }
             },

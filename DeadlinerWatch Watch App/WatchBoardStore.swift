@@ -447,7 +447,8 @@ struct WatchBoardPageSnapshot: Identifiable {
                         title: item.title,
                         subtitle: item.subtitle ?? "",
                         progressText: item.badgeText ?? "",
-                        isCompleted: item.isCompleted
+                        isCompleted: item.isCompleted,
+                        canApplyPrimaryAction: item.canApplyPrimaryAction ?? true
                     )
                 )
             case .ideas:
@@ -509,6 +510,7 @@ struct WatchHabitBoardItem {
     let subtitle: String
     var progressText: String
     var isCompleted: Bool
+    var canApplyPrimaryAction: Bool
 }
 
 struct WatchIdeaBoardItem: Identifiable, Hashable {

@@ -935,6 +935,7 @@ extension AIFunctionView {
             let habitID = try await PersistenceStores.habits.createHabitWithCarrier(
                 name: habit.name,
                 period: periodEnum,
+                weekdaysMask: 127,
                 timesPerPeriod: habit.timesPerPeriod,
                 goalType: goalTypeEnum,
                 totalTarget: habit.totalTarget,
@@ -1097,6 +1098,7 @@ extension AIFunctionView {
                 let habitID = try await PersistenceStores.habits.createHabitWithCarrier(
                     name: proposal.name,
                     period: periodEnum,
+                    weekdaysMask: 127,
                     timesPerPeriod: proposal.timesPerPeriod,
                     goalType: goalTypeEnum,
                     totalTarget: proposal.totalTarget,

@@ -157,7 +157,6 @@ struct SearchCategoryDetailView: View {
 
     private func activeHabitRow(_ habit: Habit) -> some View {
         let statusValue = habitStatusMap[habit.id] ?? SearchViewSupport.fallbackStatus(for: habit)
-        let ebbinghausState = SearchViewSupport.getEbbinghausState(habit: habit, targetDate: Date())
 
         return HabitItemCard(
             habit: statusValue.habit,
@@ -165,9 +164,11 @@ struct SearchCategoryDetailView: View {
             targetCount: statusValue.targetCount,
             isCompleted: statusValue.isCompleted,
             status: statusValue.isCompleted ? .completed : .undergo,
-            remainingText: ebbinghausState.text,
+            remainingText: statusValue.scheduleHintText,
+            sharedProgressText: statusValue.progressText,
+            sharedScheduleLabel: statusValue.scheduleLabel,
             categoryBadge: CategoryPresentationSupport.badge(for: habit.categoryUID, categories: categoryMap),
-            canToggle: ebbinghausState.isDue,
+            canToggle: statusValue.canApplyPrimaryAction,
             onToggle: {
                 Task { await habitActions.onToggle(statusValue) }
             },

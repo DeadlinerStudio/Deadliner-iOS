@@ -136,18 +136,7 @@ enum SearchViewSupport {
     }
 
     static func habitPeriodText(for habit: Habit) -> String {
-        switch habit.period {
-        case .daily:
-            return "每日"
-        case .weekly:
-            return "每周"
-        case .monthly:
-            return "每月"
-        case .ebbinghaus:
-            return "艾宾浩斯"
-        case .once:
-            return "单次"
-        }
+        HabitSharedPresentationMapper.scheduleLabel(for: habit)
     }
 
     static func fallbackStatus(for habit: Habit) -> HabitWithDailyStatus {
@@ -155,7 +144,11 @@ enum SearchViewSupport {
             habit: habit,
             doneCount: 0,
             targetCount: max(1, habit.totalTarget ?? habit.timesPerPeriod),
-            isCompleted: false
+            isCompleted: false,
+            isDue: false,
+            canApplyPrimaryAction: false,
+            progressText: "--/\(max(1, habit.totalTarget ?? habit.timesPerPeriod))",
+            scheduleLabel: HabitSharedPresentationMapper.scheduleLabel(for: habit)
         )
     }
 
@@ -240,37 +233,6 @@ enum SearchViewSupport {
         return CGFloat(min(max(raw, 0), 1))
     }
 
-    static func getEbbinghausState(habit: Habit, targetDate: Date) -> EbbinghausState {
-        if habit.period != .ebbinghaus {
-            return EbbinghausState(isDue: true, text: "")
-        }
-
-        let calendar = Calendar.current
-        let targetDay = calendar.startOfDay(for: targetDate)
-
-        guard let createdAtDate = DeadlineDateParser.safeParseOptional(habit.createdAt) else {
-            return EbbinghausState(isDue: true, text: "")
-        }
-
-        let startDay = calendar.startOfDay(for: createdAtDate)
-        let diffDays = calendar.dateComponents([.day], from: startDay, to: targetDay).day ?? 0
-        let curve = [0, 1, 2, 4, 7, 15, 30, 60]
-
-        if diffDays < 0 {
-            return EbbinghausState(isDue: false, text: "\(-diffDays) 天后开始")
-        }
-
-        if curve.contains(diffDays) {
-            return EbbinghausState(isDue: true, text: "")
-        }
-
-        if let nextDay = curve.first(where: { $0 > diffDays }) {
-            return EbbinghausState(isDue: false, text: "\(nextDay - diffDays) 天后复习")
-        }
-
-        return EbbinghausState(isDue: false, text: "已完成记忆周期")
-    }
-
     static func formatDate(_ rawValue: String) -> String {
         guard let date = DeadlineDateParser.safeParseOptional(rawValue) else {
             return rawValue.isEmpty ? "未知时间" : rawValue
@@ -338,10 +300,14 @@ enum SearchViewSupport {
         }
     }
 
-    static func habits(for category: SearchBrowseCategory, activeHabits: [Habit]) -> [Habit] {
+    static func habits(
+        for category: SearchBrowseCategory,
+        activeHabits: [Habit],
+        statusMap: [String: HabitWithDailyStatus]
+    ) -> [Habit] {
         switch category {
         case .today:
-            return activeHabits.filter { getEbbinghausState(habit: $0, targetDate: Date()).isDue }
+            return activeHabits.filter { statusMap[$0.id]?.isDue == true }
         case .habits:
             return activeHabits
         default:

@@ -37,6 +37,27 @@ struct WatchBoardSyncItem: Codable, Identifiable, Sendable {
     let isCompleted: Bool
     let isUrgent: Bool
     let isOverdue: Bool
+    let canApplyPrimaryAction: Bool?
+
+    init(
+        id: String,
+        title: String,
+        subtitle: String?,
+        badgeText: String?,
+        isCompleted: Bool,
+        isUrgent: Bool,
+        isOverdue: Bool,
+        canApplyPrimaryAction: Bool? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.badgeText = badgeText
+        self.isCompleted = isCompleted
+        self.isUrgent = isUrgent
+        self.isOverdue = isOverdue
+        self.canApplyPrimaryAction = canApplyPrimaryAction
+    }
 }
 
 struct WatchBoardActionEnvelope: Codable, Sendable {

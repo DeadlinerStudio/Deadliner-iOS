@@ -18,6 +18,8 @@ struct Habit: Identifiable, Equatable, Sendable {
     var categoryUID: String? = nil
     
     var period: HabitPeriod
+    /// Monday is bit 0 and Sunday is bit 6, matching KMP HabitWeekdays.
+    var weekdaysMask: Int = 127
     var timesPerPeriod: Int
     var goalType: HabitGoalType
     var totalTarget: Int?

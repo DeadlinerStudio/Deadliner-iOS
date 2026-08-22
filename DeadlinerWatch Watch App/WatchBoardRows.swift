@@ -131,7 +131,9 @@ struct WatchHabitBoardRow: View {
     var body: some View {
         rowBody
             .onTapGesture {
-                showPrimaryConfirm = true
+                if item.canApplyPrimaryAction {
+                    showPrimaryConfirm = true
+                }
             }
             .onLongPressGesture(minimumDuration: 0.4) {
                 showMoreActions = true
@@ -193,7 +195,9 @@ struct WatchHabitBoardRow: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .watchBoardCardBackground()
+        .opacity(item.canApplyPrimaryAction ? 1 : 0.62)
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityAddTraits(item.canApplyPrimaryAction ? [] : .isStaticText)
     }
 
     private var primaryActionTitle: String {

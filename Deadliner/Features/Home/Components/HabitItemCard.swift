@@ -14,6 +14,8 @@ struct HabitItemCard: View {
     let isCompleted: Bool
     let status: DDLStatus
     let remainingText: String?
+    var sharedProgressText: String? = nil
+    var sharedScheduleLabel: String? = nil
     var categoryBadge: CategoryBadgeModel? = nil
     
     var isSelected: Bool = false
@@ -36,8 +38,8 @@ struct HabitItemCard: View {
     }
     
     private var bottomLine: String {
-        var text = "\(doneCount)/\(targetCount)"
-        if habit.goalType == .total {
+        var text = sharedProgressText ?? "\(doneCount)/\(targetCount)"
+        if sharedProgressText == nil && habit.goalType == .total {
             let total = habit.totalTarget.map { String($0) } ?? "∞"
             text = "\(doneCount)/\(total)"
         }
@@ -48,11 +50,26 @@ struct HabitItemCard: View {
     }
     
     private var rightLabel: String {
+        if let sharedScheduleLabel, !sharedScheduleLabel.isEmpty {
+            return sharedScheduleLabel
+        }
         if habit.goalType == .perPeriod {
             return habit.period.rawValue.capitalized
         } else {
             return "Total"
         }
+    }
+
+    private var accessibilityState: String {
+        if isCompleted { return "已完成" }
+        if !canToggle { return "当前日期不可打卡" }
+        return "未完成"
+    }
+
+    private var accessibilityHint: String {
+        if selectionMode { return "双击选择或取消选择" }
+        if canToggle { return "双击打卡，长按打开更多操作" }
+        return "长按打开更多操作"
     }
     
     var body: some View {
@@ -158,6 +175,11 @@ struct HabitItemCard: View {
                 }
             }
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(habit.name)
+        .accessibilityValue("\(bottomLine)，\(rightLabel)，\(accessibilityState)")
+        .accessibilityHint(accessibilityHint)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 //

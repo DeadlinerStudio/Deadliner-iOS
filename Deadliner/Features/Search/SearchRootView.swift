@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(Shared)
+import Shared
+#endif
 
 struct RichSearchTabView: View {
     @Binding var query: String
@@ -14,6 +17,7 @@ struct RichSearchTabView: View {
     @Binding var usesLocalAtmosphere: Bool
     let hiddenMainTabs: [RichMainTab]
 
+    @EnvironmentObject private var themeStore: ThemeStore
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @AppStorage(RichCompactLayout.settingKey) private var compactLayoutEnabled: Bool = false
     @AppStorage(SeperateSearchBar.settingKey) private var seperateSearchBarVisible = SeperateSearchBar.defaultValue
@@ -39,6 +43,10 @@ struct RichSearchTabView: View {
     @State private var showCategoryManagement = false
     @State private var hasLoadedOnce = false
     @State private var reloadSequence = 0
+    @State private var habitRevision = 0
+#if canImport(Shared)
+    @State private var kmpHabitListBridge: KMPHabitListViewModelBridge?
+#endif
     @AppStorage("search.browse.category_layout") private var browseCategoryLayoutRaw = BrowseCategoryLayout.cards.rawValue
 
     private let taskRepo: any KMPTaskUIStore = PersistenceStores.tasks
@@ -80,7 +88,7 @@ struct RichSearchTabView: View {
             },
             onGiveUp: { task in
                 if task.state.isAbandonedLike {
-                    Task { await toggleTaskGiveUp(task) }
+                    _Concurrency.Task { await toggleTaskGiveUp(task) }
                 } else {
                     pendingGiveUpTask = task
                     showGiveUpAlert = true
@@ -219,15 +227,16 @@ struct RichSearchTabView: View {
             .deadlinerNavigationTitleBarAutomaticMinimize(usesToolbarPrincipalSearch)
             .toolbar {
                 if isBrowsingHome {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button {
-                            showCategoryManagement = true
-                        } label: {
-                            Image(systemName: "slider.horizontal.3")
-                        }
-                        .accessibilityLabel("管理分类")
-
+                    ToolbarItem(placement: .topBarTrailing) {
                         Menu {
+                            Button {
+                                showCategoryManagement = true
+                            } label: {
+                                Label("管理分类", systemImage: "slider.horizontal.3")
+                            }
+
+                            Divider()
+
                             Picker("分类布局", selection: browseCategoryLayoutBinding) {
                                 ForEach(BrowseCategoryLayout.allCases) { layout in
                                     Label(layout.title, systemImage: layout.systemImage)
@@ -237,7 +246,7 @@ struct RichSearchTabView: View {
                         } label: {
                             Image(systemName: "ellipsis")
                         }
-                        .accessibilityLabel("布局选项")
+                        .accessibilityLabel("浏览选项")
                     }
                 }
             }
@@ -250,12 +259,16 @@ struct RichSearchTabView: View {
                     DeadlinerTopAtmosphereBackdrop(
                         progress: overlayProgress,
                         isAIConfigured: isAIConfigured,
-                        semanticTone: .calm
+                        semanticTone: .accent,
+                        semanticAccentColor: RichMainTab.search.atmosphereAccentColor(
+                            for: themeStore.accentOption
+                        )
                     )
                     .opacity(usesLocalAtmosphere ? 0 : 1)
                 }
             }
             .task {
+                await startKMPHabitListBridgeIfNeeded()
                 await reload(showLoading: true)
             }
             .refreshable {
@@ -274,7 +287,7 @@ struct RichSearchTabView: View {
                 let requiresCaptureReload = event.resourceKinds.contains(.capture)
                 guard requiresIndexReload || requiresCaptureReload else { return }
 
-                Task {
+                _Concurrency.Task {
                     if requiresIndexReload {
                         await reload()
                     } else {
@@ -286,8 +299,8 @@ struct RichSearchTabView: View {
                 // Tab reselect can arrive before searchable has reattached
                 // after a navigation transition. Yield once so this works for
                 // both the regular and toolbar-principal search placements.
-                Task { @MainActor in
-                    await Task.yield()
+                _Concurrency.Task { @MainActor in
+                    await _Concurrency.Task.yield()
                     isSearchFieldFocused = true
                 }
             }
@@ -345,7 +358,7 @@ struct RichSearchTabView: View {
                 }
                 Button("删除", role: .destructive) {
                     if let target = pendingDeleteTarget {
-                        Task { await performDelete(target) }
+                        _Concurrency.Task { await performDelete(target) }
                     }
                 }
             } message: {
@@ -357,7 +370,7 @@ struct RichSearchTabView: View {
                 }
                 Button("放弃", role: .destructive) {
                     if let task = pendingGiveUpTask {
-                        Task { await toggleTaskGiveUp(task) }
+                        _Concurrency.Task { await toggleTaskGiveUp(task) }
                     }
                 }
             } message: {
@@ -419,7 +432,11 @@ struct RichSearchTabView: View {
                     activeTasks: activeTasks,
                     archivedTasks: archivedTasks
                 ),
-                activeHabits: SearchViewSupport.habits(for: category, activeHabits: activeHabits),
+                activeHabits: SearchViewSupport.habits(
+                    for: category,
+                    activeHabits: activeHabits,
+                    statusMap: habitStatusMap
+                ),
                 archivedTasks: SearchViewSupport.archivedTasks(for: category, archivedTasks: archivedTasks),
                 archivedHabits: SearchViewSupport.archivedHabits(for: category, archivedHabits: archivedHabits),
                 habitStatusMap: habitStatusMap,
@@ -440,6 +457,7 @@ struct RichSearchTabView: View {
                 sourceActiveHabits: activeHabits,
                 sourceArchivedTasks: archivedTasks,
                 sourceArchivedHabits: archivedHabits,
+                contentRevision: reloadSequence + habitRevision,
                 habitStatusMap: habitStatusMap,
                 categoryMap: categoryMap,
                 taskActions: taskActions,
@@ -465,61 +483,37 @@ struct RichSearchTabView: View {
         SyncDebugLog.log("[KMP][Browse] reload-start seq=\(sequence) showLoading=\(showLoading)")
 
         SyncDebugLog.log("[KMP][Browse] runtime-ready seq=\(sequence)")
+#if canImport(Shared)
+        kmpHabitListBridge?.refresh()
+#endif
 
         do {
-            // Task/Habit repositories are distinct actors but share one
-            // SQLDelight driver. Concurrent reads can deadlock that native
-            // driver, so index inputs must be fetched serially.
             let taskResult = try await loadTasksWithTiming()
-            let habitResult = try await loadHabitsWithTiming()
             let categoryResult = await loadCategoriesWithTiming()
-            let recordResult = try await loadHabitRecordsWithTiming()
             // Capture is auxiliary browse content. Its asynchronous reload must
             // never hold the search index's loading state hostage.
-            Task { await reloadCapturesWithTiming(sequence: sequence) }
+            _Concurrency.Task { await reloadCapturesWithTiming(sequence: sequence) }
             let allTasks = taskResult.values
-            let allHabits = habitResult.values
             let allCategories = categoryResult.values
-            let allRecords = recordResult.values
 
             let fetchDurationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
             SyncDebugLog.log(
                 "[KMP][Browse] fetch seq=\(sequence) ms=\(fetchDurationMs) "
                     + "tasks=\(allTasks.count)/\(taskResult.durationMs)ms "
-                    + "habits=\(allHabits.count)/\(habitResult.durationMs)ms "
-                    + "records=\(allRecords.count)/\(recordResult.durationMs)ms "
                     + "categories=\(allCategories.count)/\(categoryResult.durationMs)ms "
                     + "capture=deferred"
             )
 
             let activeTasks = allTasks.filter { !$0.isArchived }
             let archivedTasks = allTasks.filter { $0.isArchived }
-            let activeHabits = allHabits.filter { $0.status != .archived }
-            let archivedHabits = allHabits.filter { $0.status == .archived }
 
             await MainActor.run {
                 guard sequence == reloadSequence else { return }
                 self.activeTasks = activeTasks
                 self.archivedTasks = archivedTasks
-                self.activeHabits = activeHabits
-                self.archivedHabits = archivedHabits
                 self.categories = allCategories
-                self.habitStatusMap = [:]
                 self.isLoading = false
                 self.hasLoadedOnce = true
-            }
-
-            let statusStartedAt = Date()
-            let statuses = buildHabitStatuses(for: activeHabits, records: allRecords)
-            let statusDurationMs = Int(Date().timeIntervalSince(statusStartedAt) * 1_000)
-            SyncDebugLog.log(
-                "[KMP][Browse] status seq=\(sequence) ms=\(statusDurationMs) "
-                    + "activeHabits=\(activeHabits.count) statusEntries=\(statuses.count)"
-            )
-            await MainActor.run {
-                guard sequence == reloadSequence else { return }
-                guard self.activeHabits.map(\.id) == activeHabits.map(\.id) else { return }
-                self.habitStatusMap = statuses
             }
         } catch {
             SyncDebugLog.log("[KMP][Browse] reload failed seq=\(sequence): \(error.localizedDescription)")
@@ -530,6 +524,35 @@ struct RichSearchTabView: View {
             }
         }
     }
+
+#if canImport(Shared)
+    @MainActor
+    private func startKMPHabitListBridgeIfNeeded() async {
+        guard kmpHabitListBridge == nil else { return }
+        let bridge = await KMPHabitListViewModelBridge.make()
+        kmpHabitListBridge = bridge
+        bridge.start { state in
+            consumeKMPHabitListState(state)
+        }
+    }
+
+    @MainActor
+    private func consumeKMPHabitListState(_ state: HabitListUiState) {
+        guard !state.isLoading else { return }
+        let habits = state.habits.filter { !$0.isDeleted }
+        activeHabits = habits
+            .filter { $0.status == .active }
+            .map { $0.projection() }
+        archivedHabits = habits
+            .filter { $0.status == .archived }
+            .map { $0.projection() }
+        habitStatusMap = HabitSharedPresentationMapper.statusMap(from: state, on: Date())
+        habitRevision += 1
+        if let error = state.error {
+            SyncDebugLog.log("[KMP][Browse] habit-state failed: \(error)")
+        }
+    }
+#endif
 
     private func loadCategoriesPreservingCurrent() async -> [TaskCategory] {
         do {
@@ -549,27 +572,6 @@ struct RichSearchTabView: View {
         return (values, durationMs)
     }
 
-    private func loadHabitsWithTiming() async throws -> (values: [Habit], durationMs: Int) {
-        let startedAt = Date()
-        SyncDebugLog.log("[KMP][Browse] habits-start")
-        let values = try await habitRepo.allHabits()
-        let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
-        SyncDebugLog.log("[KMP][Browse] habits-finish count=\(values.count) ms=\(durationMs)")
-        return (values, durationMs)
-    }
-
-    private func loadHabitRecordsWithTiming() async throws -> (values: [HabitRecord], durationMs: Int) {
-        let startedAt = Date()
-        SyncDebugLog.log("[KMP][Browse] records-start")
-        let values = try await habitRepo.habitRecords(
-            from: Date(timeIntervalSince1970: 0),
-            through: Date()
-        )
-        let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
-        SyncDebugLog.log("[KMP][Browse] records-finish count=\(values.count) ms=\(durationMs)")
-        return (values, durationMs)
-    }
-
     private func loadCategoriesWithTiming() async -> (values: [TaskCategory], durationMs: Int) {
         let startedAt = Date()
         SyncDebugLog.log("[KMP][Browse] categories-start")
@@ -585,25 +587,6 @@ struct RichSearchTabView: View {
         await captureStore.reload()
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
         SyncDebugLog.log("[KMP][Browse] capture-finish seq=\(sequence) ms=\(durationMs)")
-    }
-
-    private func buildHabitStatuses(
-        for habits: [Habit],
-        records: [HabitRecord]
-    ) -> [String: HabitWithDailyStatus] {
-        let recordsByHabitID = Dictionary(grouping: records, by: \.habitId)
-        var result: [String: HabitWithDailyStatus] = [:]
-
-        for habit in habits {
-            if let status = buildStatusForToday(
-                habit: habit,
-                records: recordsByHabitID[habit.id, default: []]
-            ) {
-                result[habit.id] = status
-            }
-        }
-
-        return result
     }
 
     @ViewBuilder
@@ -675,39 +658,6 @@ struct RichSearchTabView: View {
         }
     }
 
-    private func buildStatusForToday(
-        habit: Habit,
-        records: [HabitRecord]
-    ) -> HabitWithDailyStatus? {
-        let today = Date()
-        let bounds = HabitPeriodBounds.dates(for: habit.period, containing: today)
-        let queryStart = habit.goalType == .total ? Date(timeIntervalSince1970: 0) : bounds.0
-        let queryEnd = habit.goalType == .total ? today : bounds.1
-        let startDay = habitRecordDayString(queryStart)
-        let endDay = habitRecordDayString(queryEnd)
-        let done = records
-            .filter { $0.status == .completed && $0.date >= startDay && $0.date <= endDay }
-            .reduce(0) { $0 + $1.count }
-        let target = habit.goalType == .total
-            ? habit.totalTarget.map { max(1, $0) } ?? max(1, done)
-            : max(1, habit.timesPerPeriod)
-
-        return HabitWithDailyStatus(
-            habit: habit,
-            doneCount: done,
-            targetCount: target,
-            isCompleted: habit.totalTarget != nil ? done >= (habit.totalTarget ?? 0) : done >= target
-        )
-    }
-
-    private func habitRecordDayString(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = .current
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
-    }
-
     private func toggleTaskCompletion(_ item: DDLItem) async {
         do {
             _ = try await taskRepo.performTaskAction(id: item.id, action: item.isCompleted ? .restoreActive : .markComplete)
@@ -763,6 +713,13 @@ struct RichSearchTabView: View {
     }
 
     private func toggleHabit(_ status: HabitWithDailyStatus) async {
+        guard status.canApplyPrimaryAction else { return }
+#if canImport(Shared)
+        if let kmpHabitListBridge {
+            kmpHabitListBridge.applyPrimaryAction(habitUID: status.habit.id)
+            return
+        }
+#endif
         do {
             try await habitRepo.toggleHabitRecord(habitID: status.habit.id, date: Date())
             await reload()

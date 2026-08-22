@@ -27,6 +27,7 @@ actor KMPHabitPresentationStore: KMPHabitUIStore {
     func createHabitWithCarrier(
         name: String,
         period: HabitPeriod,
+        weekdaysMask: Int,
         timesPerPeriod: Int,
         goalType: HabitGoalType,
         totalTarget: Int?,
@@ -39,17 +40,28 @@ actor KMPHabitPresentationStore: KMPHabitUIStore {
     ) async throws -> HabitCreation {
         let uid = UUID().uuidString.lowercased()
         let now = Date().toLocalISOString()
+        let schedule = KMPHabitMapping.schedule(
+            period: period,
+            startOn: dateString(Date()),
+            endOn: nil,
+            weekdaysMask: weekdaysMask
+        )
+        let goal = KMPHabitMapping.goal(
+            period: period,
+            timesPerPeriod: timesPerPeriod,
+            goalType: goalType,
+            totalTarget: totalTarget
+        )
         let habit = Habit_(
             uid: uid,
             name: name,
-            description: description.emptyToNil,
+            description: description.isEmpty ? nil : description,
             color: color.map { KotlinInt(value: Int32($0)) },
             iconKey: iconKey,
             categoryUid: categoryUID,
-            period: period.kmpValue,
-            timesPerPeriod: Int32(timesPerPeriod),
-            goalType: goalType.kmpValue,
-            totalTarget: totalTarget.map { KotlinInt(value: Int32($0)) },
+            schedule: schedule,
+            goal: goal,
+            tracking: KMPHabitMapping.tracking(targetCount: Int(goal.targetCount)),
             status: .active,
             sortOrder: Int32(sortOrder),
             reminder: alarmTime.map { HabitReminder(localTime: $0, isEnabled: true) },
@@ -73,7 +85,7 @@ actor KMPHabitPresentationStore: KMPHabitUIStore {
         guard let existing = await store.habit(uid: habit.id), !existing.isDeleted else {
             throw KMPHabitPresentationError.missingHabit(habit.id)
         }
-        await store.update(habit.kmpValue(createdAt: existing.createdAt))
+        await store.update(habit.kmpValue(existing: existing))
         trace("update", uid: habit.id)
     }
 
@@ -156,10 +168,11 @@ extension Habit_ {
             color: color.map { Int($0.intValue) },
             iconKey: iconKey,
             categoryUID: categoryUid,
-            period: period.projection,
-            timesPerPeriod: Int(timesPerPeriod),
-            goalType: goalType.projection,
-            totalTarget: totalTarget.map { Int($0.intValue) },
+            period: KMPHabitMapping.period(schedule: schedule, goal: goal),
+            weekdaysMask: Int(schedule.weekdaysMask?.intValue ?? 127),
+            timesPerPeriod: Int(goal.targetCount),
+            goalType: goal.window == .lifetime ? .total : .perPeriod,
+            totalTarget: goal.window == .lifetime ? Int(goal.targetCount) : nil,
             createdAt: createdAt,
             updatedAt: updatedAt,
             status: status.projection,
@@ -170,24 +183,39 @@ extension Habit_ {
 }
 
 extension Habit {
-    func kmpValue(createdAt: String) -> Habit_ {
-        Habit_(
+    func kmpValue(existing: Habit_) -> Habit_ {
+        let schedule = KMPHabitMapping.schedule(
+            period: period,
+            startOn: existing.schedule.startOn,
+            endOn: existing.schedule.endOn,
+            weekdaysMask: weekdaysMask
+        )
+        let goal = KMPHabitMapping.goal(
+            period: period,
+            timesPerPeriod: timesPerPeriod,
+            goalType: goalType,
+            totalTarget: totalTarget
+        )
+        return Habit_(
             uid: id,
             name: name,
             description: description,
             color: color.map { KotlinInt(value: Int32($0)) },
             iconKey: iconKey,
             categoryUid: categoryUID,
-            period: period.kmpValue,
-            timesPerPeriod: Int32(timesPerPeriod),
-            goalType: goalType.kmpValue,
-            totalTarget: totalTarget.map { KotlinInt(value: Int32($0)) },
+            schedule: schedule,
+            goal: goal,
+            tracking: KMPHabitMapping.tracking(
+                targetCount: Int(goal.targetCount),
+                unit: existing.tracking.unit,
+                defaultIncrement: Int(existing.tracking.defaultIncrement)
+            ),
             status: status.kmpValue,
             sortOrder: Int32(sortOrder),
             reminder: alarmTime.map { HabitReminder(localTime: $0, isEnabled: true) },
-            createdAt: createdAt,
+            createdAt: existing.createdAt,
             updatedAt: Date().toLocalISOString(),
-            isDeleted: false
+            isDeleted: existing.isDeleted
         )
     }
 }
@@ -209,34 +237,88 @@ extension Shared.HabitRecord {
     }
 }
 
-extension HabitPeriod {
-    var kmpValue: Shared.HabitPeriod {
-        switch self {
-        case .daily: .daily
-        case .weekly: .weekly
-        case .monthly: .monthly
-        case .once: .once
-        case .ebbinghaus: .ebbinghaus
+private enum KMPHabitMapping {
+    static let allDaysMask = 0b1111111
+    static let ebbinghausAlgorithmKey = "EBBINGHAUS_CLASSIC_V1"
+
+    static func schedule(
+        period: HabitPeriod,
+        startOn: String,
+        endOn: String?,
+        weekdaysMask: Int
+    ) -> HabitSchedule {
+        switch period {
+        case .once:
+            return HabitSchedule(
+                kind: .once,
+                startOn: startOn,
+                endOn: endOn,
+                weekdaysMask: nil,
+                algorithmKey: nil
+            )
+        case .ebbinghaus:
+            return HabitSchedule(
+                kind: .algorithm,
+                startOn: startOn,
+                endOn: endOn,
+                weekdaysMask: nil,
+                algorithmKey: ebbinghausAlgorithmKey
+            )
+        case .daily, .weekly, .monthly:
+            let normalizedMask = weekdaysMask & allDaysMask
+            return HabitSchedule(
+                kind: .weeklyDays,
+                startOn: startOn,
+                endOn: endOn,
+                weekdaysMask: KotlinInt(value: Int32(normalizedMask == 0 ? allDaysMask : normalizedMask)),
+                algorithmKey: nil
+            )
         }
     }
-}
 
-private extension Shared.HabitPeriod {
-    var projection: HabitPeriod {
-        if self == .weekly { return .weekly }
-        if self == .monthly { return .monthly }
-        if self == .once { return .once }
-        if self == .ebbinghaus { return .ebbinghaus }
+    static func goal(
+        period: HabitPeriod,
+        timesPerPeriod: Int,
+        goalType: HabitGoalType,
+        totalTarget: Int?
+    ) -> HabitGoal {
+        if period == .ebbinghaus {
+            return HabitGoal(window: .scheduledDay, targetCount: 1)
+        }
+
+        if goalType == .total {
+            return HabitGoal(window: .lifetime, targetCount: Int32(max(1, totalTarget ?? timesPerPeriod)))
+        }
+
+        let window: Shared.HabitGoalWindow
+        switch period {
+        case .weekly: window = .week
+        case .monthly: window = .month
+        case .daily, .once, .ebbinghaus: window = .scheduledDay
+        }
+        return HabitGoal(window: window, targetCount: Int32(max(1, timesPerPeriod)))
+    }
+
+    static func tracking(
+        targetCount: Int,
+        unit: String? = nil,
+        defaultIncrement: Int = 1
+    ) -> HabitTracking {
+        let isCheckOff = targetCount <= 1
+        return HabitTracking(
+            mode: isCheckOff ? .checkOff : .quantity,
+            unit: unit,
+            defaultIncrement: Int32(isCheckOff ? 1 : max(1, defaultIncrement))
+        )
+    }
+
+    static func period(schedule: HabitSchedule, goal: HabitGoal) -> HabitPeriod {
+        if schedule.kind == .once { return .once }
+        if schedule.kind == .algorithm && schedule.algorithmKey == ebbinghausAlgorithmKey { return .ebbinghaus }
+        if goal.window == .week { return .weekly }
+        if goal.window == .month { return .monthly }
         return .daily
     }
-}
-
-extension HabitGoalType {
-    var kmpValue: Shared.HabitGoalType { self == .total ? .total : .perPeriod }
-}
-
-private extension Shared.HabitGoalType {
-    var projection: HabitGoalType { self == .total ? .total : .perPeriod }
 }
 
 extension HabitStatus {
@@ -255,7 +337,4 @@ private extension Shared.HabitRecordStatus {
     }
 }
 
-private extension String {
-    var emptyToNil: String? { isEmpty ? nil : self }
-}
 #endif

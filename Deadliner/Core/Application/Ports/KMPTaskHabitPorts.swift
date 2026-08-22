@@ -11,7 +11,6 @@ import Shared
 typealias KMPTask = Task_
 typealias KMPHabit = Habit_
 typealias KMPHabitRecord = Shared.HabitRecord
-typealias KMPHabitScheduleItem = HabitScheduleItem
 
 protocol KMPTaskPersistenceStore: Sendable {
     func allTasks() async -> [KMPTask]
@@ -25,11 +24,9 @@ protocol KMPHabitPersistenceStore: Sendable {
     func allHabits() async -> [KMPHabit]
     func habit(uid: String) async -> KMPHabit?
     func records(habitUID: String) async -> [KMPHabitRecord]
-    func schedules(habitUID: String) async -> [KMPHabitScheduleItem]
     func create(_ habit: KMPHabit) async
     func update(_ habit: KMPHabit) async
     func delete(uid: String, updatedAt: String) async
     func save(record: KMPHabitRecord) async
-    func save(schedule: KMPHabitScheduleItem) async
 }
 #endif

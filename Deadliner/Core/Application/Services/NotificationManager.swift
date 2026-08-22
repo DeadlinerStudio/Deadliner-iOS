@@ -189,13 +189,13 @@ class NotificationManager {
         }
     }
 
-    func cancelAllKMPHabitNotifications() {
-        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-            let identifiers = requests
-                .filter { $0.identifier.hasPrefix("KMP_HABIT_") }
-                .map(\.identifier)
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
-        }
+    func cancelAllKMPHabitNotifications() async {
+        let center = UNUserNotificationCenter.current()
+        let requests = await center.pendingNotificationRequests()
+        let identifiers = requests
+            .filter { $0.identifier.hasPrefix("KMP_HABIT_") }
+            .map(\.identifier)
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
     
     func cancelHabitNotifications(for habitId: Int64) {

@@ -21,9 +21,10 @@ struct HabitWithDailyStatus: Identifiable, Equatable {
     var doneCount: Int
     var targetCount: Int
     var isCompleted: Bool
-}
-
-struct EbbinghausState: Equatable {
-    let isDue: Bool
-    let text: String
+    var isDue: Bool = true
+    var canApplyPrimaryAction: Bool = true
+    var primaryActionAmount: Int = 1
+    var progressText: String? = nil
+    var scheduleLabel: String? = nil
+    var scheduleHintText: String = ""
 }

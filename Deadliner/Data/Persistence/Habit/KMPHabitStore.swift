@@ -2,7 +2,7 @@
 //  KMPHabitStore.swift
 //  Deadliner
 //
-//  UID-first Habit, record, and schedule access backed by DeadlinerCore.
+//  UID-first Habit and record access backed by DeadlinerCore.
 //
 
 #if canImport(Shared)
@@ -33,17 +33,12 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         database.habits.allRecords().filter { !$0.isDeleted }
     }
 
-    func schedules(habitUID: String) -> [HabitScheduleItem] {
-        database.habits.schedules(habitUid: habitUID).filter { !$0.isDeleted }
-    }
-
     func create(_ habit: Habit_) async {
         database.habits.create(habit: habit)
         trace("create", uid: habit.uid)
         await publishChange(resources: [.habit])
         await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     func update(_ habit: Habit_) async {
@@ -52,7 +47,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         await publishChange(resources: [.habit])
         await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     func perform(statusAction: HabitStatusAction, habitUID: String, occurredAt: String) async -> HabitActionResult {
@@ -62,7 +56,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
             await publishChange(resources: [.habit])
             await refreshWidgetTimeline()
             await KMPHabitReminderScheduler.shared.scheduleRefresh()
-            await SyncCoordinator.shared.scheduleSync()
         }
         return result
     }
@@ -70,10 +63,9 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
     func delete(uid: String, updatedAt: String) async {
         database.habits.delete(uid: uid, updatedAt: updatedAt)
         trace("delete", uid: uid)
-        await publishChange(resources: [.habit, .habitRecord, .habitSchedule])
+        await publishChange(resources: [.habit, .habitRecord])
         await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     func save(record: Shared.HabitRecord) async {
@@ -81,14 +73,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         await publishChange(resources: [.habitRecord])
         await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
-    }
-
-    func save(schedule: HabitScheduleItem) async {
-        database.habits.saveSchedule(item: schedule, operation: .update)
-        await publishChange(resources: [.habitSchedule])
-        await refreshWidgetTimeline()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     func toggleRecord(habitUID: String, date: Date) async throws {
@@ -98,7 +82,34 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         await publishChange(resources: [.habitRecord])
         await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
+    }
+
+    func applyPrimaryRecordAction(habitUID: String, date: Date) async throws {
+        guard let habit = database.habits.find(uid: habitUID), !habit.isDeleted else {
+            throw KMPHabitStoreError.missingHabit(habitUID)
+        }
+        let occurredOn = dateString(date)
+        let occurredAt = Date().toLocalISOString()
+        let result = if habit.tracking.mode == .quantity {
+            database.habits.addRecordAmount(
+                habitUid: habitUID,
+                occurredOn: occurredOn,
+                amount: habit.tracking.defaultIncrement,
+                occurredAt: occurredAt
+            )
+        } else {
+            database.habits.toggleRecord(
+                habitUid: habitUID,
+                occurredOn: occurredOn,
+                occurredAt: occurredAt
+            )
+        }
+        guard result.outcome != .notFound else { throw KMPHabitStoreError.missingHabit(habitUID) }
+        guard result.outcome == .applied else { return }
+        trace("primary-record-action", uid: habitUID)
+        await publishChange(resources: [.habitRecord])
+        await refreshWidgetTimeline()
+        await KMPHabitReminderScheduler.shared.scheduleRefresh()
     }
 
     func clearRecords(habitUID: String, date: Date) async throws {
@@ -108,7 +119,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         await publishChange(resources: [.habitRecord])
         await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     private func publishChange(resources: Set<PersistenceResourceKind>) async {

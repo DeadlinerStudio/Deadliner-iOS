@@ -137,72 +137,10 @@ final class HomeViewModel: ObservableObject {
     // MARK: - Habit Logic (對標鸿蒙)
 
     func refreshAllHabits(date: Date) async {
-        if let kmpHabitListBridge {
-            kmpHabitListBridge.refresh()
-            return
+        if kmpHabitListBridge == nil {
+            await startKMPHabitListBridgeIfNeeded()
         }
-        do {
-            let allRaw = try await habitRepo.allHabits()
-            await applyHabitList(allRaw, date: date)
-        } catch {
-            logError("refreshAllHabits failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func applyHabitList(_ allRaw: [Habit], date: Date) async {
-        let activeHabits = allRaw.filter { $0.status != .archived }
-
-        var statusList: [HabitWithDailyStatus] = []
-        var statusReadFailures = 0
-        for habit in activeHabits {
-            if let status = await buildStatusForDate(habit: habit, date: date) {
-                statusList.append(status)
-            } else {
-                statusReadFailures += 1
-            }
-        }
-
-        SyncDebugLog.log(
-            "[KMP][Home] habits source=\(allRaw.count) active=\(activeHabits.count) "
-                + "renderable=\(statusList.count) recordReadFailures=\(statusReadFailures)"
-        )
-
-        allHabitsCache = statusList
-        applyHabitFilter()
-        await calculateWeekOverview(centerDate: date, allHabits: activeHabits)
-    }
-    
-    private func buildStatusForDate(habit: Habit, date: Date) async -> HabitWithDailyStatus? {
-        let bounds = HabitPeriodBounds.dates(for: habit.period, containing: date)
-        let start = bounds.0
-        let end = bounds.1
-        
-        // 如果是累计总数模式，从 1970 开始计算
-        let queryStart = habit.goalType == .total ? Date(timeIntervalSince1970: 0) : start
-        let queryEnd = habit.goalType == .total ? date : end
-        
-        do {
-            let records = try await habitRepo.habitRecords(
-                habitID: habit.id,
-                from: queryStart,
-                through: queryEnd
-            )
-            let done = records.filter { $0.status == .completed }.reduce(0) { $0 + $1.count }
-            
-            var target = max(1, habit.timesPerPeriod)
-            if habit.goalType == .total {
-                target = habit.totalTarget.map { max(1, $0) } ?? max(1, done)
-            }
-            
-            return HabitWithDailyStatus(
-                habit: habit,
-                doneCount: done,
-                targetCount: target,
-                isCompleted: habit.totalTarget != nil ? done >= (habit.totalTarget ?? 0) : done >= target
-            )
-        } catch {
-            return nil
-        }
+        kmpHabitListBridge?.selectDate(date.toDateString())
     }
     
     private func applyHabitFilter() {
@@ -212,90 +150,6 @@ final class HomeViewModel: ObservableObject {
             let lowerQ = searchQuery.lowercased()
             displayHabits = allHabitsCache.filter { $0.habit.name.lowercased().contains(lowerQ) }
         }
-    }
-    
-    func getEbbinghausState(habit: Habit, targetDate: Date) -> EbbinghausState {
-        if habit.period != .ebbinghaus {
-            return EbbinghausState(isDue: true, text: "")
-        }
-        
-        let calendar = Calendar.current
-        let tDate = calendar.startOfDay(for: targetDate)
-        
-        // 使用 DeadlineDateParser 解析 createdAt
-        guard let createdAtDate = DeadlineDateParser.safeParseOptional(habit.createdAt) else {
-            return EbbinghausState(isDue: true, text: "")
-        }
-        let sDate = calendar.startOfDay(for: createdAtDate)
-        
-        let diffDays = calendar.dateComponents([.day], from: sDate, to: tDate).day ?? 0
-        let curve = [0, 1, 2, 4, 7, 15, 30, 60]
-        
-        if diffDays < 0 {
-            return EbbinghausState(isDue: false, text: "\(-diffDays) 天后开始")
-        }
-        
-        if curve.contains(diffDays) {
-            return EbbinghausState(isDue: true, text: "")
-        }
-        
-        if let nextDay = curve.first(where: { $0 > diffDays }) {
-            return EbbinghausState(isDue: false, text: "\(nextDay - diffDays) 天后复习")
-        } else {
-            return EbbinghausState(isDue: false, text: "已完成记忆周期")
-        }
-    }
-    
-    private func calculateWeekOverview(centerDate: Date, allHabits: [Habit]) async {
-        let calendar = Calendar.current
-        let day = calendar.component(.weekday, from: centerDate)
-        // 调整周一为一周起始 (Sunday=1, Monday=2...)
-        let diff = (day == 1 ? -6 : (2 - day))
-        guard let monday = calendar.date(byAdding: .day, value: diff, to: calendar.startOfDay(for: centerDate)) else { return }
-        
-        // 1. 一次性获取本周范围的所有打卡记录，极大减少 DB 往返
-        guard let sunday = calendar.date(byAdding: .day, value: 6, to: monday) else { return }
-        
-        var weekRecords: [HabitRecord] = []
-        do {
-            weekRecords = try await habitRepo.habitRecords(from: monday, through: sunday)
-        } catch {
-            logError("Failed to fetch records for week overview: \(error.localizedDescription)")
-        }
-        
-        // 2. 预分组记录以便快速查询
-        let recordsByDate = Dictionary(grouping: weekRecords, by: { $0.date })
-        
-        var week: [DayOverview] = []
-        for i in 0..<7 {
-            guard let current = calendar.date(byAdding: .day, value: i, to: monday) else { continue }
-            let dateStr = current.toDateString()
-            
-            // 计算当日可见习惯数及完成数
-            var completedCount = 0
-            var visibleCount = 0
-            
-            for h in allHabits {
-                // 艾宾浩斯：只有当 isDue 为 true 时，才计入当天的完成率统计
-                if h.period == .ebbinghaus {
-                    if !getEbbinghausState(habit: h, targetDate: current).isDue { continue }
-                }
-                
-                // 其他类型（Daily, Weekly, Monthly, Once）始终计入分母
-                visibleCount += 1
-                let dailyRecords = recordsByDate[dateStr] ?? []
-                let isDone = dailyRecords.contains { $0.habitId == h.id && $0.status == .completed }
-                if isDone { completedCount += 1 }
-            }
-            
-            week.append(DayOverview(
-                date: current,
-                completedCount: completedCount,
-                totalCount: visibleCount,
-                completionRatio: visibleCount > 0 ? Double(completedCount) / Double(visibleCount) : 0
-            ))
-        }
-        self.weekOverview = week
     }
     
     func onDateSelected(_ date: Date) async {
@@ -388,23 +242,18 @@ final class HomeViewModel: ObservableObject {
     }
     
     func toggleHabitRecord(item: HabitWithDailyStatus) async -> Bool {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let currentSel = calendar.startOfDay(for: selectedDate)
-        
-        if currentSel > today { return false }
-        
-        // 艾宾浩斯非复习日阻断打卡
-        let ebState = getEbbinghausState(habit: item.habit, targetDate: selectedDate)
-        if !ebState.isDue {
-            self.errorText = "今天不是该记忆周期的复习日"
+        guard item.canApplyPrimaryAction else {
+            errorText = "当前日期不可记录该习惯"
             return false
         }
-        
-        // KMP list-state refresh is delivered asynchronously. Determine the
-        // completion transition from the successful mutation itself instead
-        // of reading allHabitsCache before that state callback arrives.
-        let completesHabit = !item.isCompleted && item.doneCount + 1 >= item.targetCount
+
+        let completesHabit = !item.isCompleted
+            && item.doneCount + max(1, item.primaryActionAmount) >= item.targetCount
+
+        if let kmpHabitListBridge {
+            kmpHabitListBridge.applyPrimaryAction(habitUID: item.habit.id)
+            return completesHabit
+        }
         
         do {
             try await habitRepo.toggleHabitRecord(habitID: item.habit.id, date: selectedDate)
@@ -643,13 +492,33 @@ final class HomeViewModel: ObservableObject {
     private func consumeKMPHabitListState(_ state: HabitListUiState) async {
         guard !state.isLoading else { return }
 
-        let projected = state.habits
-            .filter { !$0.isDeleted }
-            .map { $0.projection() }
-        await applyHabitList(projected, date: selectedDate)
+        allHabitsCache = state.visibleHabits
+            .filter { !$0.habit.isDeleted }
+            .map(HabitSharedPresentationMapper.projection)
+        applyHabitFilter()
+        weekOverview = state.weekOverview.compactMap { item in
+            guard let date = habitStateDate(item.date) else { return nil }
+            return DayOverview(
+                date: date,
+                completedCount: Int(item.completedCount),
+                totalCount: Int(item.totalCount),
+                completionRatio: Double(item.completionRatio)
+            )
+        }
+        if let stateDate = habitStateDate(state.selectedDate) {
+            selectedDate = stateDate
+        }
         if let error = state.error {
             errorText = error
         }
+    }
+
+    private func habitStateDate(_ raw: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: raw)
     }
     
     private func beginSuppressReload(window: TimeInterval = 0.6) {

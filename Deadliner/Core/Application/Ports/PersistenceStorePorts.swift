@@ -31,6 +31,7 @@ protocol KMPHabitUIStore {
     func createHabitWithCarrier(
         name: String,
         period: HabitPeriod,
+        weekdaysMask: Int,
         timesPerPeriod: Int,
         goalType: HabitGoalType,
         totalTarget: Int?,
