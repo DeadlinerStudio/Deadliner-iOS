@@ -377,6 +377,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = E52763052F3F618B002162DF /* Build configuration list for PBXNativeTarget "Deadliner" */;
 			buildPhases = (
+				C0D3A2053A19000100D34EAA /* Sync KMP Core */,
 				E52762DE2F3F6189002162DF /* Sources */,
 				E52762DF2F3F6189002162DF /* Frameworks */,
 				E52762E02F3F6189002162DF /* Resources */,
@@ -664,6 +665,31 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C0D3A2053A19000100D34EAA /* Sync KMP Core */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../ProjectDeadliner/DeadlinerCore",
+			);
+			name = "Sync KMP Core";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/../../ProjectDeadliner/DeadlinerCore",
+				"$(SRCROOT)/Vendor/KMP/shared.xcframework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nCORE_DIR=\"${DEADLINER_CORE_DIR:-$SRCROOT/../../ProjectDeadliner/DeadlinerCore}\"\nSYNC_SCRIPT=\"$CORE_DIR/runscript/buildAndDeploy.sh\"\nif [ ! -x \"$SYNC_SCRIPT\" ]; then\n  echo \"error: Deadliner Core was not found at $CORE_DIR. Set DEADLINER_CORE_DIR to its checkout.\" >&2\n  exit 1\nfi\n\"$SYNC_SCRIPT\" --skip-android --skip-harmony --ios-repo \"$SRCROOT\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		E52762DE2F3F6189002162DF /* Sources */ = {
