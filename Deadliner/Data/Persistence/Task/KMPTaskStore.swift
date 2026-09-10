@@ -29,7 +29,6 @@ actor KMPTaskStore: KMPTaskPersistenceStore {
         trace("create", uid: task.uid)
         await publishChange(resources: [.task, .taskSubtask])
         await KMPTaskReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     func update(_ task: Task_) async {
@@ -37,7 +36,6 @@ actor KMPTaskStore: KMPTaskPersistenceStore {
         trace("update", uid: task.uid)
         await publishChange(resources: [.task, .taskSubtask])
         await KMPTaskReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     func perform(action: TaskAction, taskUID: String, occurredAt: String) async -> TaskActionResult {
@@ -46,7 +44,6 @@ actor KMPTaskStore: KMPTaskPersistenceStore {
             trace("action", uid: taskUID, extra: ["action": "\(action)"])
             await publishChange(resources: [.task, .taskSubtask])
             await KMPTaskReminderScheduler.shared.scheduleRefresh()
-            await SyncCoordinator.shared.scheduleSync()
         } else {
             trace(
                 "action-rejected",
@@ -62,7 +59,6 @@ actor KMPTaskStore: KMPTaskPersistenceStore {
         trace("delete", uid: uid)
         await publishChange(resources: [.task, .taskSubtask])
         await KMPTaskReminderScheduler.shared.scheduleRefresh()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     private func publishChange(resources: Set<PersistenceResourceKind>) async {

@@ -8,7 +8,6 @@
 #if canImport(Shared)
 import Foundation
 import Shared
-import WidgetKit
 
 actor KMPHabitStore: KMPHabitPersistenceStore {
     private let database: DeadlinerDatabase
@@ -37,7 +36,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         database.habits.create(habit: habit)
         trace("create", uid: habit.uid)
         await publishChange(resources: [.habit])
-        await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
     }
 
@@ -45,7 +43,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         database.habits.update(habit: habit)
         trace("update", uid: habit.uid)
         await publishChange(resources: [.habit])
-        await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
     }
 
@@ -54,7 +51,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         if result.outcome == .applied {
             trace("status-action", uid: habitUID, extra: ["action": "\(statusAction)"])
             await publishChange(resources: [.habit])
-            await refreshWidgetTimeline()
             await KMPHabitReminderScheduler.shared.scheduleRefresh()
         }
         return result
@@ -64,14 +60,12 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         database.habits.delete(uid: uid, updatedAt: updatedAt)
         trace("delete", uid: uid)
         await publishChange(resources: [.habit, .habitRecord])
-        await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
     }
 
     func save(record: Shared.HabitRecord) async {
         database.habits.saveRecord(record: record, operation: .update)
         await publishChange(resources: [.habitRecord])
-        await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
     }
 
@@ -80,35 +74,21 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         guard result.outcome != .notFound else { throw KMPHabitStoreError.missingHabit(habitUID) }
         trace("toggle-record", uid: habitUID)
         await publishChange(resources: [.habitRecord])
-        await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
     }
 
     func applyPrimaryRecordAction(habitUID: String, date: Date) async throws {
-        guard let habit = database.habits.find(uid: habitUID), !habit.isDeleted else {
-            throw KMPHabitStoreError.missingHabit(habitUID)
-        }
         let occurredOn = dateString(date)
         let occurredAt = Date().toLocalISOString()
-        let result = if habit.tracking.mode == .quantity {
-            database.habits.addRecordAmount(
-                habitUid: habitUID,
-                occurredOn: occurredOn,
-                amount: habit.tracking.defaultIncrement,
-                occurredAt: occurredAt
-            )
-        } else {
-            database.habits.toggleRecord(
-                habitUid: habitUID,
-                occurredOn: occurredOn,
-                occurredAt: occurredAt
-            )
-        }
+        let result = database.habits.applyPrimaryRecordAction(
+            habitUid: habitUID,
+            occurredOn: occurredOn,
+            occurredAt: occurredAt
+        )
         guard result.outcome != .notFound else { throw KMPHabitStoreError.missingHabit(habitUID) }
         guard result.outcome == .applied else { return }
         trace("primary-record-action", uid: habitUID)
         await publishChange(resources: [.habitRecord])
-        await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
     }
 
@@ -117,7 +97,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         guard result.outcome != .notFound else { throw KMPHabitStoreError.missingHabit(habitUID) }
         trace("clear-records", uid: habitUID)
         await publishChange(resources: [.habitRecord])
-        await refreshWidgetTimeline()
         await KMPHabitReminderScheduler.shared.scheduleRefresh()
     }
 
@@ -131,12 +110,6 @@ actor KMPHabitStore: KMPHabitPersistenceStore {
         var context = extra
         context["uid"] = uid
         AppLog.event("persistence.habit.\(operation)", domain: .persistence, context: context)
-    }
-
-    private func refreshWidgetTimeline() async {
-        await MainActor.run {
-            WidgetCenter.shared.reloadAllTimelines()
-        }
     }
 
     private func dateString(_ date: Date) -> String {

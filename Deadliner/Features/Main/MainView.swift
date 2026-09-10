@@ -20,6 +20,7 @@ struct FocusMainView: View {
 
     @State private var showAISheet = false
     @State private var showSettingsSheet = false
+    @State private var showQuickInspirationSheet = false
     @State private var navGradientProgress: CGFloat = 0
     
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
@@ -82,6 +83,13 @@ struct FocusMainView: View {
                         initialSelection: addEntrySelection
                     )
                     .presentationDetents([.large])
+                }
+                .sheet(isPresented: $showQuickInspirationSheet) {
+                    QuickInspirationCaptureSheet { text in
+                        CaptureStore.shared.addItem(text: text)
+                    }
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
                 }
                 .sheet(isPresented: $showSettingsSheet) {
                     NavigationStack {
@@ -439,6 +447,8 @@ struct FocusMainView: View {
             showAISheet = true
         case "open_inspiration":
             module = .inspiration
+        case "open_inspiration_composer":
+            showQuickInspirationSheet = true
         case "open_home":
             module = .taskManagement
             taskSegment = .tasks

@@ -31,13 +31,11 @@ struct CategoryManagementView: View {
                         }
                         .foregroundStyle(.primary)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if !category.isPreset {
-                                Button(role: .destructive) {
-                                    pendingDelete = category
-                                    showDeleteAlert = true
-                                } label: {
-                                    Label("删除", systemImage: "trash")
-                                }
+                            Button(role: .destructive) {
+                                pendingDelete = category
+                                showDeleteAlert = true
+                            } label: {
+                                Label("删除", systemImage: "trash")
                             }
                         }
                     }

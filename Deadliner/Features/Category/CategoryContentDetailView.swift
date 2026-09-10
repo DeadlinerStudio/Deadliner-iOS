@@ -13,37 +13,25 @@ struct CategoryContentDetailView: View {
     let sourceActiveHabits: [Habit]
     let sourceArchivedTasks: [DDLItem]
     let sourceArchivedHabits: [Habit]
+    let contentRevision: Int
     let habitStatusMap: [String: HabitWithDailyStatus]
     let categoryMap: [String: TaskCategory]
     let taskActions: SearchTaskActions
     let habitActions: SearchHabitActions
 
     @State private var overlayProgress: CGFloat = 0
+    @State private var isContentReady = false
+    @State private var hasScheduledInitialLoad = false
+    @State private var activeTasks: [DDLItem] = []
+    @State private var activeHabits: [Habit] = []
+    @State private var archivedTasks: [DDLItem] = []
+    @State private var archivedHabits: [Habit] = []
     @State private var visibleActiveTaskCount = 12
     @State private var visibleActiveHabitCount = 12
     @State private var visibleArchivedTaskCount = 12
     @State private var visibleArchivedHabitCount = 12
 
     private let pageSize = 12
-
-    // Keep category results derived from the parent KMP-backed snapshots.
-    // Capturing them after a delayed navigation task caused transient empty
-    // lists and made a category detail stale while source data refreshed.
-    private var activeTasks: [DDLItem] {
-        sourceActiveTasks.filter { $0.categoryUID == category.uid }
-    }
-
-    private var activeHabits: [Habit] {
-        sourceActiveHabits.filter { $0.categoryUID == category.uid }
-    }
-
-    private var archivedTasks: [DDLItem] {
-        sourceArchivedTasks.filter { $0.categoryUID == category.uid }
-    }
-
-    private var archivedHabits: [Habit] {
-        sourceArchivedHabits.filter { $0.categoryUID == category.uid }
-    }
 
     private var badge: CategoryBadgeModel {
         CategoryBadgeModel(category: category)
@@ -71,7 +59,28 @@ struct CategoryContentDetailView: View {
 
     @ViewBuilder
     var body: some View {
-        contentList
+        if isContentReady {
+            contentList
+        } else {
+            categoryShell
+        }
+    }
+
+    private var categoryShell: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+            Text("正在打开分类…")
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+        .navigationTitle(category.name)
+        .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear {
+            scheduleInitialLoadIfNeeded()
+        }
     }
 
     private var contentList: some View {
@@ -161,6 +170,44 @@ struct CategoryContentDetailView: View {
         } action: { _, newValue in
             overlayProgress = min(max(newValue / 120, 0), 1)
         }
+        .onChange(of: contentRevision) { _, _ in
+            // Data can refresh while the detail is visible. Updating this
+            // snapshot preserves live content without rebuilding it in the
+            // initial navigation transaction.
+            refreshContentSnapshot()
+        }
+    }
+
+    private func scheduleInitialLoadIfNeeded() {
+        guard !hasScheduledInitialLoad else { return }
+        hasScheduledInitialLoad = true
+        AppLog.event("browse.category.shell.appeared", domain: .ui, context: ["uid": category.uid])
+        Task { @MainActor in
+            // A lightweight shell must commit before SwiftUI creates the
+            // category List. This avoids a navigation-time view-graph stall.
+            try? await Task.sleep(for: .milliseconds(750))
+            guard !Task.isCancelled else { return }
+            refreshContentSnapshot()
+            isContentReady = true
+        }
+    }
+
+    private func refreshContentSnapshot() {
+        activeTasks = sourceActiveTasks.filter { $0.categoryUID == category.uid }
+        activeHabits = sourceActiveHabits.filter { $0.categoryUID == category.uid }
+        archivedTasks = sourceArchivedTasks.filter { $0.categoryUID == category.uid }
+        archivedHabits = sourceArchivedHabits.filter { $0.categoryUID == category.uid }
+        AppLog.event(
+            "browse.category.content.loaded",
+            domain: .ui,
+            context: [
+                "uid": category.uid,
+                "activeTasks": "\(activeTasks.count)",
+                "activeHabits": "\(activeHabits.count)",
+                "archivedTasks": "\(archivedTasks.count)",
+                "archivedHabits": "\(archivedHabits.count)"
+            ]
+        )
     }
 
     private func sectionTitleRow(_ title: String, systemImage: String, topPadding: CGFloat) -> some View {

@@ -6,6 +6,9 @@
 import Foundation
 import WidgetKit
 import os
+#if canImport(Shared)
+import Shared
+#endif
 
 actor SyncCoordinator {
     static let shared = SyncCoordinator()
@@ -13,10 +16,7 @@ actor SyncCoordinator {
 
     private let logger = Logger(subsystem: "Deadliner", category: "SyncCoordinator")
 
-    private var syncDebounceTask: Task<Void, Never>?
-    private let syncDelayNs: UInt64 = 400_000_000
     private var isSyncing = false
-    private var hasPendingSync = false
 
     private init() {}
 
@@ -67,37 +67,61 @@ actor SyncCoordinator {
         #endif
     }
 
-    private func publishDataChanged() async {
+    private static let allPersistenceResources: Set<PersistenceResourceKind> = [
+        .task, .taskSubtask, .habit, .habitRecord, .habitSchedule,
+        .category, .capture, .memory, .userProfile
+    ]
+
+    private func publishDataChanged(
+        resources: Set<PersistenceResourceKind> = SyncCoordinator.allPersistenceResources
+    ) async {
         await MainActor.run {
-            PersistenceChangePublisher.publish(.init(resourceKinds: [.task, .taskSubtask, .habit, .habitRecord, .habitSchedule, .category]))
+            PersistenceChangePublisher.publish(.init(resourceKinds: resources, origin: .syncReplay))
         }
     }
 
-    func scheduleSync() async {
-        syncDebounceTask?.cancel()
-        syncDebounceTask = nil
-
-        guard await cloudSyncEnabled() else {
-            AppLog.event("sync.schedule.skipped", domain: .sync, level: .debug, context: ["reason": "disabled"])
+    /// Installs platform-owned credentials/provider into KMP. Repository mutations are the only
+    /// automatic trigger; native code retains `syncNow()` solely for explicit pull-to-refresh.
+    func configureAutomaticSync() async {
+        #if canImport(Shared)
+        let database = await KMPPersistenceRuntime.shared.coreDatabase()
+        guard await cloudSyncEnabled(), !(await inBasicMode()) else {
+            database.disableAutomaticSync()
             return
         }
-        AppLog.event("sync.scheduled", domain: .sync)
-
-        syncDebounceTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await Task.sleep(nanoseconds: self.syncDelayNs)
-                await self.performSync()
-            } catch {
-                // cancelled
+        let completion: (WebDavChangeLogSyncOutcome) -> Void = { outcome in
+            _Concurrency.Task<Void, Never> {
+                await SyncCoordinator.shared.handleAutomaticOutcome(outcome)
             }
         }
+        switch await syncProvider() {
+        case .webDAV:
+            guard let cfg = await webDAVConfig() else {
+                database.disableAutomaticSync()
+                return
+            }
+            database.configureAutomaticWebDavSync(
+                configuration: WebDavTransportConfiguration(
+                    baseUrl: cfg.url,
+                    credentials: WebDavCredentials(username: cfg.user, password: cfg.pass),
+                    requestTimeoutMillis: 15_000
+                ),
+                onComplete: completion
+            )
+        case .iCloud:
+            #if canImport(CryptoKit)
+            database.configureAutomaticTransportSync(
+                transport: ICloudSyncBlobTransport(),
+                onComplete: completion
+            )
+            #else
+            database.disableAutomaticSync()
+            #endif
+        }
+        #endif
     }
 
     func syncNow() async -> Bool {
-        syncDebounceTask?.cancel()
-        syncDebounceTask = nil
-
         guard await cloudSyncEnabled() else {
             AppLog.event("sync.manual.skipped", domain: .sync, level: .warning, context: ["reason": "disabled"])
             return false
@@ -134,70 +158,47 @@ actor SyncCoordinator {
         if result.hasLocalChanges {
             await handleLocalChanges()
         }
-        if hasPendingSync {
-            hasPendingSync = false
-            await performSync()
-        }
-
         return result.success
     }
 
-    /// iCloud Drive changes are materialized as coordinated files, not as a
-    /// SwiftData/CloudKit callback. Pull once when the app becomes active so a
-    /// remote device's uploaded KMP snapshot is merged without user action.
-    func syncICloudOnForegroundIfNeeded() async {
-        guard await cloudSyncEnabled(), await syncProvider() == .iCloud else { return }
-        _ = await syncNow()
-    }
-
-    private func performSync() async {
-        if await inBasicMode() { return }
-        guard await cloudSyncEnabled() else { return }
-        if isSyncing {
-            hasPendingSync = true
-            AppLog.event("sync.deferred", domain: .sync, level: .debug, context: ["reason": "already-running"])
-            return
-        }
-
-        isSyncing = true
-        hasPendingSync = false
-
-        defer {
-            isSyncing = false
-        }
-
-        guard let syncService = await makeSyncService() else {
-            AppLog.event("sync.skipped", domain: .sync, level: .error, context: ["reason": "service-unavailable"])
-            return
-        }
-        let startedAt = Date()
-        AppLog.event("sync.started", domain: .sync, context: ["trigger": "scheduled"])
-        let result = await syncService.syncOnce()
+    private func handleAutomaticOutcome(_ outcome: WebDavChangeLogSyncOutcome) async {
         AppLog.event(
             "sync.finished",
             domain: .sync,
-            level: result.success ? .info : .error,
+            level: outcome.succeeded ? .info : .error,
             context: [
-                "trigger": "scheduled",
-                "success": "\(result.success)",
-                "localChanges": "\(result.hasLocalChanges)",
-                "durationMs": "\(Int(Date().timeIntervalSince(startedAt) * 1_000))"
+                "trigger": "kmp-repository",
+                "success": "\(outcome.succeeded)",
+                "remoteApplied": "\(outcome.remoteApplied)"
             ]
         )
-
-        if result.hasLocalChanges {
-            await handleLocalChanges()
-        }
-        if hasPendingSync {
-            hasPendingSync = false
-            await performSync()
+        if outcome.succeeded, outcome.remoteApplied > 0 {
+            await handleLocalChanges(resources: persistenceResources(for: outcome))
         }
     }
 
-    private func handleLocalChanges() async {
+    private func persistenceResources(
+        for outcome: WebDavChangeLogSyncOutcome
+    ) -> Set<PersistenceResourceKind> {
+        var resources: Set<PersistenceResourceKind> = []
+        if outcome.appliedResources.contains(.category) { resources.insert(.category) }
+        if outcome.appliedResources.contains(.task) {
+            resources.formUnion([.task, .taskSubtask])
+        }
+        if outcome.appliedResources.contains(.habit) {
+            resources.formUnion([.habit, .habitRecord, .habitSchedule])
+        }
+        if outcome.appliedResources.contains(.capture) { resources.insert(.capture) }
+        if outcome.appliedResources.contains(.memory) { resources.insert(.memory) }
+        if outcome.appliedResources.contains(.profile) { resources.insert(.userProfile) }
+        return resources.isEmpty ? Self.allPersistenceResources : resources
+    }
+
+    private func handleLocalChanges(
+        resources: Set<PersistenceResourceKind> = SyncCoordinator.allPersistenceResources
+    ) async {
         AppLog.event("sync.apply-local-changes", domain: .sync)
-        await publishDataChanged()
-        WidgetCenter.shared.reloadAllTimelines()
+        await publishDataChanged(resources: resources)
         ControlCenter.shared.reloadControls(ofKind: Self.taskStatusControlKind)
 
         await KMPTaskReminderScheduler.shared.scheduleRefresh()

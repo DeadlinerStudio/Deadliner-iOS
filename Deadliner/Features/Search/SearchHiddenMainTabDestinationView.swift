@@ -11,6 +11,7 @@ struct SearchHiddenMainTabDestinationView: View {
     let tab: RichMainTab
     @Binding var usesLocalAtmosphere: Bool
 
+    @EnvironmentObject private var themeStore: ThemeStore
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @AppStorage(RichCompactLayout.settingKey) private var compactLayoutEnabled: Bool = false
     @AppStorage(DashboardHomeLayout.settingKey) private var dashboardHomeLayoutEnabled: Bool = DashboardHomeLayout.defaultValue
@@ -133,11 +134,9 @@ struct SearchHiddenMainTabDestinationView: View {
             guard homeAtmosphereTone == .accent else {
                 return nil
             }
-            return ThemeDefaults.homeTaskSemanticAccent
-        case .overview, .inspiration, .ai:
-            return tab.browseTint
-        case .search:
-            return nil
+            return tab.atmosphereAccentColor(for: themeStore.accentOption)
+        case .overview, .inspiration, .ai, .search:
+            return tab.atmosphereAccentColor(for: themeStore.accentOption)
         }
     }
 }

@@ -62,6 +62,7 @@ protocol CategoryPersistenceStore {
 
     func updateCategory(_ category: TaskCategory) async throws
     func deleteCategory(uid: String) async throws
+    func restorePresets() async throws
 }
 
 protocol CapturePersistenceStore {

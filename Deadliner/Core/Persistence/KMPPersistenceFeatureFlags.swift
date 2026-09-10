@@ -14,6 +14,7 @@ private actor KMPCategoryRuntimeStore: CategoryPersistenceStore {
     }
     func updateCategory(_ category: TaskCategory) async throws { try await store().updateCategory(category) }
     func deleteCategory(uid: String) async throws { try await store().deleteCategory(uid: uid) }
+    func restorePresets() async throws { try await store().restorePresets() }
 }
 
 enum PersistenceStores {

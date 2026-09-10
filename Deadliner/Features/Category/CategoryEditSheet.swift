@@ -26,8 +26,8 @@ struct CategoryEditSheet: View {
         self.category = category
         self.onSaved = onSaved
         _name = State(initialValue: category?.name ?? "")
-        _iconKey = State(initialValue: CategoryPresentationSupport.safeIconKey(category?.iconKey ?? "tag.fill"))
-        _colorHex = State(initialValue: CategoryPresentationSupport.safeColorHex(category?.colorHex ?? "#3B82F6"))
+        _iconKey = State(initialValue: CategoryPresentationSupport.semanticIconKey(category?.iconKey ?? "tag"))
+        _colorHex = State(initialValue: CategoryPresentationSupport.normalizedColorHex(category?.colorHex ?? "#3B82F6"))
     }
 
     var body: some View {
@@ -35,7 +35,7 @@ struct CategoryEditSheet: View {
             Form {
                 Section {
                     HStack(spacing: 14) {
-                        Image(systemName: iconKey)
+                        Image(systemName: CategoryPresentationSupport.systemImageName(for: iconKey))
                             .font(.system(size: 26, weight: .semibold))
                             .foregroundStyle(Color(hex: colorHex))
                             .frame(width: 52, height: 52)
@@ -47,7 +47,7 @@ struct CategoryEditSheet: View {
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
 
-                            Text(category == nil ? "自定义分类" : (category?.isPreset == true ? "预设分类" : "自定义分类"))
+                            Text(category == nil ? "新建分类" : "编辑分类")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -67,7 +67,7 @@ struct CategoryEditSheet: View {
                             Button {
                                 iconKey = icon
                             } label: {
-                                Image(systemName: icon)
+                                Image(systemName: CategoryPresentationSupport.systemImageName(for: icon))
                                     .font(.system(size: 17, weight: .semibold))
                                     .frame(width: 38, height: 38)
                                     .foregroundStyle(iconKey == icon ? .white : Color(hex: colorHex))

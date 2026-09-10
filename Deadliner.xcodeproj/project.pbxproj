@@ -6,6 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		C0D3A2063A19000100D34EAA /* Sync KMP Core */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C0D3A20B3A19000100D34EAA /* Build configuration list for PBXAggregateTarget "Sync KMP Core" */;
+			buildPhases = (
+				C0D3A2053A19000100D34EAA /* Sync KMP Core */,
+			);
+			dependencies = (
+			);
+			name = "Sync KMP Core";
+			productName = "Sync KMP Core";
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
 		C0D3A1023A19000100D34EAA /* KMPLifiCoreBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A1033A19000100D34EAA /* KMPLifiCoreBridge.swift */; };
 		C0D3A1093A19000100D34EAA /* ToolCallExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A10A3A19000100D34EAA /* ToolCallExecutor.swift */; };
@@ -31,6 +45,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		C0D3A2073A19000100D34EAA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E52762DA2F3F6189002162DF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0D3A2063A19000100D34EAA;
+			remoteInfo = "Sync KMP Core";
+		};
+		C0D3A20C3A19000100D34EAA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E52762DA2F3F6189002162DF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0D3A2063A19000100D34EAA;
+			remoteInfo = "Sync KMP Core";
+		};
 		E52762F22F3F618B002162DF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E52762DA2F3F6189002162DF /* Project object */;
@@ -377,7 +405,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = E52763052F3F618B002162DF /* Build configuration list for PBXNativeTarget "Deadliner" */;
 			buildPhases = (
-				C0D3A2053A19000100D34EAA /* Sync KMP Core */,
 				E52762DE2F3F6189002162DF /* Sources */,
 				E52762DF2F3F6189002162DF /* Frameworks */,
 				E52762E02F3F6189002162DF /* Resources */,
@@ -388,6 +415,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				C0D3A2083A19000100D34EAA /* PBXTargetDependency */,
 				E538762A2F5A5AC300E5D81A /* PBXTargetDependency */,
 				E5D56E552FD579A300859548 /* PBXTargetDependency */,
 			);
@@ -459,6 +487,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				C0D3A20D3A19000100D34EAA /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				E538761B2F5A5AC200E5D81A /* DeadlinerWidget */,
@@ -593,6 +622,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				C0D3A2063A19000100D34EAA /* Sync KMP Core */,
 				E52762E12F3F6189002162DF /* Deadliner */,
 				E52762F02F3F618B002162DF /* DeadlinerTests */,
 				E52762FA2F3F618B002162DF /* DeadlinerUITests */,
@@ -682,7 +712,6 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../ProjectDeadliner/DeadlinerCore",
 				"$(SRCROOT)/Vendor/KMP/shared.xcframework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -746,6 +775,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		C0D3A2083A19000100D34EAA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0D3A2063A19000100D34EAA /* Sync KMP Core */;
+			targetProxy = C0D3A2073A19000100D34EAA /* PBXContainerItemProxy */;
+		};
+		C0D3A20D3A19000100D34EAA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0D3A2063A19000100D34EAA /* Sync KMP Core */;
+			targetProxy = C0D3A20C3A19000100D34EAA /* PBXContainerItemProxy */;
+		};
 		E52762F32F3F618B002162DF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = E52762E12F3F6189002162DF /* Deadliner */;
@@ -779,6 +818,20 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		C0D3A2093A19000100D34EAA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+			};
+			name = Debug;
+		};
+		C0D3A20A3A19000100D34EAA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+			};
+			name = Release;
+		};
 		E52763032F3F618B002162DF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1332,6 +1385,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		C0D3A20B3A19000100D34EAA /* Build configuration list for PBXAggregateTarget "Sync KMP Core" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0D3A2093A19000100D34EAA /* Debug */,
+				C0D3A20A3A19000100D34EAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E52762DD2F3F6189002162DF /* Build configuration list for PBXProject "Deadliner" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

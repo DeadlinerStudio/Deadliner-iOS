@@ -61,8 +61,7 @@ final class CaptureStore: ObservableObject {
     }
 
     func addItem(text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard let trimmed = InspirationCaptureText.normalized(text) else { return }
 
         let item = CaptureInboxItem(text: trimmed)
         items.insert(item, at: 0)

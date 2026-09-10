@@ -6,9 +6,35 @@
 //
 
 import SwiftUI
+import WidgetKit
 
 private enum AppReleaseGate {
     static let unlockGeekForCurrentRelease = false
+}
+
+@MainActor
+private final class DeadlinerWidgetRefreshCoordinator {
+    static let shared = DeadlinerWidgetRefreshCoordinator()
+
+    private var pendingRefresh: _Concurrency.Task<Void, Never>?
+
+    func requestUpdate() {
+        pendingRefresh?.cancel()
+        pendingRefresh = _Concurrency.Task { @MainActor in
+            do {
+                try await _Concurrency.Task.sleep(nanoseconds: 150_000_000)
+            } catch {
+                return
+            }
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+}
+
+private extension Notification.Name {
+    static let deadlinerWidgetUpdateRequested = Notification.Name(
+        "com.aritxonly.deadliner.widget-update-requested"
+    )
 }
 
 @main
@@ -63,10 +89,11 @@ struct DeadlinerApp: App {
                     await KMPTaskReminderScheduler.shared.scheduleRefresh()
                     await KMPHabitReminderScheduler.shared.scheduleRefresh()
                     await PhoneWatchSyncBridge.shared.pushLatestSnapshot(reason: "launchTask")
-                    await SyncCoordinator.shared.syncICloudOnForegroundIfNeeded()
+                    await SyncCoordinator.shared.configureAutomaticSync()
                 }
                 .onAppear {
                     // 启动时也跑一次（有时不会立刻触发 scenePhase 变化）
+                    DeadlinerWidgetRefreshCoordinator.shared.requestUpdate()
                     applyAutoSeasonIconIfNeeded()
                     Task {
                         do {
@@ -81,9 +108,13 @@ struct DeadlinerApp: App {
                         }
                     }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .deadlinerWidgetUpdateRequested)) { _ in
+                    DeadlinerWidgetRefreshCoordinator.shared.requestUpdate()
+                }
                 .onChange(of: scenePhase) { phase in
                     // 回到前台时刷新一次即可
                     guard phase == .active else { return }
+                    DeadlinerWidgetRefreshCoordinator.shared.requestUpdate()
                     applyAutoSeasonIconIfNeeded()
                     Task { await StoreManager.shared.refreshEntitlementsOnLaunch() }
                     Task {
@@ -92,7 +123,7 @@ struct DeadlinerApp: App {
                             await KMPTaskReminderScheduler.shared.scheduleRefresh()
                             await KMPHabitReminderScheduler.shared.scheduleRefresh()
                             await PhoneWatchSyncBridge.shared.pushLatestSnapshot(reason: "sceneActive")
-                            await SyncCoordinator.shared.syncICloudOnForegroundIfNeeded()
+                            await SyncCoordinator.shared.configureAutomaticSync()
                         } catch {
                             AILog.log("Core init failed on active: \(error.localizedDescription)")
                             SyncDebugLog.log("Core init failed on active: \(error.localizedDescription)")

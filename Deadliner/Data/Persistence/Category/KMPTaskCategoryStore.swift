@@ -35,8 +35,8 @@ actor KMPTaskCategoryStore: CategoryPersistenceStore {
         let category = TaskCategory(
             uid: UUID().uuidString.lowercased(),
             name: name,
-            iconKey: iconKey,
-            colorHex: colorHex,
+            iconKey: CategoryPresentationSupport.semanticIconKey(iconKey),
+            colorHex: CategoryPresentationSupport.normalizedColorHex(colorHex),
             isPreset: false,
             sortOrder: nextSortOrder(),
             createdAt: timestamp,
@@ -45,7 +45,6 @@ actor KMPTaskCategoryStore: CategoryPersistenceStore {
         database.categories.create(category: category.kmpValue)
         trace("create", uid: category.uid)
         await publishChange()
-        await SyncCoordinator.shared.scheduleSync()
         return category
     }
 
@@ -53,14 +52,18 @@ actor KMPTaskCategoryStore: CategoryPersistenceStore {
         database.categories.update(category: category.kmpValue)
         trace("update", uid: category.uid)
         await publishChange()
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     func deleteCategory(uid: String) async throws {
         database.categories.softDelete(uid: uid, updatedAt: Self.timestamp())
         trace("delete", uid: uid)
         await publishChange()
-        await SyncCoordinator.shared.scheduleSync()
+    }
+
+    func restorePresets() async throws {
+        _ = database.categories.restorePresets()
+        trace("restore_presets", uid: "all")
+        await publishChange()
     }
 
     private func nextSortOrder() -> Int {
@@ -105,8 +108,8 @@ private extension TaskCategory {
         self.init(
             uid: category.uid,
             name: category.name,
-            iconKey: category.iconKey,
-            colorHex: category.colorHex,
+            iconKey: CategoryPresentationSupport.semanticIconKey(category.iconKey),
+            colorHex: CategoryPresentationSupport.normalizedColorHex(category.colorHex),
             isPreset: category.isPreset,
             sortOrder: Int(category.sortOrder),
             createdAt: category.createdAt,
@@ -118,8 +121,8 @@ private extension TaskCategory {
         Category_(
             uid: uid,
             name: name,
-            iconKey: iconKey,
-            colorHex: colorHex,
+            iconKey: CategoryPresentationSupport.semanticIconKey(iconKey),
+            colorHex: CategoryPresentationSupport.normalizedColorHex(colorHex),
             isPreset: isPreset,
             sortOrder: Int32(sortOrder),
             createdAt: createdAt,

@@ -62,7 +62,6 @@ actor KMPCaptureStore: CapturePersistenceStore {
         await MainActor.run {
             PersistenceChangePublisher.publish(.init(resourceKinds: [.capture]))
         }
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     private func trace(_ operation: String, uid: String) {
@@ -133,17 +132,19 @@ private extension Date {
             self = date
             return
         }
-        guard let date = DateFormatter.kmpLocalISO8601.date(from: value) else { return nil }
+        // SwiftData-era captures were saved as local wall-clock time without an offset.
+        // Preserve that meaning while importing them into the KMP-backed inbox.
+        guard let date = DateFormatter.kmpLegacyLocalDateTime.date(from: value) else { return nil }
         self = date
     }
 }
 
 private extension DateFormatter {
-    static let kmpLocalISO8601: DateFormatter = {
+    static let kmpLegacyLocalDateTime: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
         return formatter
     }()
 }

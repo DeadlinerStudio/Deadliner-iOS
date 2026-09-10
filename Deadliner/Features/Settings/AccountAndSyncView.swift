@@ -194,6 +194,7 @@ struct AccountAndSyncView: View {
         await persistSyncSwitches()
         await LocalValues.shared.setWebDAVURL(trimmedURL.isEmpty ? nil : trimmedURL)
         await LocalValues.shared.setWebDAVAuth(user: webdavUser, pass: webdavPass)
+        await SyncCoordinator.shared.configureAutomaticSync()
 
         message = syncProvider == .iCloud ? "iCloud 同步已启用" : "WebDAV 配置已保存"
         showMessage = true
@@ -210,6 +211,7 @@ struct AccountAndSyncView: View {
     private func clearWebDAV() async {
         await LocalValues.shared.setWebDAVURL(nil)
         await LocalValues.shared.clearWebDAVAuth()
+        await SyncCoordinator.shared.configureAutomaticSync()
         webdavURL = ""
         webdavUser = ""
         webdavPass = ""

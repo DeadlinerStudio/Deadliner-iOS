@@ -110,6 +110,14 @@ enum RichMainTab: String, CaseIterable, Codable, Hashable, Identifiable {
         }
     }
 
+    func atmosphereAccentColor(for themeAccentOption: ThemeAccentOption) -> Color? {
+        guard themeAccentOption == .systemDefault else {
+            return nil
+        }
+
+        return browseTint
+    }
+
     func iconImage() -> Image {
         Image(systemName: systemImage)
     }

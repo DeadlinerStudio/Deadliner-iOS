@@ -22,5 +22,16 @@ struct DeadlinerShortcutsProvider: AppShortcutsProvider {
             shortTitle: "导入 JSON",
             systemImageName: "tray.and.arrow.down"
         )
+
+        AppShortcut(
+            intent: CreateInspirationIntent(),
+            phrases: [
+                "用 \(.applicationName) 记录灵感",
+                "在 \(.applicationName) 创建灵感",
+                "把想法存到 \(.applicationName)"
+            ],
+            shortTitle: "创建灵感",
+            systemImageName: "pencil.and.outline"
+        )
     }
 }

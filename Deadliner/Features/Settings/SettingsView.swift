@@ -12,7 +12,6 @@ struct SettingsView: View {
     @AppStorage("userTier") private var userTier: UserTier = .free
     @AppStorage("userName") private var userName: String = "用户"
     @AppStorage("settings.home.style") private var homeStyleRawValue: String = HomeStyleOption.rich.rawValue
-    @AppStorage(OnboardingStorageKey.showOnNextLaunch) private var showOnboardingOnNextLaunch = false
     @StateObject private var avatarManager = AvatarManager.shared
     @State private var showProPaywall = false
     @State private var selectedPhotoItem: PhotosPickerItem?
@@ -21,11 +20,11 @@ struct SettingsView: View {
     @State private var showNameAlert = false
     @State private var tempName = ""
     @State private var animateRows = false
-    @State private var versionTapCount = 0
-    @State private var showGuideUnlockedAlert = false
-    @State private var showLogShare = false
-    @State private var logURL: URL?
-    @State private var showLogClearedAlert = false
+    @State private var showRestorePresetsConfirmation = false
+    @State private var showRestorePresetsResult = false
+    @State private var restorePresetsResultMessage = ""
+
+    private let categoryStore: any CategoryPersistenceStore = PersistenceStores.categories
 
     var body: some View {
         List {
@@ -136,6 +135,13 @@ struct SettingsView: View {
                     settingsLabel("账号与云同步", systemImage: "cloud.fill", tintColors: [.cyan, .cyan.opacity(0.7)])
                 }
                 .settingsRowEntrance(isVisible: animateRows, index: 3)
+
+                Button {
+                    showRestorePresetsConfirmation = true
+                } label: {
+                    settingsLabel("恢复预设分类", systemImage: "arrow.counterclockwise", tintColors: [.orange, .orange.opacity(0.7)])
+                }
+                .buttonStyle(.plain)
             }
 
             // MARK: - 4. 效率引擎
@@ -213,38 +219,9 @@ struct SettingsView: View {
                 .settingsRowEntrance(isVisible: animateRows, index: 8)
             }
 
-            Section {
-                Button("导出标准应用日志") {
-                    Task {
-                        logURL = await AppLog.exportURL(format: .standard)
-                        showLogShare = true
-                    }
-                }
-
-                Button("导出 JSON 应用日志") {
-                    Task {
-                        logURL = await AppLog.exportURL(format: .json)
-                        showLogShare = true
-                    }
-                }
-
-                Button("清空应用日志", role: .destructive) {
-                    Task {
-                        try? await AppLog.clear()
-                        showLogClearedAlert = true
-                    }
-                }
-            } header: {
-                Text("日志与诊断")
-            } footer: {
-                Text("标准日志格式为 [时间][KMP/Native][模块] 内容；也可导出 JSON。日志跨重启保留最多 14 天或 8 MiB。")
-            }
-
             // MARK: - 6. 其他
             Section("关于") {
-                Button {
-                    handleVersionInfoTap()
-                } label: {
+                NavigationLink(destination: AboutSettingsView()) {
                     HStack {
                         settingsLabel("版本信息", systemImage: "info.circle.fill", tintColors: [.gray, .gray.opacity(0.7)])
                         Spacer()
@@ -254,7 +231,6 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .buttonStyle(.plain)
                 .settingsRowEntrance(isVisible: animateRows, index: 9)
                 
                 Link(destination: URL(string: "https://github.com/AritxOnly/Deadliner-iOS/blob/main/LICENSE")!) {
@@ -262,37 +238,28 @@ struct SettingsView: View {
                 }
                 .settingsRowEntrance(isVisible: animateRows, index: 10)
 
-                if versionTapCount > 0 {
-                    Text("再点 \(10 - versionTapCount) 次版本号，下次启动时重新显示新手引导。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else if showOnboardingOnNextLaunch {
-                    Text("已设为下次启动时显示新手引导。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
             }
         }
         .deadlinerScrollEdgeEffect(forceImmersive: false)
         .deadlinerContainerSystemBackground()
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("已开启新手引导", isPresented: $showGuideUnlockedAlert) {
-            Button("好的", role: .cancel) { }
-        } message: {
-            Text("下次打开 App 时，会重新显示新手引导页。")
-        }
         .sheet(isPresented: $showProPaywall) {
             ProPaywallView()
                 .presentationDetents([.large])
         }
-        .sheet(isPresented: $showLogShare) {
-            if let logURL {
-                ActivityView(activityItems: [logURL])
+        .confirmationDialog("恢复预设分类", isPresented: $showRestorePresetsConfirmation, titleVisibility: .visible) {
+            Button("恢复") {
+                restorePresetCategories()
             }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将补回缺失或已删除的默认分类，不会覆盖现有分类的名称、图标或颜色。")
         }
-        .alert("应用日志已清空", isPresented: $showLogClearedAlert) {
+        .alert("恢复预设分类", isPresented: $showRestorePresetsResult) {
             Button("好的", role: .cancel) {}
+        } message: {
+            Text(restorePresetsResultMessage)
         }
         .task {
             guard !animateRows else { return }
@@ -316,14 +283,16 @@ struct SettingsView: View {
         HomeStyleOption(rawValue: homeStyleRawValue) ?? .rich
     }
 
-    private func handleVersionInfoTap() {
-        versionTapCount += 1
-
-        guard versionTapCount >= 10 else { return }
-
-        showOnboardingOnNextLaunch = true
-        versionTapCount = 0
-        showGuideUnlockedAlert = true
+    private func restorePresetCategories() {
+        Task {
+            do {
+                try await categoryStore.restorePresets()
+                restorePresetsResultMessage = "预设分类已恢复。"
+            } catch {
+                restorePresetsResultMessage = "恢复失败：\(error.localizedDescription)"
+            }
+            showRestorePresetsResult = true
+        }
     }
 
 }

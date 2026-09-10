@@ -15,6 +15,7 @@ struct RichHomeTabView: View {
     let atmosphereTone: ImmersiveSurfaceTone
     let onAtmosphereToneChange: (ImmersiveSurfaceTone) -> Void
 
+    @EnvironmentObject private var themeStore: ThemeStore
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @AppStorage(RichCompactLayout.settingKey) private var compactLayoutEnabled: Bool = false
     @AppStorage(DashboardHomeLayout.settingKey) private var dashboardHomeLayoutEnabled: Bool = DashboardHomeLayout.defaultValue
@@ -130,7 +131,7 @@ struct RichHomeTabView: View {
             return nil
         }
 
-        return ThemeDefaults.homeTaskSemanticAccent
+        return RichMainTab.home.atmosphereAccentColor(for: themeStore.accentOption)
     }
 }
 
@@ -173,6 +174,7 @@ struct RichArchiveTabView: View {
 struct RichOverviewTabView: View {
     @Binding var overlayProgress: CGFloat
 
+    @EnvironmentObject private var themeStore: ThemeStore
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @AppStorage(RichCompactLayout.settingKey) private var compactLayoutEnabled: Bool = false
     @AppStorage("settings.ai.last_analyzed_month") private var lastAnalyzedMonth: String = ""
@@ -190,7 +192,10 @@ struct RichOverviewTabView: View {
                 .deadlinerTopAtmosphereSceneBackground(
                     progress: overlayProgress,
                     isAIConfigured: isAIConfigured,
-                    semanticTone: .calm
+                    semanticTone: .accent,
+                    semanticAccentColor: RichMainTab.overview.atmosphereAccentColor(
+                        for: themeStore.accentOption
+                    )
                 )
         }
     }
@@ -228,6 +233,7 @@ struct RichOverviewTabView: View {
 struct RichInspirationTabView: View {
     @Binding var overlayProgress: CGFloat
 
+    @EnvironmentObject private var themeStore: ThemeStore
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @State private var selectionMode = false
 
@@ -245,7 +251,10 @@ struct RichInspirationTabView: View {
                 .deadlinerTopAtmosphereSceneBackground(
                     progress: overlayProgress,
                     isAIConfigured: isAIConfigured,
-                    semanticTone: .calm
+                    semanticTone: .accent,
+                    semanticAccentColor: RichMainTab.inspiration.atmosphereAccentColor(
+                        for: themeStore.accentOption
+                    )
                 )
         }
     }
@@ -254,6 +263,7 @@ struct RichInspirationTabView: View {
 struct RichAITabView: View {
     @Binding var overlayProgress: CGFloat
 
+    @EnvironmentObject private var themeStore: ThemeStore
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
 
     var body: some View {
@@ -270,7 +280,10 @@ struct RichAITabView: View {
             .deadlinerTopAtmosphereSceneBackground(
                 progress: overlayProgress,
                 isAIConfigured: isAIConfigured,
-                semanticTone: .accent
+                semanticTone: .accent,
+                semanticAccentColor: RichMainTab.ai.atmosphereAccentColor(
+                    for: themeStore.accentOption
+                )
             )
         }
     }

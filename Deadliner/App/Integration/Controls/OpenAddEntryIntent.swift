@@ -60,13 +60,13 @@ struct OpenLifiAIIntent: AppIntent {
 }
 
 struct OpenInspirationIntent: AppIntent {
-    static let title: LocalizedStringResource = "打开灵感"
+    static let title: LocalizedStringResource = "快速记录灵感"
     static let openAppWhenRun = true
     static let isDiscoverable = false
 
     func perform() async throws -> some IntentResult {
         let defaults = UserDefaults(suiteName: "group.top.aritxonly.deadliner.group")
-        defaults?.set("open_inspiration", forKey: "widget.pending_add_entry_type")
+        defaults?.set("open_inspiration_composer", forKey: "widget.pending_add_entry_type")
         return .result()
     }
 }

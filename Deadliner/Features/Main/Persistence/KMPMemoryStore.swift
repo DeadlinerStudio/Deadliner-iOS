@@ -61,7 +61,6 @@ actor KMPMemoryStore: MemoryPersistenceStore {
         await MainActor.run {
             PersistenceChangePublisher.publish(.init(resourceKinds: [.memory]))
         }
-        await SyncCoordinator.shared.scheduleSync()
     }
 
     private func trace(_ operation: String, uid: String) {

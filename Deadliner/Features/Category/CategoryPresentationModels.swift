@@ -107,42 +107,42 @@ extension CategoryBadgeModel {
 
 enum CategoryPresentationSupport {
     static let iconOptions = [
-        "tag.fill",
-        "folder.fill",
-        "tray.full.fill",
-        "briefcase.fill",
-        "building.2.fill",
-        "book.closed.fill",
-        "graduationcap.fill",
-        "pencil.and.outline",
-        "house.fill",
-        "cart.fill",
-        "fork.knife",
-        "cup.and.saucer.fill",
-        "heart.fill",
-        "cross.case.fill",
-        "figure.run",
-        "dumbbell.fill",
-        "creditcard.fill",
-        "banknote.fill",
-        "chart.line.uptrend.xyaxis",
-        "person.2.fill",
-        "figure.2.and.child.holdinghands",
-        "paintbrush.pointed.fill",
-        "camera.fill",
-        "music.note",
-        "text.book.closed.fill",
-        "sparkles",
+        "tag",
+        "folder",
+        "inbox_tray",
+        "briefcase",
+        "office_building",
+        "book",
+        "education",
+        "edit",
+        "home",
+        "shopping",
+        "dining",
+        "coffee",
+        "health",
+        "medical",
+        "running",
+        "fitness",
+        "payment_card",
+        "cash",
+        "analytics",
+        "group",
+        "family",
+        "creativity",
+        "camera",
+        "music",
+        "reading",
+        "inspiration",
         "calendar",
-        "clock.fill",
-        "flag.fill",
-        "lightbulb.fill",
-        "globe.asia.australia.fill",
-        "airplane",
-        "gamecontroller.fill",
-        "wrench.and.screwdriver.fill",
-        "hammer.fill",
-        "leaf.fill"
+        "time",
+        "flag",
+        "idea",
+        "travel",
+        "flight",
+        "gaming",
+        "tools",
+        "construction",
+        "nature"
     ]
 
     static let colorOptions = [
@@ -168,12 +168,98 @@ enum CategoryPresentationSupport {
         "#111827"
     ]
 
-    static func safeIconKey(_ iconKey: String) -> String {
-        iconOptions.contains(iconKey) ? iconKey : "tag.fill"
+    /// Converts the historical iOS SF Symbol spelling into the portable icon ID stored by V3.
+    static func semanticIconKey(_ iconKey: String) -> String {
+        switch iconKey {
+        case "tag.fill": return "tag"
+        case "folder.fill": return "folder"
+        case "tray.full.fill": return "inbox_tray"
+        case "briefcase.fill": return "briefcase"
+        case "building.2.fill": return "office_building"
+        case "book.closed.fill": return "book"
+        case "graduationcap.fill": return "education"
+        case "pencil.and.outline", "pencil.line": return "edit"
+        case "house.fill": return "home"
+        case "cart.fill": return "shopping"
+        case "fork.knife": return "dining"
+        case "cup.and.saucer.fill": return "coffee"
+        case "heart.fill": return "health"
+        case "cross.case.fill": return "medical"
+        case "figure.run": return "running"
+        case "dumbbell.fill": return "fitness"
+        case "creditcard.fill": return "payment_card"
+        case "banknote.fill": return "cash"
+        case "chart.line.uptrend.xyaxis": return "analytics"
+        case "person.2.fill": return "group"
+        case "figure.2.and.child.holdinghands": return "family"
+        case "paintbrush.pointed.fill": return "creativity"
+        case "camera.fill": return "camera"
+        case "music.note": return "music"
+        case "text.book.closed.fill": return "reading"
+        case "sparkles": return "inspiration"
+        case "clock.fill": return "time"
+        case "flag.fill": return "flag"
+        case "lightbulb.fill": return "idea"
+        case "globe.asia.australia.fill": return "travel"
+        case "airplane": return "flight"
+        case "gamecontroller.fill": return "gaming"
+        case "wrench.and.screwdriver.fill": return "tools"
+        case "hammer.fill": return "construction"
+        case "leaf.fill": return "nature"
+        default: return iconOptions.contains(iconKey) ? iconKey : "tag"
+        }
     }
 
-    static func safeColorHex(_ colorHex: String) -> String {
-        colorOptions.contains(colorHex.uppercased()) ? colorHex : "#3B82F6"
+    static func systemImageName(for iconKey: String) -> String {
+        switch semanticIconKey(iconKey) {
+        case "folder": return "folder.fill"
+        case "inbox_tray": return "tray.full.fill"
+        case "briefcase": return "briefcase.fill"
+        case "office_building": return "building.2.fill"
+        case "book": return "book.closed.fill"
+        case "education": return "graduationcap.fill"
+        case "edit": return "pencil.line"
+        case "home": return "house.fill"
+        case "shopping": return "cart.fill"
+        case "dining": return "fork.knife"
+        case "coffee": return "cup.and.saucer.fill"
+        case "health": return "heart.fill"
+        case "medical": return "cross.case.fill"
+        case "running": return "figure.run"
+        case "fitness": return "dumbbell.fill"
+        case "payment_card": return "creditcard.fill"
+        case "cash": return "banknote.fill"
+        case "analytics": return "chart.line.uptrend.xyaxis"
+        case "group": return "person.2.fill"
+        case "family": return "figure.2.and.child.holdinghands"
+        case "creativity": return "paintbrush.pointed.fill"
+        case "camera": return "camera.fill"
+        case "music": return "music.note"
+        case "reading": return "text.book.closed.fill"
+        case "inspiration": return "sparkles"
+        case "calendar": return "calendar"
+        case "time": return "clock.fill"
+        case "flag": return "flag.fill"
+        case "idea": return "lightbulb.fill"
+        case "travel": return "globe.asia.australia.fill"
+        case "flight": return "airplane"
+        case "gaming": return "gamecontroller.fill"
+        case "tools": return "wrench.and.screwdriver.fill"
+        case "construction": return "hammer.fill"
+        case "nature": return "leaf.fill"
+        default: return "tag.fill"
+        }
+    }
+
+    static func safeIconKey(_ iconKey: String) -> String {
+        systemImageName(for: iconKey)
+    }
+
+    static func normalizedColorHex(_ colorHex: String) -> String {
+        guard colorHex.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) != nil else {
+            return "#3B82F6"
+        }
+        return colorHex.uppercased()
     }
 
     static func badge(for categoryUID: String?, categories: [String: TaskCategory]) -> CategoryBadgeModel? {

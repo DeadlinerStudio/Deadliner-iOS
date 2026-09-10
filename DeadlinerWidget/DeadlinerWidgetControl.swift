@@ -75,7 +75,7 @@ struct DeadlinerInspirationControl: ControlWidget {
             }
         }
         .displayName("灵感")
-        .description("点击后直接打开 Deadliner 的灵感页。")
+        .description("点击后快速记录一条灵感。")
     }
 }
 

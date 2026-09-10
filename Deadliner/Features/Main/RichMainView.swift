@@ -42,6 +42,7 @@ struct RichMainView: View {
     @State private var showAddEntrySheet = false
     @State private var addEntrySelection: TaskSegment = .tasks
     @State private var showSettingsSheet = false
+    @State private var showQuickInspirationSheet = false
     @State private var showHomeCategoryFilterSheet = false
     @State private var homeResetToken = 0
     @State private var overviewResetToken = 0
@@ -109,6 +110,13 @@ struct RichMainView: View {
                 initialSelection: addEntrySelection
             )
             .presentationDetents([.large])
+        }
+        .sheet(isPresented: $showQuickInspirationSheet) {
+            QuickInspirationCaptureSheet { text in
+                CaptureStore.shared.addItem(text: text)
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showSettingsSheet) {
             NavigationStack {
@@ -406,6 +414,8 @@ struct RichMainView: View {
             openAIEntryPoint()
         case "open_inspiration":
             selectedTab = .inspiration
+        case "open_inspiration_composer":
+            showQuickInspirationSheet = true
         case "open_home":
             selectedTab = .home
             homeTaskSegment = .tasks
