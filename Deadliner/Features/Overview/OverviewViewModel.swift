@@ -8,6 +8,7 @@
 import Combine
 import Foundation
 import SwiftUI
+import UIKit
 
 #if canImport(Shared)
 import Shared
@@ -60,13 +61,14 @@ struct Metric: Identifiable {
     let isDown: Bool?
 }
 
-private struct MonthlyAnalysisContext {
+private struct MonthlyAnalysisContext: Sendable {
     let monthKey: String
     let monthLabel: String
 }
 
 @MainActor
 final class OverviewViewModel: ObservableObject {
+    @Published private(set) var focus: FocusOverviewStatistics?
     @Published var isLoading = true
     @Published var todayCompleted = 0
     @Published var todayTodo = 0
@@ -77,6 +79,8 @@ final class OverviewViewModel: ObservableObject {
     @Published var dailyStats: [DailyStat] = []
     @Published var monthlyStats: [MonthlyStat] = []
     @Published var weeklyStats: [WeeklyStat] = []
+    @Published private(set) var contributionLoading = true
+    @Published private(set) var contributionError: String?
     @Published var contributionStats: [ContributionDay] = []
     @Published var lastMonthDailyStats: [DailyStat] = []
     @Published var lastMonthName = ""
@@ -85,6 +89,98 @@ final class OverviewViewModel: ObservableObject {
     @Published var metrics: [Metric] = []
     @Published var overviewCardOrder: [OverviewCard] = [.activeStats, .completionTime, .historyStats]
     @Published var trendCardOrder: [TrendCard] = [.contributionHeatmap, .dailyTrend, .monthlyTrend, .weeklyTrend]
+
+    @Published var selectedMonth = OverviewPeriod.monthStart(Date())
+    @Published private(set) var monthState: OverviewMonthUiState?
+    @Published private(set) var comparisonLoading = true
+    @Published private(set) var previousMonthState: OverviewMonthUiState?
+    @Published private(set) var monthLoading = true
+    @Published private(set) var monthError: String?
+    @Published private(set) var taskError: String?
+    @Published private(set) var focusError: String?
+    @Published private(set) var focusLoading = true
+    @Published private(set) var focusSessions: [FocusSession] = []
+    @Published private(set) var focusManagementStatistics: FocusStatisticsSnapshot?
+    @Published private(set) var managementError: String?
+    @Published private(set) var managementLoading = true
+    @Published private(set) var insightError: String?
+    private var currentMonthKey = OverviewPeriod.key(Date(), format: "yyyy-MM")
+    private var selectedMonthKey = OverviewPeriod.key(Date(), format: "yyyy-MM")
+    private var focusDurationByDay: [String: Int64] = [:]
+    private var annualGeneration = 0
+    private var monthGeneration = 0
+    private var analysisRequestMonth: String?
+
+    var monthTitle: String { "\(OverviewPeriod.calendar.component(.month, from: selectedMonth))月总览" }
+    var monthSubtitle: String {
+        "\(OverviewPeriod.calendar.component(.year, from: selectedMonth))年 · " + (canGoForward ? "历史月份" : "本月进行中")
+    }
+    var canGoForward: Bool { selectedMonth < OverviewPeriod.monthStart(Date()) }
+    var comparison: (text: String, direction: Int)? {
+        guard let monthState, let previousMonthState else { return nil }
+        return OverviewPeriod.comparison(current: monthState.daily.map { Int($0.completedCount) },
+            previous: previousMonthState.daily.map { Int($0.completedCount) },
+            day: OverviewPeriod.comparisonDay(month: selectedMonth, now: Date()))
+    }
+    var reviewMonthLabel: String {
+        guard let lastMonthStart, let date = OverviewPeriod.date(lastMonthStart) else { return "上月" }
+        return OverviewPeriod.key(date, format: "yyyy年M月")
+    }
+    func changeMonth(by offset: Int) {
+        let next = OverviewPeriod.shifted(selectedMonth, by: offset)
+        guard next <= OverviewPeriod.monthStart(Date()), OverviewPeriod.calendar.component(.year, from: next) >= 1900 else { return }
+        selectedMonth = next
+        selectedMonthKey = OverviewPeriod.key(next, format: "yyyy-MM")
+        loadMonth()
+    }
+    func refreshForClockChange() { loadData() }
+    func retryInsight() {
+        guard let context = monthlyAnalysisContext else { return }
+        _Concurrency.Task { await resolveMonthlyAnalysis(context: context, retry: true) }
+    }
+    func mutateFocusSession(uid: String, seconds: Int64?, completion: @escaping (String?) -> Void) {
+        guard let bridge else { completion("数据尚未就绪，请重试"); return }
+        bridge.mutateFocusSession(uid: uid, seconds: seconds) { [weak self] outcome, error in
+            guard error == nil, outcome == .applied || outcome == .noOp else {
+                completion(error ?? FocusTimerFormatting.outcomeMessage(outcome) ?? "操作失败，请重试")
+                return
+            }
+            PersistenceChangePublisher.publish(.init(resourceKinds: [.task, .habit, .habitRecord]))
+            self?.loadData()
+            FocusTimerPresentationModel.shared.refresh()
+            completion(nil)
+        }
+    }
+    func focusSeconds(on date: String) -> Int64 { focusDurationByDay[date] ?? 0 }
+    private func loadMonth() {
+        guard let bridge else { return }
+        monthGeneration += 1
+        let generation = monthGeneration
+        monthLoading = true
+        monthError = nil
+        monthState = nil
+        previousMonthState = nil
+        comparisonLoading = true
+        let month = OverviewPeriod.key(selectedMonth)
+        bridge.loadMonth(month, onState: { [weak self] state in
+            guard let self, self.monthGeneration == generation else { return }
+            self.monthState = state
+            self.monthLoading = false
+        }, onError: { [weak self] error in
+            guard let self, self.monthGeneration == generation else { return }
+            self.monthError = error
+            self.monthLoading = false
+        })
+        bridge.loadMonth(OverviewPeriod.key(OverviewPeriod.shifted(selectedMonth, by: -1)), onState: { [weak self] state in
+            guard let self, self.monthGeneration == generation else { return }
+            self.previousMonthState = state
+            self.comparisonLoading = false
+        }, onError: { [weak self] _ in
+            guard let self, self.monthGeneration == generation else { return }
+            self.previousMonthState = nil
+            self.comparisonLoading = false
+        })
+    }
 
     private var bridge: KMPOverviewViewModelBridge?
     private var cancellables = Set<AnyCancellable>()
@@ -112,12 +208,17 @@ final class OverviewViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.loadData() }
+            .store(in: &cancellables)
+
         NotificationCenter.default.publisher(for: .ddlRequestMonthlyAnalysis)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 _Concurrency.Task { @MainActor [weak self] in
                     guard let self, let context = self.monthlyAnalysisContext else { return }
-                    await self.generateMonthlyAnalysis(context: context)
+                    await self.resolveMonthlyAnalysis(context: context, retry: true)
                 }
             }
             .store(in: &cancellables)
@@ -126,10 +227,18 @@ final class OverviewViewModel: ObservableObject {
     deinit {
         let line = "[KMP][Overview] view model deinit"
         print(line)
-        SyncDebugLog.log(line)
+        _Concurrency.Task { @MainActor in SyncDebugLog.log(line) }
     }
 
     func loadData() {
+        let current = OverviewPeriod.monthStart(Date())
+        if selectedMonthKey == currentMonthKey {
+            selectedMonth = current
+        } else {
+            selectedMonth = min(OverviewPeriod.date(selectedMonthKey + "-01") ?? current, current)
+        }
+        currentMonthKey = OverviewPeriod.key(current, format: "yyyy-MM")
+        selectedMonthKey = OverviewPeriod.key(selectedMonth, format: "yyyy-MM")
         overviewLog("refresh requested generation=\(bridgeGeneration)")
         isLoading = true
         guard let bridge else { return }
@@ -170,6 +279,38 @@ final class OverviewViewModel: ObservableObject {
         }
 
         snapshotLoadInFlight = true
+        loadMonth()
+        focusLoading = true
+        focusError = nil
+        bridge.loadFocusSafely(onState: { [weak self] focus in
+            guard let self, self.bridgeGeneration == generation else { return }
+            self.focus = focus
+            self.focusLoading = false
+        }, onError: { [weak self] error in
+            self?.focus = nil
+            self?.focusError = error
+            self?.focusLoading = false
+        })
+        managementLoading = true
+        managementError = nil
+        bridge.loadFocusManagement(onState: { [weak self] sessions, statistics in
+            guard let self else { return }
+            self.focusSessions = sessions
+            var totals: [String: Int64] = [:]
+            for session in sessions {
+                guard let start = DeadlineDateParser.safeParseOptional(session.startedAt) else { continue }
+                totals[OverviewPeriod.key(start), default: 0] += session.durationSeconds
+            }
+            self.focusDurationByDay = totals
+            self.focusManagementStatistics = statistics
+            self.managementLoading = false
+        }, onError: { [weak self] error in
+            self?.focusSessions = []
+            self?.focusDurationByDay = [:]
+            self?.focusManagementStatistics = nil
+            self?.managementError = error
+            self?.managementLoading = false
+        })
         bridge.load { [weak self] state in
             guard let self else { return }
             self.snapshotLoadInFlight = false
@@ -194,6 +335,8 @@ final class OverviewViewModel: ObservableObject {
             "apply begin loading=\(state.isLoading) daily=\(state.daily.count) monthly=\(state.monthly.count) "
                 + "weekly=\(state.weekly.count) contribution=\(state.contribution.count)"
         )
+        taskError = state.error
+        if state.error != nil { isLoading = false; return }
         let summary = state.summary
         todayCompleted = Int(summary.completedToday)
         todayTodo = Int(summary.pendingDueFromNow)
@@ -213,7 +356,7 @@ final class OverviewViewModel: ObservableObject {
         dailyStats = state.daily.map {
             DailyStat(date: shortDate($0.date), completedCount: Int($0.completedCount), overdueCount: Int($0.overdueCount))
         }
-        monthlyStats = state.monthly.map {
+        monthlyStats = state.monthly.suffix(6).map {
             MonthlyStat(
                 id: $0.monthStart,
                 month: monthLabel($0.monthStart),
@@ -230,10 +373,7 @@ final class OverviewViewModel: ObservableObject {
                 completedCount: Int(stat.completedCount)
             )
         }
-        contributionStats = state.contribution.compactMap { stat in
-            guard let date = isoDate(stat.date) else { return nil }
-            return ContributionDay(id: stat.date, date: date, count: Int(stat.completedCount))
-        }
+        if state.error == nil { loadAnnualContribution() }
         overviewLog("apply primary projections complete")
 
         let lastMonth = state.lastMonth
@@ -247,18 +387,49 @@ final class OverviewViewModel: ObservableObject {
         isLoading = state.isLoading
         overviewLog("apply complete loading=\(isLoading) metrics=\(metrics.count) lastMonthDays=\(lastMonthDailyStats.count)")
 
-        if let context = monthlyAnalysisContext {
+        if state.error == nil, let context = monthlyAnalysisContext {
             if monthlyAnalysis?.month != context.monthKey {
                 monthlyAnalysis = nil
             }
             _Concurrency.Task { [weak self] in
                 guard let self else { return }
-                let hasCachedAnalysis = await self.loadMonthlyAnalysis(context: context)
-                guard !hasCachedAnalysis, self.canAutoGenerateMonthlyAnalysis else { return }
-                await self.generateMonthlyAnalysis(context: context)
+                await self.resolveMonthlyAnalysis(context: context, retry: false)
             }
         } else {
             monthlyAnalysis = nil
+        }
+    }
+
+    /// Expand the legacy 150-day projection to the current year using shared monthly activity.
+    private func loadAnnualContribution() {
+        guard let bridge else { return }
+        annualGeneration += 1
+        let generation = annualGeneration
+        contributionLoading = true
+        contributionError = nil
+        let today = OverviewPeriod.calendar.startOfDay(for: Date())
+        let year = OverviewPeriod.calendar.component(.year, from: today)
+        let count = OverviewPeriod.calendar.component(.month, from: today)
+        var pending = count
+        var days: [ContributionDay] = []
+        for month in 1...count {
+            bridge.loadMonth(String(format: "%04d-%02d-01", year, month), onState: { [weak self] state in
+                guard let self, self.annualGeneration == generation else { return }
+                days += state.daily.compactMap { point in
+                    guard let date = OverviewPeriod.date(point.date), date <= today else { return nil }
+                    return ContributionDay(id: point.date, date: date, count: Int(point.completedCount))
+                }
+                pending -= 1
+                if pending == 0 {
+                    self.contributionLoading = false
+                    if self.contributionError == nil { self.contributionStats = days.sorted { $0.date < $1.date } }
+                }
+            }, onError: { [weak self] error in
+                guard let self, self.annualGeneration == generation else { return }
+                self.contributionError = error
+                pending -= 1
+                if pending == 0 { self.contributionLoading = false }
+            })
         }
     }
 
@@ -293,40 +464,28 @@ final class OverviewViewModel: ObservableObject {
         return isConfigured && isEnabled && tier != .free
     }
 
-    @discardableResult
-    private func loadMonthlyAnalysis(context: MonthlyAnalysisContext) async -> Bool {
-        guard monthlyAnalysis?.month != context.monthKey,
-              let json = await LocalValues.shared.getMonthlyAnalysis(),
-              let data = json.data(using: .utf8) else {
-            return monthlyAnalysis?.month == context.monthKey
-        }
-        if let result = try? JSONDecoder().decode(MonthlyAnalysisResult.self, from: data), result.month == context.monthKey {
-            monthlyAnalysis = result
-            return true
-        }
-        return false
-    }
-
-    private func generateMonthlyAnalysis(context: MonthlyAnalysisContext) async {
-        guard !isAnalyzing else { return }
+    private func resolveMonthlyAnalysis(context: MonthlyAnalysisContext, retry: Bool) async {
+        guard monthlyAnalysis?.month != context.monthKey, analysisRequestMonth != context.monthKey else { return }
+        analysisRequestMonth = context.monthKey
         isAnalyzing = true
-        defer { isAnalyzing = false }
-
-        do {
-            let metricsSummary = metrics.map { "\($0.label): \($0.value) (\($0.change ?? "无变化"))" }.joined(separator: "\n")
-            let result = try await KMPLifiCoreBridge.shared.generateMonthlyAnalysis(
-                monthName: context.monthLabel,
-                metricsSummary: metricsSummary,
-                completedTaskNames: lastMonthCompletedTaskTitles
-            )
-            let finalResult = MonthlyAnalysisResult(month: context.monthKey, summary: result.summary, keywords: result.keywords)
-            monthlyAnalysis = finalResult
-            if let data = try? JSONEncoder().encode(finalResult), let json = String(data: data, encoding: .utf8) {
-                await LocalValues.shared.setMonthlyAnalysis(json)
-                await LocalValues.shared.setLastAnalyzedMonth(context.monthKey)
+        insightError = nil
+        let metricsSummary = metrics.map { "\($0.label): \($0.value) (\($0.change ?? "无变化"))" }.joined(separator: "\n")
+        let titles = lastMonthCompletedTaskTitles
+        let legacy = await LocalValues.shared.getMonthlyAnalysis()
+        let unavailable = canAutoGenerateMonthlyAnalysis ? nil : "AI 未配置、已关闭或当前方案不支持月度分析"
+        let result = await MonthlyInsightRepository.shared.resolve(month: context.monthKey, retry: retry,
+            unavailableReason: unavailable, legacyJSON: legacy) {
+                let response = try await KMPLifiCoreBridge.shared.generateMonthlyAnalysis(
+                    monthName: context.monthLabel, metricsSummary: metricsSummary, completedTaskNames: titles)
+                return MonthlyAnalysisResult(month: context.monthKey, summary: response.summary, keywords: response.keywords)
             }
-        } catch {
-            print("[OverviewViewModel] Generate monthly analysis error: \(error)")
+        guard analysisRequestMonth == context.monthKey else { return }
+        analysisRequestMonth = nil
+        isAnalyzing = false
+        guard monthlyAnalysisContext?.monthKey == context.monthKey else { return }
+        switch result {
+        case .success(let analysis): monthlyAnalysis = analysis
+        case .unavailable(let message): insightError = message
         }
     }
 

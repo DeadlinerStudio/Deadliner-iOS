@@ -103,7 +103,8 @@ struct HabitEditorSheetView: View {
         saveTrigger: Int = 0,
         onSaveEnabledChange: ((Bool) -> Void)? = nil,
         initialAIInput: String? = nil,
-        autoRunAIOnAppear: Bool = false
+        autoRunAIOnAppear: Bool = false,
+        initialReminderTime: String? = nil
     ) {
         self.mode = mode
         self.onDone = onDone
@@ -126,7 +127,7 @@ struct HabitEditorSheetView: View {
         
         let initialAlarmTime: String? = {
             if case .edit(let h) = mode { return h.alarmTime }
-            return nil
+            return initialReminderTime
         }()
         
         if let alarm = initialAlarmTime, !alarm.isEmpty,

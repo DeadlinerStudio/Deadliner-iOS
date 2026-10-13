@@ -1,239 +1,104 @@
-//
-//  OverviewView.swift
-//  Deadliner
-//
-//  Created by Aritx 音唯 on 2026/2/16.
-//
-
 import SwiftUI
+import Shared
 
 struct OverviewView: View {
     var onScrollProgressChange: ((CGFloat) -> Void)? = nil
     var compactLayoutProgress: CGFloat? = nil
-    
+    var onMonthTitleChange: ((String, String) -> Void)? = nil
     @StateObject private var viewModel = OverviewViewModel()
-    @State private var selectedTabIndex = 0
-    @State private var scrollProgress: CGFloat = 0
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var archiveQuery = ""
 
-    private var compactLayoutEnabled: Bool {
-        compactLayoutProgress != nil
-    }
-
-    private var effectiveCompactProgress: CGFloat {
-        compactLayoutProgress ?? scrollProgress
-    }
-    
     var body: some View {
-        GeometryReader { proxy in
-            let isWide = proxy.size.width >= 1000
-            
-            Group {
-                if isWide {
-                    threeColumnLayout
-                } else {
-                    singleColumnLayout
-                }
-            }
-            .background(Color.clear)
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                max(0, geo.contentOffset.y + geo.contentInsets.top)
-            } action: { _, newValue in
-                scrollProgress = min(max(newValue / 120, 0), 1)
-                let p = min(max(newValue / 120, 0), 1)
-                onScrollProgressChange?(p)
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if selectedTabIndex == 2 {
-                    Button {
-                        // TODO: Share dashboard
-                    } label: {
-                        Label("分享", systemImage: "square.and.arrow.up")
-                    }
-                    .tint(.primary)
-                } else {
-                    EditButton()
-                        .tint(.primary)
-                }
-            }
-        }
-    }
-
-    private var singleColumnLayout: some View {
-        List {
-            Section {
-                if viewModel.isLoading {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                            .padding(.top, 40)
-                        Spacer()
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                } else {
-                    if selectedTabIndex == 0 {
-                        overviewStatsSectionContent
-                    } else if selectedTabIndex == 1 {
-                        trendAnalysisSectionContent
+        ScrollView {
+            VStack(spacing: 16) {
+                OverviewMonthCalendar(model: viewModel)
+                managementCards
+                NavigationLink { OverviewTaskDetail(model: viewModel) } label: { OverviewTaskResultCard(model: viewModel) }
+                    .buttonStyle(.plain)
+                if let error = viewModel.monthError { OverviewFailureView(message: error, retry: viewModel.loadData) }
+                NavigationLink { OverviewTrendDetail(model: viewModel) } label: { OverviewTrendPreview(model: viewModel) }
+                    .buttonStyle(.plain)
+                OverviewSurface {
+                    if viewModel.monthlyAnalysis != nil {
+                        NavigationLink { OverviewReviewDetail(model: viewModel) } label: {
+                            VStack(alignment: .leading, spacing: 12) {
+                                reviewHeading
+                                OverviewInsightContent(model: viewModel)
+                                reviewFooter
+                            }
+                        }.buttonStyle(.plain)
                     } else {
-                        dashboardSectionContent
+                        NavigationLink { OverviewReviewDetail(model: viewModel) } label: { reviewHeading }.buttonStyle(.plain)
+                        OverviewInsightContent(model: viewModel)
+                        NavigationLink { OverviewReviewDetail(model: viewModel) } label: { reviewFooter }.buttonStyle(.plain)
                     }
                 }
-            } header: {
-                if !compactLayoutEnabled {
-                    segmentedControl
-                }
             }
+            .frame(maxWidth: 760)
+            .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+            .frame(maxWidth: .infinity)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .deadlinerScrollEdgeEffect()
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if compactLayoutEnabled {
-                segmentedControlInset
+        .navigationTitle(viewModel.monthTitle)
+        .navigationSubtitle(viewModel.monthSubtitle)
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button { viewModel.changeMonth(by: -1) } label: { Image(systemName: "chevron.left").frame(minWidth: 44, minHeight: 44) }
+                    .accessibilityLabel("上个月")
+                Button { viewModel.changeMonth(by: 1) } label: { Image(systemName: "chevron.right").frame(minWidth: 44, minHeight: 44) }
+                    .accessibilityLabel("下个月").disabled(!viewModel.canGoForward)
             }
         }
+        .onScrollGeometryChange(for: CGFloat.self) { max(0, $0.contentOffset.y + $0.contentInsets.top) } action: { _, offset in
+            onScrollProgressChange?(min(max(offset / 120, 0), 1))
+        }
+        .onAppear { onMonthTitleChange?(viewModel.monthTitle, viewModel.monthSubtitle) }
+        .onChange(of: viewModel.selectedMonth) { onMonthTitleChange?(viewModel.monthTitle, viewModel.monthSubtitle) }
+        .onChange(of: scenePhase) { if scenePhase == .active { viewModel.refreshForClockChange() } }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in viewModel.refreshForClockChange() }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in viewModel.refreshForClockChange() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in viewModel.refreshForClockChange() }
     }
-
-    private var threeColumnLayout: some View {
-        HStack(spacing: 0) {
-            List {
-                Section {
-                    overviewStatsSectionContent
-                } header: {
-                    Text("总览")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .padding(.bottom, 8)
-                }
+    private var reviewHeading: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            OverviewCardHeading(title: "月度复盘", disclosure: true)
+            Text(viewModel.reviewMonthLabel).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+    private var reviewFooter: some View {
+        Text("查看完整复盘、活动分布与分享").font(.caption).foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+    }
+    private var managementCards: some View {
+        ViewThatFits(in: .horizontal) {
+            if !typeSize.isAccessibilitySize { HStack(spacing: 16) { focusCard.frame(minWidth: 130); archiveCard.frame(minWidth: 130) } }
+            VStack(spacing: 16) { focusCard; archiveCard }
+        }
+    }
+    private var focusCard: some View {
+        NavigationLink { OverviewFocusManagement(model: viewModel) } label: {
+            OverviewSurface {
+                OverviewCardHeading(title: "专注管理", disclosure: true)
+                if viewModel.focusLoading { ProgressView() }
+                else if viewModel.focusError != nil { Text("暂不可用").font(.subheadline).foregroundStyle(.secondary) }
+                else { Text(FocusTimerFormatting.duration(viewModel.focus?.today.totalDurationSeconds ?? 0)).font(.title2.bold()).monospacedDigit() }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .deadlinerScrollEdgeEffect(forceImmersive: true)
-
-            Divider()
-
-            List {
-                Section {
-                    trendAnalysisSectionContent
-                } header: {
-                    Text("趋势")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .padding(.bottom, 8)
-                }
+        }.buttonStyle(.plain)
+    }
+    private var archiveCard: some View {
+        NavigationLink { ArchiveView(query: $archiveQuery).navigationTitle("归档").background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea()) } label: {
+            OverviewSurface {
+                OverviewCardHeading(title: "归档", disclosure: true)
+                if viewModel.monthLoading { ProgressView() }
+                else if viewModel.monthError != nil { Text("暂不可用").font(.subheadline).foregroundStyle(.secondary) }
+                else { Text("\(viewModel.monthState?.archivedCount ?? 0) 项").font(.title2.bold()).monospacedDigit() }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .deadlinerScrollEdgeEffect(forceImmersive: true)
-
-            Divider()
-
-            List {
-                Section {
-                    dashboardSectionContent
-                } header: {
-                    Text("月度")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .padding(.bottom, 8)
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .deadlinerScrollEdgeEffect(forceImmersive: true)
-        }
-    }
-
-    @ViewBuilder
-    private var overviewStatsSectionContent: some View {
-        ForEach(Array(viewModel.overviewCardOrder.enumerated()), id: \.element) { index, cardId in
-            FloatUpRow(index: index) {
-                OverviewStatsCard(viewModel: viewModel, cardId: cardId)
-            }
-            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-        }
-        .onMove { from, to in
-            viewModel.onCardMove(tab: "OVERVIEW", from: from.first!, to: to)
-        }
-    }
-
-    @ViewBuilder
-    private var trendAnalysisSectionContent: some View {
-        ForEach(Array(viewModel.trendCardOrder.enumerated()), id: \.element) { index, cardId in
-            FloatUpRow(index: index) {
-                TrendAnalysisCard(viewModel: viewModel, cardId: cardId)
-            }
-            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-        }
-        .onMove { from, to in
-            viewModel.onCardMove(tab: "TREND", from: from.first!, to: to)
-        }
-    }
-
-    @ViewBuilder
-    private var dashboardSectionContent: some View {
-        DashboardSection(
-            metrics: viewModel.metrics,
-            dailyStats: viewModel.lastMonthDailyStats,
-            lastMonthName: viewModel.lastMonthName,
-            analysis: viewModel.monthlyAnalysis,
-            isAnalyzing: viewModel.isAnalyzing
-        )
-        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
-    }
-
-    private var loadingView: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .scaleEffect(1.5)
-            Text("正在加载数据...")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(UIColor.systemBackground))
-    }
-
-    private var segmentedPicker: some View {
-        Picker("", selection: $selectedTabIndex) {
-            Text("总览").tag(0)
-            Text("趋势").tag(1)
-            Text("上月").tag(2)
-        }
-        .pickerStyle(.segmented)
-        .textCase(nil)
-    }
-
-    private var segmentedControl: some View {
-        segmentedPicker
-        .glassEffect()
-        .padding(
-            EdgeInsets(
-                top: RichCompactLayout.headerTopPadding(
-                    enabled: compactLayoutEnabled,
-                    progress: effectiveCompactProgress
-                ),
-                leading: 12,
-                bottom: 4,
-                trailing: 12
-            )
-        )
-    }
-
-    private var segmentedControlInset: some View {
-        segmentedControl
-            .padding(.top, 8)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-            .background(Color.clear)
+        }.buttonStyle(.plain)
     }
 }

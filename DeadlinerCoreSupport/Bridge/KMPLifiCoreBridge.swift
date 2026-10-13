@@ -108,6 +108,12 @@ final class KMPLifiCoreBridge {
         }
     }
 
+    func extractQuickAdd(_ text: String, kind: String) async throws -> String {
+        try await initializeIfNeeded()
+        guard let core else { throw KMPLifiBridgeError.unavailable }
+        return try await IosQuickAddBridge().extractJson(core: core, text: text, kind: kind)
+    }
+
     func extractTasks(_ text: String) async throws -> [AITask] {
         try await initializeIfNeeded()
         guard let core else { throw KMPLifiBridgeError.unavailable }

@@ -494,7 +494,7 @@ public struct TaskSummary: Codable {
 
 // MARK: - Monthly Analysis
 
-public struct MonthlyAnalysisResult: Codable {
+nonisolated public struct MonthlyAnalysisResult: Codable, Sendable {
     public let month: String // e.g. "2024-02"
     public let summary: String
     public let keywords: [String]

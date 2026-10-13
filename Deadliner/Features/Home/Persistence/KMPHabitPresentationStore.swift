@@ -12,11 +12,14 @@ import Shared
 enum KMPHabitPresentationError: LocalizedError {
     case missingHabit(String)
     case invalidStatusAction
+    case focusRequiresResolution
 
     var errorDescription: String? {
         switch self {
         case let .missingHabit(uid):
             return "KMP habit \(uid) no longer exists."
+        case .focusRequiresResolution:
+            return "请先在专注页结束本轮计时，再归档或删除习惯。"
         case .invalidStatusAction:
             return "The requested KMP habit status action could not be applied."
         }
@@ -90,6 +93,12 @@ actor KMPHabitPresentationStore: KMPHabitUIStore {
     }
 
     func performHabitStatusAction(id: String, action: PersistenceHabitStatusAction) async throws -> Habit {
+        if action == .archive {
+            try await mutateIfFocusResolved(id, delete: false)
+            let store = await KMPPersistenceRuntime.shared.habitStore()
+            guard let habit = await store.habit(uid: id) else { throw KMPHabitPresentationError.missingHabit(id) }
+            return habit.projection()
+        }
         let store = await KMPPersistenceRuntime.shared.habitStore()
         let result = await store.perform(
             statusAction: action.kmpValue,
@@ -104,9 +113,19 @@ actor KMPHabitPresentationStore: KMPHabitUIStore {
     }
 
     func deleteHabit(carrierID: String) async throws {
-        let store = await KMPPersistenceRuntime.shared.habitStore()
-        await store.delete(uid: carrierID, updatedAt: Date().toLocalISOString())
+        try await mutateIfFocusResolved(carrierID, delete: true)
         trace("delete", uid: carrierID)
+    }
+
+    private func mutateIfFocusResolved(_ uid: String, delete: Bool) async throws {
+        let outcome = await KMPPersistenceRuntime.shared.mutateHabitIfFocusResolved(uid: uid, delete: delete)
+        if outcome == .applied {
+            await MainActor.run { PersistenceChangePublisher.publish(.init(resourceKinds: [.habit, .habitRecord])) }
+            await KMPHabitReminderScheduler.shared.scheduleRefresh()
+            return
+        }
+        guard outcome == .timerRequiresResolution else { throw KMPHabitPresentationError.invalidStatusAction }
+        guard await FocusTimerPresentationModel.shared.confirmTargetChange(uid: uid, habit: true, delete: delete) else { throw CancellationError() }
     }
 
     func habitRecords(habitID: String, from startDate: Date, through endDate: Date) async throws -> [HabitRecord] {

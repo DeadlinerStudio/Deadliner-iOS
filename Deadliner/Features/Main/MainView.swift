@@ -7,9 +7,13 @@
 
 import SwiftUI
 import UIKit
+#if canImport(Shared)
+import Shared
+#endif
 
 struct FocusMainView: View {
     @EnvironmentObject private var themeStore: ThemeStore
+    @ObservedObject private var focusModel = FocusTimerPresentationModel.shared
     @Namespace private var toolbarTransition
 
     @State private var module: MainModule = .taskManagement
@@ -40,6 +44,8 @@ struct FocusMainView: View {
     @State private var insightsResetToken = 0
     @State private var inspirationResetToken = 0
     @State private var archiveResetToken = 0
+    @State private var overviewTitle = "总览"
+    @State private var overviewSubtitle = ""
 
     private let widgetLaunchDefaults = UserDefaults(suiteName: "group.top.aritxonly.deadliner.group")
     private let widgetLaunchKey = "widget.pending_add_entry_type"
@@ -48,7 +54,14 @@ struct FocusMainView: View {
     var body: some View {
         NavigationStack {
             contentView
-                .navigationTitle(module.title)
+                .safeAreaInset(edge: .bottom) {
+                    if focusModel.state?.timer != nil {
+                        FocusTimerGlobalBar(model: focusModel) { focusModel.openRequested = true }
+                            .background(.regularMaterial)
+                    }
+                }
+                .navigationTitle(module == .insights ? overviewTitle : module.title)
+                .navigationSubtitle(module == .insights ? overviewSubtitle : "")
                 .navigationBarTitleDisplayMode(.automatic)
                 .navigationLargeTitleOverride(
                     module == .taskManagement && !homeSelectionMode ? "Deadliner" : nil
@@ -113,6 +126,7 @@ struct FocusMainView: View {
                     handleIncomingURL(url)
                 }
         }
+        .focusLifecycleHost()
     }
 
     // MARK: - Content Host
@@ -126,6 +140,9 @@ struct FocusMainView: View {
         case .insights:
             OverviewView(onScrollProgressChange: { p in
                 navGradientProgress = p
+            }, onMonthTitleChange: { title, subtitle in
+                overviewTitle = title
+                overviewSubtitle = subtitle
             })
             .id(insightsResetToken)
         case .inspiration:

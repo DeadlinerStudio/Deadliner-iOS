@@ -141,6 +141,7 @@ final class HomeViewModel: ObservableObject {
             await startKMPHabitListBridgeIfNeeded()
         }
         kmpHabitListBridge?.selectDate(date.toDateString())
+        kmpHabitListBridge?.refresh()
     }
     
     private func applyHabitFilter() {
@@ -164,6 +165,8 @@ final class HomeViewModel: ObservableObject {
             _ = try await habitRepo.performHabitStatusAction(id: habit.id, action: .archive)
             await refreshAllHabits(date: selectedDate)
         } catch {
+            if error is CancellationError { return }
+            errorText = error.localizedDescription
             logError("Archive habit failed: \(error.localizedDescription)")
         }
     }
@@ -176,6 +179,8 @@ final class HomeViewModel: ObservableObject {
             }
             await refreshAllHabits(date: selectedDate)
         } catch {
+            if error is CancellationError { await refreshAllHabits(date: selectedDate); return }
+            errorText = error.localizedDescription
             logError("Archive habits failed: \(error.localizedDescription)")
         }
     }
@@ -185,6 +190,8 @@ final class HomeViewModel: ObservableObject {
             try await habitRepo.deleteHabit(carrierID: habit.id)
             await refreshAllHabits(date: selectedDate)
         } catch {
+            if error is CancellationError { return }
+            errorText = error.localizedDescription
             logError("Delete habit failed: \(error.localizedDescription)")
         }
     }
@@ -197,6 +204,8 @@ final class HomeViewModel: ObservableObject {
             }
             await refreshAllHabits(date: selectedDate)
         } catch {
+            if error is CancellationError { await refreshAllHabits(date: selectedDate); return }
+            errorText = error.localizedDescription
             logError("Delete habits failed: \(error.localizedDescription)")
         }
     }
@@ -282,6 +291,7 @@ final class HomeViewModel: ObservableObject {
             }
             return updated.isCompleted
         } catch {
+            if error is CancellationError { return item.isCompleted }
             errorText = "状态流转失败：\(error.localizedDescription)"
             return item.isCompleted
         }
@@ -295,6 +305,7 @@ final class HomeViewModel: ObservableObject {
             )
             await reload()
         } catch {
+            if error is CancellationError { return }
             errorText = "状态流转失败：\(error.localizedDescription)"
         }
     }
@@ -307,6 +318,7 @@ final class HomeViewModel: ObservableObject {
             }
             await reload()
         } catch {
+            if error is CancellationError { await reload(); return }
             errorText = "批量归档失败：\(error.localizedDescription)"
         }
     }
@@ -329,6 +341,7 @@ final class HomeViewModel: ObservableObject {
             )
             await reload()
         } catch {
+            if error is CancellationError { return }
             AppLog.failure("task.give-up.failed", domain: .kmp, error: error, context: ["uid": item.id])
             errorText = "状态流转失败：\(error.localizedDescription)"
         }
@@ -370,6 +383,7 @@ final class HomeViewModel: ObservableObject {
             try await deleteTask(item: item)
             await reload()
         } catch {
+            if error is CancellationError { return }
             errorText = "删除失败：\(error.localizedDescription)"
         }
     }
@@ -382,6 +396,7 @@ final class HomeViewModel: ObservableObject {
             }
             await reload()
         } catch {
+            if error is CancellationError { await reload(); return }
             errorText = "批量删除失败：\(error.localizedDescription)"
         }
     }

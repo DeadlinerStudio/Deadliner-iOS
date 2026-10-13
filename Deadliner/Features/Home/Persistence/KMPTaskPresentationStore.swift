@@ -12,6 +12,7 @@ import Shared
 enum KMPTaskPresentationError: LocalizedError {
     case missingTask(String)
     case invalidAction(DDLStateAction)
+    case timerRequiresResolution(String)
 
     var errorDescription: String? {
         switch self {
@@ -19,11 +20,14 @@ enum KMPTaskPresentationError: LocalizedError {
             return "KMP task \(uid) no longer exists."
         case .invalidAction:
             return "The requested task action is not valid for its current KMP state."
+        case .timerRequiresResolution:
+            return "请先在专注计时页结束当前计时。"
         }
     }
 }
 
-actor KMPTaskPresentationStore: KMPTaskUIStore {
+@MainActor
+final class KMPTaskPresentationStore: KMPTaskUIStore {
     func createTask(_ params: TaskInsertParams) async throws -> String {
         let uid = UUID().uuidString.lowercased()
         let now = Date().toLocalISOString()
@@ -73,7 +77,15 @@ actor KMPTaskPresentationStore: KMPTaskUIStore {
         guard existing.state == item.state.kmpTaskState else {
             throw KMPTaskPresentationError.invalidAction(.restoreActive)
         }
-        await store.update(item.kmpValue(createdAt: existing.createdAt))
+        let result = await store.update(item.kmpValue(createdAt: existing.createdAt))
+        guard result.outcome != .timerRequiresResolution else {
+            FocusTimerPresentationModel.shared.message = "请先结束当前专注，再改变任务状态。"
+            FocusTimerPresentationModel.shared.openRequested = true
+            throw KMPTaskPresentationError.timerRequiresResolution(item.id)
+        }
+        guard result.outcome == .applied else {
+            throw KMPTaskPresentationError.invalidAction(.restoreActive)
+        }
         trace("update", uid: item.id)
     }
 
@@ -84,6 +96,12 @@ actor KMPTaskPresentationStore: KMPTaskUIStore {
             taskUID: id,
             occurredAt: Date().toLocalISOString()
         )
+        if result.outcome == .timerRequiresResolution {
+            let applied = await FocusTimerPresentationModel.shared.confirmTargetChange(uid: id, habit: false, delete: false, action: action.kmpTaskAction)
+            guard applied else { throw CancellationError() }
+            guard let task = await store.task(uid: id) else { throw KMPTaskPresentationError.missingTask(id) }
+            return task.ddlProjection()
+        }
         guard result.outcome == .applied, let task = result.task else {
             throw KMPTaskPresentationError.invalidAction(action)
         }
@@ -93,7 +111,14 @@ actor KMPTaskPresentationStore: KMPTaskUIStore {
 
     func deleteTask(id: String) async throws {
         let store = await KMPPersistenceRuntime.shared.taskStore()
-        await store.delete(uid: id, updatedAt: Date().toLocalISOString())
+        let result = await store.delete(uid: id, updatedAt: Date().toLocalISOString())
+        if result.outcome == .timerRequiresResolution {
+            guard await FocusTimerPresentationModel.shared.confirmTargetChange(uid: id, habit: false, delete: true) else { throw CancellationError() }
+            return
+        }
+        guard result.outcome == .applied else {
+            throw KMPTaskPresentationError.missingTask(id)
+        }
         trace("delete", uid: id)
     }
 

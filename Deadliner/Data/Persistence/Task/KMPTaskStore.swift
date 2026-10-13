@@ -31,11 +31,16 @@ actor KMPTaskStore: KMPTaskPersistenceStore {
         await KMPTaskReminderScheduler.shared.scheduleRefresh()
     }
 
-    func update(_ task: Task_) async {
-        database.tasks.update(task: task)
-        trace("update", uid: task.uid)
-        await publishChange(resources: [.task, .taskSubtask])
-        await KMPTaskReminderScheduler.shared.scheduleRefresh()
+    func update(_ task: Task_) async -> TaskActionResult {
+        let result = database.tasks.update(task: task)
+        if result.outcome == .applied {
+            trace("update", uid: task.uid)
+            await publishChange(resources: [.task, .taskSubtask])
+            await KMPTaskReminderScheduler.shared.scheduleRefresh()
+        } else {
+            trace("update-rejected", uid: task.uid, extra: ["outcome": "\(result.outcome)"])
+        }
+        return result
     }
 
     func perform(action: TaskAction, taskUID: String, occurredAt: String) async -> TaskActionResult {
@@ -54,11 +59,16 @@ actor KMPTaskStore: KMPTaskPersistenceStore {
         return result
     }
 
-    func delete(uid: String, updatedAt: String) async {
-        database.tasks.delete(uid: uid, updatedAt: updatedAt)
-        trace("delete", uid: uid)
-        await publishChange(resources: [.task, .taskSubtask])
-        await KMPTaskReminderScheduler.shared.scheduleRefresh()
+    func delete(uid: String, updatedAt: String) async -> TaskActionResult {
+        let result = database.tasks.delete(uid: uid, updatedAt: updatedAt)
+        if result.outcome == .applied {
+            trace("delete", uid: uid)
+            await publishChange(resources: [.task, .taskSubtask])
+            await KMPTaskReminderScheduler.shared.scheduleRefresh()
+        } else {
+            trace("delete-rejected", uid: uid, extra: ["outcome": "\(result.outcome)"])
+        }
+        return result
     }
 
     private func publishChange(resources: Set<PersistenceResourceKind>) async {

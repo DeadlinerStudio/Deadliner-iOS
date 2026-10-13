@@ -19,6 +19,7 @@ actor KMPPersistenceRuntime {
     private let habitStoreInstance: KMPHabitStore
     private let captureStoreInstance: KMPCaptureStore
     private let memoryStoreInstance: KMPMemoryStore
+    private let focusAlarmPortInstance: FocusAlarmPortAdapter
 
     private init() {
         AppLog.event(
@@ -30,6 +31,7 @@ actor KMPPersistenceRuntime {
             factory: IosDatabaseDriverFactory(databasePath: KMPSharedDatabaseLocation.databasePath)
         )
         let notificationService = NotificationService()
+        let focusAlarmPort = FocusAlarmPortAdapter.shared
         self.database = database
         notificationServiceInstance = notificationService
         notificationOrchestratorInstance = database.createNotificationOrchestrator(
@@ -40,6 +42,7 @@ actor KMPPersistenceRuntime {
         habitStoreInstance = KMPHabitStore(database: database)
         captureStoreInstance = KMPCaptureStore(database: database)
         memoryStoreInstance = KMPMemoryStore(database: database)
+        focusAlarmPortInstance = focusAlarmPort
     }
 
     func categoryStore() -> KMPTaskCategoryStore {
@@ -81,6 +84,24 @@ actor KMPPersistenceRuntime {
     /// creation.
     func overviewStateBridge() -> IosOverviewStateBridge {
         IosOverviewStateBridge(database: database)
+    }
+
+    func focusTimerStateBridge() -> IosFocusTimerStateBridge {
+        IosFocusTimerStateBridge(database: database, alarmPort: focusAlarmPortInstance)
+    }
+
+    func isAvailableFocusSession(uid: String) -> Bool {
+        guard let session = database.focusSessions.find(uid: uid) else { return false }
+        return !session.isDeleted
+    }
+
+    func mutateHabitIfFocusResolved(uid: String, delete: Bool) async -> FocusTimerOutcome {
+        let bridge = IosFocusTimerStateBridge(database: database)
+        let outcome = await withCheckedContinuation { continuation in
+            bridge.mutateHabitIfFocusResolved(habitUid: uid, delete: delete) { value in continuation.resume(returning: value) }
+        }
+        bridge.close()
+        return outcome
     }
 
     func habitStore() -> KMPHabitStore {

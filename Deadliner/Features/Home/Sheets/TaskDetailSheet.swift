@@ -105,56 +105,87 @@ struct TaskDetailSheetView: View {
         return "已完成 \(completed) / \(total)"
     }
 
+    private var errorAlertPresented: Binding<Bool> {
+        Binding(
+            get: { errorText != nil },
+            set: { if !$0 { errorText = nil } }
+        )
+    }
+
+    @ViewBuilder
+    private var detailCards: some View {
+        progressCard
+        taskMetaCard
+        noteCard
+        planCard
+    }
+
+    @ToolbarContentBuilder
+    private var taskDetailToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                editSheetItem = currentItem
+            } label: {
+                Image(systemName: "square.and.pencil")
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                Task { await toggleStar() }
+            } label: {
+                Image(systemName: currentItem.isStared ? "star.fill" : "star")
+            }
+            .disabled(isSavingStar)
+        }
+    }
+
     var body: some View {
+        presentationModifiers(
+            lifecycleModifiers(taskNavigation)
+        )
+    }
+
+    private var taskNavigation: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    progressCard
-                    taskMetaCard
-                    noteCard
-                    planCard
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-            }
-            .deadlinerScrollEdgeEffect()
-            .overlay(alignment: .bottomTrailing) {
-                floatingActionButton
-                    .opacity(isExpanded ? 1 : 0)
-                    .offset(y: isExpanded ? 0 : 18)
-                    .allowsHitTesting(isExpanded)
-                    .animation(.smooth(duration: 0.22, extraBounce: 0), value: isExpanded)
-            }
-            .background(
-                Group {
-                    if isExpanded {
-                        Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
-                    } else {
-                        Color.clear
-                    }
-                }
-            )
+            taskScrollContent
             .animation(.easeInOut(duration: 0.2), value: isExpanded)
             .navigationTitle("任务详情")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        editSheetItem = currentItem
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await toggleStar() }
-                    } label: {
-                        Image(systemName: currentItem.isStared ? "star.fill" : "star")
-                    }
-                    .disabled(isSavingStar)
-                }
+                taskDetailToolbar
             }
         }
+    }
+
+    private var taskScrollContent: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                detailCards
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+        }
+        .deadlinerScrollEdgeEffect()
+        .overlay(alignment: .bottomTrailing) {
+            floatingActionButton
+                .opacity(isExpanded ? 1 : 0)
+                .offset(y: isExpanded ? 0 : 18)
+                .allowsHitTesting(isExpanded)
+                .animation(.smooth(duration: 0.22, extraBounce: 0), value: isExpanded)
+        }
+        .background(
+            Group {
+                if isExpanded {
+                    Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
+                } else {
+                    Color.clear
+                }
+            }
+        )
+    }
+
+    private func lifecycleModifiers<Content: View>(_ content: Content) -> some View {
+        content
         .deadlinerScrollEdgeEffect()
         .onAppear {
             animateProgressIn()
@@ -176,6 +207,10 @@ struct TaskDetailSheetView: View {
         .onDisappear {
             progressAnimTask?.cancel()
         }
+    }
+
+    private func presentationModifiers<Content: View>(_ content: Content) -> some View {
+        content
         .sheet(item: $editSheetItem) { editItem in
             EditTaskSheetView(
                 repository: PersistenceStores.tasks,
@@ -186,10 +221,7 @@ struct TaskDetailSheetView: View {
             )
             .presentationDetents([.large])
         }
-        .alert("提示", isPresented: Binding(
-            get: { errorText != nil },
-            set: { if !$0 { errorText = nil } }
-        )) {
+        .alert("提示", isPresented: errorAlertPresented) {
             Button("确定", role: .cancel) { errorText = nil }
         } message: {
             Text(errorText ?? "")

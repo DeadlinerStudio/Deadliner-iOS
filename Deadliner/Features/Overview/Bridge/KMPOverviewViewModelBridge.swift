@@ -28,7 +28,37 @@ final class KMPOverviewViewModelBridge {
     /// SwiftUI executor; KMP delivers this closure back on the main thread.
     func load(onState: @escaping @MainActor (OverviewUiState) -> Void) {
         bridge.load(onState: { state in
-            onState(state)
+            _Concurrency.Task { @MainActor in onState(state) }
+        })
+    }
+
+    func loadFocus(onState: @escaping @MainActor (FocusOverviewStatistics) -> Void) {
+        bridge.loadFocus { state in _Concurrency.Task { @MainActor in onState(state) } }
+    }
+
+    func loadMonth(_ month: String, onState: @escaping @MainActor (OverviewMonthUiState) -> Void,
+                   onError: @escaping @MainActor (String) -> Void) {
+        bridge.loadMonth(monthStart: month, onState: { state in
+            _Concurrency.Task { @MainActor in onState(state) }
+        }, onError: { error in _Concurrency.Task { @MainActor in onError(error) } })
+    }
+
+    func loadFocusSafely(onState: @escaping @MainActor (FocusOverviewStatistics) -> Void,
+                         onError: @escaping @MainActor (String) -> Void) {
+        bridge.loadFocusSafely(onState: { state in _Concurrency.Task { @MainActor in onState(state) } },
+                               onError: { error in _Concurrency.Task { @MainActor in onError(error) } })
+    }
+
+    func loadFocusManagement(onState: @escaping @MainActor ([FocusSession], FocusStatisticsSnapshot) -> Void,
+                             onError: @escaping @MainActor (String) -> Void) {
+        bridge.loadFocusManagement(onState: { sessions, statistics in
+            _Concurrency.Task { @MainActor in onState(sessions, statistics) }
+        }, onError: { error in _Concurrency.Task { @MainActor in onError(error) } })
+    }
+
+    func mutateFocusSession(uid: String, seconds: Int64?, onResult: @escaping @MainActor (FocusTimerOutcome, String?) -> Void) {
+        bridge.mutateFocusSession(sessionUid: uid, durationSeconds: seconds.map { KotlinLong(value: $0) }, onResult: { outcome, error in
+            _Concurrency.Task { @MainActor in onResult(outcome, error) }
         })
     }
 

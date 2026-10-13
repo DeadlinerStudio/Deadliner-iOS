@@ -16,8 +16,10 @@ protocol KMPTaskPersistenceStore: Sendable {
     func allTasks() async -> [KMPTask]
     func task(uid: String) async -> KMPTask?
     func create(_ task: KMPTask) async
-    func update(_ task: KMPTask) async
-    func delete(uid: String, updatedAt: String) async
+    @discardableResult
+    func update(_ task: KMPTask) async -> TaskActionResult
+    @discardableResult
+    func delete(uid: String, updatedAt: String) async -> TaskActionResult
 }
 
 protocol KMPHabitPersistenceStore: Sendable {

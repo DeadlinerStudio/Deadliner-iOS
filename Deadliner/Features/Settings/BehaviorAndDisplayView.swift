@@ -12,6 +12,7 @@ struct BehaviorAndDisplayView: View {
     @AppStorage(ScrollEdgeEffectPreference.useSystemImmersiveKey)
     private var useSystemImmersive: Bool = ScrollEdgeEffectPreference.defaultUseSystemImmersive
 
+    @AppStorage("quick_add_enabled") private var quickAddEnabled = false
     @State private var autoArchiveDays = 7
     @State private var tombstoneRetentionDays = 30
     
@@ -22,6 +23,11 @@ struct BehaviorAndDisplayView: View {
 
     var body: some View {
         Form {
+            Section("添加") {
+                Toggle("启用快速添加", isOn: $quickAddEnabled)
+                Text("输入一句话，实时预览任务或习惯；随时展开完整表单。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
             Section("界面显示") {
                 Toggle("主界面正向进度条", isOn: $progressDir)
                 Toggle("使用系统沉浸", isOn: $useSystemImmersive)

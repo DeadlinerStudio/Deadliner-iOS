@@ -50,6 +50,9 @@ private struct DeadlinerTopAtmosphereSceneBackgroundModifier: ViewModifier {
                     )
                     .opacity(overlayOpacity)
                 }
+                // Vertical bars can reserve either side on iPhone Duo.
+                // Extend only the background; foreground content keeps its safe area.
+                .ignoresSafeArea(.container, edges: [.top, .horizontal])
             }
     }
 }
@@ -79,11 +82,15 @@ extension View {
 
     @ViewBuilder
     func deadlinerNavigationBarMinimizeOnScrollDown() -> some View {
+        #if DEADLINER_IOS27_SDK
         if #available(iOS 27.0, *) {
             modifier(DeadlinerNavigationBarMinimizeOnScrollDownModifier())
         } else {
             self
         }
+        #else
+        self
+        #endif
     }
 
     @ViewBuilder
@@ -97,20 +104,28 @@ extension View {
 
     @ViewBuilder
     func deadlinerNavigationTitleBarMinimizeOnScrollDown(_ isEnabled: Bool) -> some View {
+        #if DEADLINER_IOS27_SDK
         if #available(iOS 27.0, *), isEnabled {
             modifier(DeadlinerNavigationTitleBarMinimizeOnScrollDownModifier())
         } else {
             self
         }
+        #else
+        self
+        #endif
     }
 
     @ViewBuilder
     func deadlinerNavigationTitleBarAutomaticMinimize(_ isEnabled: Bool) -> some View {
+        #if DEADLINER_IOS27_SDK
         if #available(iOS 27.0, *), isEnabled {
             modifier(DeadlinerNavigationTitleBarAutomaticMinimizeModifier())
         } else {
             self
         }
+        #else
+        self
+        #endif
     }
 
     @ViewBuilder
@@ -136,31 +151,43 @@ extension View {
 
 private struct DeadlinerNavigationBarMinimizeOnScrollDownModifier: ViewModifier {
     func body(content: Content) -> some View {
+        #if DEADLINER_IOS27_SDK
         if #available(iOS 27.0, *) {
             content.toolbarMinimizationBehavior(.onScrollDown, for: .statusBar)
         } else {
             content
         }
+        #else
+        content
+        #endif
     }
 }
 
 private struct DeadlinerNavigationTitleBarMinimizeOnScrollDownModifier: ViewModifier {
     func body(content: Content) -> some View {
+        #if DEADLINER_IOS27_SDK
         if #available(iOS 27.0, *) {
             content.toolbarMinimizationBehavior(.onScrollDown, for: .navigationBar)
         } else {
             content
         }
+        #else
+        content
+        #endif
     }
 }
 
 private struct DeadlinerNavigationTitleBarAutomaticMinimizeModifier: ViewModifier {
     func body(content: Content) -> some View {
+        #if DEADLINER_IOS27_SDK
         if #available(iOS 27.0, *) {
             content.toolbarMinimizationBehavior(.automatic, for: .navigationBar)
         } else {
             content
         }
+        #else
+        content
+        #endif
     }
 }
 

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Charts
+import Shared
 
 struct OverviewStatsCard: View {
     @ObservedObject var viewModel: OverviewViewModel
@@ -129,7 +130,7 @@ private struct HistoryStatsCard: View {
     
     var body: some View {
         StatsCardContainer {
-            Text("历史统计")
+            Text("任务状态统计")
                 .font(.headline)
                 .padding(.bottom, 10)
             

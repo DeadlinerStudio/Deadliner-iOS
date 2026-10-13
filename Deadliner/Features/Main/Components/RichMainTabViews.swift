@@ -177,8 +177,6 @@ struct RichOverviewTabView: View {
     @EnvironmentObject private var themeStore: ThemeStore
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @AppStorage(RichCompactLayout.settingKey) private var compactLayoutEnabled: Bool = false
-    @AppStorage("settings.ai.last_analyzed_month") private var lastAnalyzedMonth: String = ""
-    @AppStorage("userTier") private var userTier: UserTier = .free
 
     var body: some View {
         NavigationStack {
@@ -186,8 +184,6 @@ struct RichOverviewTabView: View {
                 onScrollProgressChange: { overlayProgress = $0 },
                 compactLayoutProgress: compactLayoutEnabled ? overlayProgress : nil
             )
-                .richCompactNavigationTitle("概览")
-                .navigationSubtitle(overviewSubtitle)
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .deadlinerTopAtmosphereSceneBackground(
                     progress: overlayProgress,
@@ -198,35 +194,6 @@ struct RichOverviewTabView: View {
                     )
                 )
         }
-    }
-
-    private var isInsightFreeUser: Bool {
-        userTier == .free
-    }
-
-    private var insightAnalysisGenerated: Bool {
-        lastAnalyzedMonth == previousMonthKey
-    }
-
-    private var previousMonthKey: String {
-        let calendar = Calendar.current
-        let now = Date()
-
-        guard let firstDayOfThisMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)),
-              let firstDayOfLastMonth = calendar.date(byAdding: .month, value: -1, to: firstDayOfThisMonth) else {
-            return ""
-        }
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        return formatter.string(from: firstDayOfLastMonth)
-    }
-
-    private var overviewSubtitle: String {
-        if isInsightFreeUser {
-            return "AI 月度分析需要 Geek"
-        }
-        return insightAnalysisGenerated ? "上月 AI 分析已生成" : "进入页面后会自动生成上月 AI 分析"
     }
 }
 

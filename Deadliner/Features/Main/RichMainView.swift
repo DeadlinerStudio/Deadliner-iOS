@@ -7,6 +7,9 @@
 
 import SwiftUI
 import UIKit
+#if canImport(Shared)
+import Shared
+#endif
 
 struct MainView: View {
     @AppStorage("settings.home.style") private var homeStyleRawValue: String = HomeStyleOption.rich.rawValue
@@ -29,6 +32,7 @@ struct RichMainView: View {
     @AppStorage(DashboardHomeLayout.settingKey) private var dashboardHomeLayoutEnabled: Bool = DashboardHomeLayout.defaultValue
     @AppStorage(RichTabCustomization.settingKey) private var richTabCustomizationRaw = RichTabCustomization.defaultRawValue
 
+    @ObservedObject private var focusModel = FocusTimerPresentationModel.shared
     @State private var selectedTab: RichMainTab = .home
     @State private var homeTaskSegment: TaskSegment = .tasks
     @State private var homeCategoryFilter: CategoryFilter = .all
@@ -80,6 +84,7 @@ struct RichMainView: View {
                     }
                 }
             }
+            .focusTabAccessory(model: focusModel) { focusModel.openRequested = true }
             .background {
                 RichTabBarTapObserver(
                     visibleTabs: visibleTabs,
@@ -93,6 +98,7 @@ struct RichMainView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .focusLifecycleHost()
         .tabBarMinimizeBehavior(.onScrollDown)
         .animation(.smooth(duration: 0.28, extraBounce: 0), value: selectedTab)
         .onChange(of: selectedTab) { oldTab, newTab in
@@ -251,9 +257,15 @@ struct RichMainView: View {
                 aiTabContent
             }
         case .search:
+            #if DEADLINER_IOS27_SDK
             Tab("浏览", systemImage: "magnifyingglass", value: RichMainTab.search, role: .prominent) {
                 searchTabContent
             }
+            #else
+            Tab("浏览", systemImage: "magnifyingglass", value: RichMainTab.search, role: .search) {
+                searchTabContent
+            }
+            #endif
         }
     }
 
@@ -290,12 +302,21 @@ struct RichMainView: View {
                     .accessibilityLabel("AI")
             }
         case .search:
+            #if DEADLINER_IOS27_SDK
             Tab(value: RichMainTab.search, role: .prominent) {
                 searchTabContent
             } label: {
                 Image(systemName: "magnifyingglass")
                     .accessibilityLabel("浏览")
             }
+            #else
+            Tab(value: RichMainTab.search, role: .search) {
+                searchTabContent
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .accessibilityLabel("浏览")
+            }
+            #endif
         }
     }
 
@@ -373,7 +394,7 @@ struct RichMainView: View {
         .buttonStyle(.glassProminent)
         .buttonBorderShape(.circle)
         .tint(themeStore.fabColor)
-        .padding(.bottom, 68)
+        .padding(.bottom, focusModel.state?.timer == nil ? 68 : 128)
         .accessibilityLabel("添加")
     }
 

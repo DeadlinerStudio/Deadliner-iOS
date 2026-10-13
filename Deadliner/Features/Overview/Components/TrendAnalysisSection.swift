@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Charts
+import Shared
 
 struct TrendAnalysisCard: View {
     @ObservedObject var viewModel: OverviewViewModel
@@ -15,11 +16,11 @@ struct TrendAnalysisCard: View {
     var body: some View {
         switch cardId {
         case .dailyTrend:
-            DailyCompletedCard(dailyStats: viewModel.dailyStats)
+            DailyCompletedCard(dailyStats: viewModel.dailyStats, focus: viewModel.focus)
         case .monthlyTrend:
-            MonthlyTrendCard(monthlyStats: viewModel.monthlyStats)
+            MonthlyTrendCard(monthlyStats: viewModel.monthlyStats, focus: viewModel.focus)
         case .weeklyTrend:
-            PrevWeeksCard(weeklyStats: viewModel.weeklyStats)
+            PrevWeeksCard(weeklyStats: viewModel.weeklyStats, focus: viewModel.focus)
         case .contributionHeatmap:
             ContributionHeatmapCard(stats: viewModel.contributionStats)
         }
@@ -36,7 +37,7 @@ private struct ContributionHeatmapCard: View {
         StatsCardContainer {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("活跃热力图")
+                    Text("年度任务贡献")
                         .font(.headline)
                     Spacer()
                     Text("\(stats.count)天内")
@@ -46,6 +47,11 @@ private struct ContributionHeatmapCard: View {
                 
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHGrid(rows: rows, spacing: 3) {
+                        if let first = stats.first {
+                            ForEach(0..<((OverviewPeriod.calendar.component(.weekday, from: first.date) + 5) % 7), id: \.self) { _ in
+                                Color.clear.frame(width: 12, height: 12)
+                            }
+                        }
                         ForEach(stats) { day in
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(color(for: day.count))
@@ -54,6 +60,7 @@ private struct ContributionHeatmapCard: View {
                                     RoundedRectangle(cornerRadius: 2)
                                         .stroke(Color.primary.opacity(0.05), lineWidth: 0.5)
                                 )
+                                .accessibilityLabel("\(OverviewPeriod.key(day.date))，完成 \(day.count) 项")
                         }
                     }
                     .padding(.vertical, 4)
@@ -110,12 +117,13 @@ private struct DailyCompletedCard: View {
     @EnvironmentObject private var themeStore: ThemeStore
 
     let dailyStats: [DailyStat]
-    @State private var isOverdueShow: Bool = true
+    let focus: FocusOverviewStatistics?
+    @AppStorage("overview.trends.showOverdue") private var isOverdueShow: Bool = true
     
     var body: some View {
         StatsCardContainer {
             HStack {
-                Text("本周完成情况")
+                Text("最近7天完成情况")
                     .font(.headline)
                 
                 Spacer()
@@ -170,6 +178,7 @@ private struct DailyCompletedCard: View {
             } else {
                 emptyView
             }
+            FocusDurationChart(title: "近 7 天专注", points: focus?.daily ?? [], summary: focus?.recentDaysSummary)
         }
     }
     
@@ -186,6 +195,7 @@ private struct DailyCompletedCard: View {
 
 private struct MonthlyTrendCard: View {
     let monthlyStats: [MonthlyStat]
+    let focus: FocusOverviewStatistics?
     
     private let colors: [String: Color] = [
         "总任务": .blue,
@@ -286,6 +296,7 @@ private struct MonthlyTrendCard: View {
             } else {
                 emptyView
             }
+            FocusDurationChart(title: "近 6 个月专注", points: Array((focus?.monthly ?? []).suffix(6)), summary: nil)
         }
     }
     
@@ -311,6 +322,7 @@ private struct MonthlyTrendCard: View {
 
 private struct PrevWeeksCard: View {
     let weeklyStats: [WeeklyStat]
+    let focus: FocusOverviewStatistics?
     
     var body: some View {
         StatsCardContainer {
@@ -340,6 +352,7 @@ private struct PrevWeeksCard: View {
             } else {
                 emptyView
             }
+            FocusDurationChart(title: "近 4 周专注", points: focus?.rollingWeekly ?? [], summary: focus?.recentWeeksSummary)
         }
     }
     

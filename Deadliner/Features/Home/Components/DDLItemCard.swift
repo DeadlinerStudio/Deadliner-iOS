@@ -116,6 +116,7 @@ struct DDLItemCardSwipeable: View {
     
     var onArchive: (() -> Void)? = nil
     var onEdit: (() -> Void)? = nil
+    var onFocus: (() -> Void)? = nil
 
     private let corner: CGFloat = 28
     @State private var suppressNextTapAfterLongPress = false
@@ -206,6 +207,11 @@ struct DDLItemCardSwipeable: View {
                             Label("完成", systemImage: "checkmark")
                         }
                         .tint(.green)
+
+                        if let onFocus {
+                            Button(action: onFocus) { Label("专注", systemImage: "timer") }
+                                .tint(.indigo).accessibilityIdentifier("focus.entry.task")
+                        }
 
                         if onGiveUp != nil {
                             Button {

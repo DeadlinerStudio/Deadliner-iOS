@@ -61,6 +61,8 @@ struct HomeBoardCoreView: View {
     
     @State private var editSheetItem: DDLItem? = nil
     @State private var editSheetHabit: Habit? = nil
+    @State private var focusSheetHabit: Habit? = nil
+    @State private var focusSheetTask: DDLItem? = nil
     @State private var detailSheetItem: DDLItem? = nil
     @State private var detailSheetDetent: PresentationDetent = .medium
     @State private var pendingOpenTaskDetailId: String? = nil
@@ -119,6 +121,17 @@ struct HomeBoardCoreView: View {
     
     var body: some View {
         let state = viewState
+        presentationModifiers(
+            interactionModifiers(
+                dataLoadingModifiers(
+                    homeLayout(state: state)
+                ),
+                state: state
+            )
+        )
+    }
+
+    private func homeLayout(state: HomeBoardDerivedState) -> some View {
         GeometryReader { proxy in
             let isWide = proxy.size.width >= 840
             
@@ -144,6 +157,10 @@ struct HomeBoardCoreView: View {
         .toolbar {
             homeToolbar
         }
+    }
+
+    private func dataLoadingModifiers<Content: View>(_ content: Content) -> some View {
+        content
         .task {
             await vm.initialLoad()
             // 初始加载完成后触发一次动画
@@ -165,6 +182,13 @@ struct HomeBoardCoreView: View {
         .onChange(of: vm.displayHabits.count) { _, _ in
             sanitizeSelection()
         }
+    }
+
+    private func interactionModifiers<Content: View>(
+        _ content: Content,
+        state: HomeBoardDerivedState
+    ) -> some View {
+        content
         .onChange(of: query) { _, newValue in
             vm.searchQuery = newValue
             sanitizeSelection()
@@ -195,6 +219,10 @@ struct HomeBoardCoreView: View {
             pendingOpenTaskDetailId = rawId
             tryOpenPendingTaskDetailIfNeeded()
         }
+    }
+
+    private func presentationModifiers<Content: View>(_ content: Content) -> some View {
+        content
         .alert("提示", isPresented: errorAlertPresented) {
             Button("确定", role: .cancel) { vm.errorText = nil }
         } message: {
@@ -258,6 +286,13 @@ struct HomeBoardCoreView: View {
         }
         .sheet(item: $editSheetItem) { item in
             EditTaskSheetView(repository: PersistenceStores.tasks, item: item)
+        }
+        .sheet(item: $focusSheetTask) { task in
+            FocusTimerView(taskUID: task.id, taskTitle: task.name)
+                .presentationDetents([.large]).presentationDragIndicator(.visible)
+        }
+        .sheet(item: $focusSheetHabit) { habit in
+            FocusTimerView(taskTitle: habit.name, habitUID: habit.id)
         }
         .sheet(item: $editSheetHabit) { habit in
             HabitEditorSheetView(
@@ -420,7 +455,8 @@ struct HomeBoardCoreView: View {
                         },
                         onEdit: {
                             editSheetItem = row.item
-                        }
+                        },
+                        onFocus: row.item.state == .active ? { focusSheetTask = row.item } : nil
                     )
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
@@ -522,7 +558,7 @@ struct HomeBoardCoreView: View {
                             .tint(.blue)
                         }
                     }
-                    .swipeActions(edge: .leading, allowsFullSwipe: !selectionMode) {
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
                         if !selectionMode {
                             Button {
                                 Task { await vm.archiveHabit(row.item.habit) }
@@ -530,6 +566,11 @@ struct HomeBoardCoreView: View {
                                 Label("归档", systemImage: "archivebox")
                             }
                             .tint(.gray)
+                            Button { focusSheetHabit = row.item.habit } label: {
+                                Label("专注", systemImage: "timer")
+                            }
+                            .tint(.indigo)
+                            .accessibilityIdentifier("focus.entry.habit." + row.item.habit.id)
                         }
                     }
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))

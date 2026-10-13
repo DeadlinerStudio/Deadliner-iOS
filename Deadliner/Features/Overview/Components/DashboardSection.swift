@@ -7,8 +7,10 @@
 
 import SwiftUI
 import Charts
+import Shared
 
 struct DashboardSection: View {
+    let focus: FocusMonthlyReview?
     let metrics: [Metric]
     let dailyStats: [DailyStat]
     let lastMonthName: String
@@ -22,12 +24,6 @@ struct DashboardSection: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            FloatUpRow(index: 0) {
-                DashboardHeader(monthName: lastMonthName)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-            }
-            
             if isAnalyzing {
                 FloatUpRow(index: 1) {
                     HStack(spacing: 12) {
@@ -68,6 +64,16 @@ struct DashboardSection: View {
                 }
             }
             
+            if let focus {
+                VStack(alignment: .leading, spacing: 12) {
+                    FocusStatisticsSummaryView(title: "上月专注", summary: focus.current.summary)
+                    Text("较前月 "+FocusTimerFormatting.duration(abs(focus.durationChangeSeconds))+(focus.durationChangeSeconds < 0 ? "减少" : "增加"))
+                        .font(.caption).foregroundStyle(.secondary)
+                    FocusDurationChart(title: "每日专注", points: focus.current.daily, summary: focus.current.summary)
+                }
+                .padding(22).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 28))
+                .padding(.horizontal, 16)
+            }
             Spacer(minLength: 30)
         }
     }
@@ -192,6 +198,7 @@ private struct LastMonthActivityMap: View {
             }
             
             LazyVGrid(columns: columns, spacing: 6) {
+                ForEach(0..<leadingDays, id: \.self) { _ in Color.clear.aspectRatio(1, contentMode: .fit) }
                 ForEach(dailyStats) { day in
                     ZStack {
                         RoundedRectangle(cornerRadius: 6)
@@ -228,6 +235,11 @@ private struct LastMonthActivityMap: View {
         .shadow(color: Color.black.opacity(0.02), radius: 5, x: 0, y: 2)
     }
     
+    private var leadingDays: Int {
+        let month = OverviewPeriod.shifted(Date(), by: -1)
+        return (OverviewPeriod.calendar.component(.weekday, from: month) + 5) % 7
+    }
+
     private func color(for count: Int) -> Color {
         if count == 0 { return Color(UIColor.systemGray6) }
         if count < 2 { return Color.blue.opacity(0.3) }

@@ -48,6 +48,11 @@ struct DeadlinerApp: App {
         // Persist structured diagnostic records across launches in the shared
         // App Group, with bounded 14-day / 8 MiB retention.
         AppLog.beginSession()
+        #if canImport(Shared)
+        // Install the notification delegate before asynchronous Core initialization.
+        _ = FocusAlarmPortAdapter.shared
+        _ = FocusTimerPresentationModel.shared
+        #endif
 
         // Capture process stdout/stderr and mirror it to the unified log file.
         AppStdStreamCapture.shared.startIfNeeded()
