@@ -970,6 +970,7 @@
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 6Z4232N2L9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Configuration/SyncBackground.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Deadliner;
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存月度复盘图片到图库";
 				INFOPLIST_KEY_CFBundleURLTypes = "({CFBundleURLName=top.aritxonly.deadliner;CFBundleURLSchemes=(deadliner);})";
@@ -1023,6 +1024,7 @@
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 6Z4232N2L9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Configuration/SyncBackground.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Deadliner;
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存月度复盘图片到图库";
 				INFOPLIST_KEY_CFBundleURLTypes = "({CFBundleURLName=top.aritxonly.deadliner;CFBundleURLSchemes=(deadliner);})";
@@ -1234,6 +1236,7 @@
 				"DEVELOPMENT_TEAM[sdk=watchos*]" = 6Z4232N2L9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Configuration/SyncBackground.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Deadliner;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = top.aritxonly.deadliner;
@@ -1273,6 +1276,7 @@
 				"DEVELOPMENT_TEAM[sdk=watchos*]" = 6Z4232N2L9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Configuration/SyncBackground.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Deadliner;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = top.aritxonly.deadliner;

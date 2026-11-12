@@ -23,6 +23,7 @@ enum SyncProvider: String, CaseIterable, Sendable {
 
 actor LocalValues {
     static let shared = LocalValues()
+    static let syncConfigurationDidChange = Notification.Name("deadliner.sync.configurationChanged")
 
     private let defaults = UserDefaults.standard
 
@@ -105,6 +106,7 @@ actor LocalValues {
 
     func setCloudSyncEnabled(_ value: Bool) {
         defaults.set(value, forKey: Key.cloudSyncEnabled)
+        NotificationCenter.default.post(name: Self.syncConfigurationDidChange, object: nil)
     }
 
     func getSyncProvider() -> SyncProvider {
@@ -117,6 +119,7 @@ actor LocalValues {
 
     func setSyncProvider(_ provider: SyncProvider) {
         defaults.set(provider.rawValue, forKey: Key.syncProvider)
+        NotificationCenter.default.post(name: Self.syncConfigurationDidChange, object: nil)
     }
 
     func hasCompletedLegacyV2Upgrade(providerMarker: String) -> Bool {
@@ -135,6 +138,7 @@ actor LocalValues {
 
     func setBasicMode(_ value: Bool) {
         defaults.set(value, forKey: Key.basicMode)
+        NotificationCenter.default.post(name: Self.syncConfigurationDidChange, object: nil)
     }
 
     // MARK: - Auto Archive
@@ -173,6 +177,7 @@ actor LocalValues {
         } else {
             defaults.removeObject(forKey: Key.webdavURL)
         }
+        NotificationCenter.default.post(name: Self.syncConfigurationDidChange, object: nil)
     }
 
     func getWebDAVAuth() -> WebDAVAuth {
@@ -194,11 +199,13 @@ actor LocalValues {
         } else {
             defaults.removeObject(forKey: Key.webdavPass)
         }
+        NotificationCenter.default.post(name: Self.syncConfigurationDidChange, object: nil)
     }
 
     func clearWebDAVAuth() {
         defaults.removeObject(forKey: Key.webdavUser)
         defaults.removeObject(forKey: Key.webdavPass)
+        NotificationCenter.default.post(name: Self.syncConfigurationDidChange, object: nil)
     }
 
     func getWebDAVConfig() -> WebDAVConfig? {

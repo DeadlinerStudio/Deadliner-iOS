@@ -16,7 +16,10 @@ actor SyncCoordinator {
 
     private let logger = Logger(subsystem: "Deadliner", category: "SyncCoordinator")
 
-    private var isSyncing = false
+    private var configuredSignature: [String]?
+    private var lifecycleRevision = 0
+    private var networkRevision = 0
+    private var configurationRevision = 0
 
     private init() {}
 
@@ -37,36 +40,6 @@ actor SyncCoordinator {
         await LocalValues.shared.getSyncProvider()
     }
 
-    private func makeSyncService() async -> (any SyncService)? {
-        #if canImport(Shared)
-        let database = await KMPPersistenceRuntime.shared.coreDatabase()
-        let provider = await syncProvider()
-        switch provider {
-        case .webDAV:
-            guard let cfg = await webDAVConfig() else { return nil }
-            return KMPCloudSyncService(
-                database: database,
-                provider: .webDAV(
-                    url: cfg.url,
-                    username: cfg.user,
-                    password: cfg.pass
-                )
-            )
-        case .iCloud:
-            #if canImport(CryptoKit)
-            return KMPCloudSyncService(
-                database: database,
-                provider: .iCloud
-            )
-            #else
-            return nil
-            #endif
-        }
-        #else
-        return nil
-        #endif
-    }
-
     private static let allPersistenceResources: Set<PersistenceResourceKind> = [
         .task, .taskSubtask, .habit, .habitRecord, .habitSchedule,
         .category, .capture, .memory, .userProfile
@@ -80,13 +53,17 @@ actor SyncCoordinator {
         }
     }
 
-    /// Installs platform-owned credentials/provider into KMP. Repository mutations are the only
-    /// automatic trigger; native code retains `syncNow()` solely for explicit pull-to-refresh.
+    /// Installs credentials once per configuration. Scheduling policy is owned by KMP.
     func configureAutomaticSync() async {
         #if canImport(Shared)
+        configurationRevision += 1
+        let revision = configurationRevision
         let database = await KMPPersistenceRuntime.shared.coreDatabase()
         guard await cloudSyncEnabled(), !(await inBasicMode()) else {
+            guard revision == configurationRevision else { return }
+            configuredSignature = nil
             database.disableAutomaticSync()
+            SyncBackgroundDriver.schedule(enabled: false)
             return
         }
         let completion: (WebDavChangeLogSyncOutcome) -> Void = { outcome in
@@ -96,10 +73,20 @@ actor SyncCoordinator {
         }
         switch await syncProvider() {
         case .webDAV:
-            guard let cfg = await webDAVConfig() else {
+            guard let cfg = await webDAVConfig(), !cfg.url.isEmpty else {
+                guard revision == configurationRevision else { return }
+                configuredSignature = nil
                 database.disableAutomaticSync()
+                SyncBackgroundDriver.schedule(enabled: false)
                 return
             }
+            guard revision == configurationRevision else { return }
+            let signature = ["webdav", cfg.url, cfg.user ?? "", cfg.pass ?? ""]
+            guard configuredSignature != signature else {
+                SyncBackgroundDriver.schedule(enabled: true)
+                return
+            }
+            configuredSignature = signature
             database.configureAutomaticWebDavSync(
                 configuration: WebDavTransportConfiguration(
                     baseUrl: cfg.url,
@@ -110,6 +97,12 @@ actor SyncCoordinator {
             )
         case .iCloud:
             #if canImport(CryptoKit)
+            guard revision == configurationRevision else { return }
+            guard configuredSignature != ["icloud"] else {
+                SyncBackgroundDriver.schedule(enabled: true)
+                return
+            }
+            configuredSignature = ["icloud"]
             database.configureAutomaticTransportSync(
                 transport: ICloudSyncBlobTransport(),
                 onComplete: completion
@@ -118,47 +111,49 @@ actor SyncCoordinator {
             database.disableAutomaticSync()
             #endif
         }
+        SyncBackgroundDriver.startNetworkObservation()
+        SyncBackgroundDriver.schedule(enabled: configuredSignature != nil)
+        #endif
+    }
+
+    func setForeground(_ active: Bool) async {
+        #if canImport(Shared)
+        lifecycleRevision += 1
+        let revision = lifecycleRevision
+        if active { await configureAutomaticSync() }
+        let database = await KMPPersistenceRuntime.shared.coreDatabase()
+        guard revision == lifecycleRevision else { return }
+        database.setSyncForeground(active: active)
+        if !active { SyncBackgroundDriver.schedule(enabled: configuredSignature != nil) }
+        #endif
+    }
+
+    func setNetworkAvailable(_ available: Bool) async {
+        #if canImport(Shared)
+        networkRevision += 1
+        let revision = networkRevision
+        let database = await KMPPersistenceRuntime.shared.coreDatabase()
+        guard revision == networkRevision else { return }
+        database.setSyncNetworkAvailable(available: available)
         #endif
     }
 
     func syncNow() async -> Bool {
-        guard await cloudSyncEnabled() else {
-            AppLog.event("sync.manual.skipped", domain: .sync, level: .warning, context: ["reason": "disabled"])
-            return false
-        }
-        if isSyncing {
-            AppLog.event("sync.manual.skipped", domain: .sync, level: .warning, context: ["reason": "already-running"])
-            return false
-        }
+        #if canImport(Shared)
+        await configureAutomaticSync()
+        let database = await KMPPersistenceRuntime.shared.coreDatabase()
+        do { return try await database.requestSync(trigger: .manual).succeeded }
+        catch { return false }
+        #else
+        return false
+        #endif
+    }
 
-        isSyncing = true
-        defer {
-            isSyncing = false
+    /// Called after a background request, before relinquishing its OS execution window.
+    func finishBackgroundSync(_ outcome: WebDavChangeLogSyncOutcome) async {
+        if outcome.succeeded, outcome.remoteApplied > 0 {
+            await handleLocalChanges(resources: persistenceResources(for: outcome))
         }
-
-        guard let syncService = await makeSyncService() else {
-            AppLog.event("sync.manual.skipped", domain: .sync, level: .error, context: ["reason": "service-unavailable"])
-            return false
-        }
-        let startedAt = Date()
-        AppLog.event("sync.started", domain: .sync, context: ["trigger": "manual"])
-        let result = await syncService.syncOnce()
-        AppLog.event(
-            "sync.finished",
-            domain: .sync,
-            level: result.success ? .info : .error,
-            context: [
-                "trigger": "manual",
-                "success": "\(result.success)",
-                "localChanges": "\(result.hasLocalChanges)",
-                "durationMs": "\(Int(Date().timeIntervalSince(startedAt) * 1_000))"
-            ]
-        )
-
-        if result.hasLocalChanges {
-            await handleLocalChanges()
-        }
-        return result.success
     }
 
     private func handleAutomaticOutcome(_ outcome: WebDavChangeLogSyncOutcome) async {
@@ -167,7 +162,7 @@ actor SyncCoordinator {
             domain: .sync,
             level: outcome.succeeded ? .info : .error,
             context: [
-                "trigger": "kmp-repository",
+                "trigger": "kmp-coordinator",
                 "success": "\(outcome.succeeded)",
                 "remoteApplied": "\(outcome.remoteApplied)"
             ]
