@@ -13,11 +13,17 @@ enum KMPTaskPresentationError: LocalizedError {
     case missingTask(String)
     case invalidAction(DDLStateAction)
     case timerRequiresResolution(String)
+    case invalidDeadline
+    case invalidDelay
 
     var errorDescription: String? {
         switch self {
         case let .missingTask(uid):
             return "KMP task \(uid) no longer exists."
+        case .invalidDeadline:
+            return "任务没有有效截止时间，请先编辑截止时间。"
+        case .invalidDelay:
+            return "请选择 1–168 小时或 1–7 天。"
         case .invalidAction:
             return "The requested task action is not valid for its current KMP state."
         case .timerRequiresResolution:
@@ -122,6 +128,29 @@ final class KMPTaskPresentationStore: KMPTaskUIStore {
         trace("delete", uid: id)
     }
 
+    func deleteSubTask(taskId: String, subTaskId: String) async throws -> DDLItem {
+        let store = await KMPPersistenceRuntime.shared.taskStore()
+        let result = await store.deleteSubtask(taskUID: taskId, subtaskUID: subTaskId)
+        guard result.outcome == .applied || result.outcome == .noOp,
+              let task = result.task else {
+            throw KMPTaskPresentationError.missingTask(taskId)
+        }
+        return task.ddlProjection()
+    }
+
+    func postponeTask(id: String, amount: Int, inHours: Bool) async throws -> DDLItem {
+        guard let value = Int32(exactly: amount) else { throw KMPTaskPresentationError.invalidDelay }
+        let store = await KMPPersistenceRuntime.shared.taskStore()
+        let result = await store.postpone(taskUID: id, amount: value, inHours: inHours)
+        if result.outcome == .invalidDelay { throw KMPTaskPresentationError.invalidDelay }
+        if result.outcome == .invalidDeadline { throw KMPTaskPresentationError.invalidDeadline }
+        guard result.outcome == .applied, let task = result.task else {
+            throw KMPTaskPresentationError.missingTask(id)
+        }
+        trace("postpone", uid: id)
+        return task.ddlProjection()
+    }
+
     private func trace(_ operation: String, uid: String) {
         AppLog.event(
             "kmp.ui.task.\(operation)",
@@ -136,7 +165,7 @@ extension Task_ {
         DDLItem(
             id: uid,
             name: title,
-            startTime: startAt ?? "",
+            startTime: TaskTimelineCompatibility.startTime(startAt: startAt, dueAt: dueAt, createdAt: createdAt),
             endTime: dueAt ?? "",
             state: state.ddlState,
             completeTime: completedAt ?? "",

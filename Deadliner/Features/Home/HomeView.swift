@@ -64,7 +64,7 @@ struct HomeBoardCoreView: View {
     @State private var focusSheetHabit: Habit? = nil
     @State private var focusSheetTask: DDLItem? = nil
     @State private var detailSheetItem: DDLItem? = nil
-    @State private var detailSheetDetent: PresentationDetent = .medium
+    @State private var detailSheetDetent: PresentationDetent = .large
     @State private var pendingOpenTaskDetailId: String? = nil
     
     @State private var selection = HomeBoardSelectionState()
@@ -301,7 +301,8 @@ struct HomeBoardCoreView: View {
             )
         }
         .sheet(item: $detailSheetItem) { item in
-            TaskDetailSheetView(item: item, isExpanded: detailSheetDetent == .large)
+            TaskDetailSheetView(item: item)
+                .id(item.id)
                 .presentationDetents([.medium, .large], selection: $detailSheetDetent)
                 .presentationDragIndicator(.visible)
         }
@@ -417,7 +418,7 @@ struct HomeBoardCoreView: View {
                         selectionMode: selectionMode,
                         selected: selection.containsTask(row.item.id),
                         onTap: {
-                            detailSheetDetent = .medium
+                            detailSheetDetent = .large
                             detailSheetItem = row.item
                         },
                         onLongPressSelect: {
@@ -689,7 +690,7 @@ struct HomeBoardCoreView: View {
     private func tryOpenPendingTaskDetailIfNeeded() {
         guard let taskId = pendingOpenTaskDetailId else { return }
         guard let item = vm.tasks.first(where: { $0.id == taskId }) else { return }
-        detailSheetDetent = .medium
+        detailSheetDetent = .large
         detailSheetItem = item
         pendingOpenTaskDetailId = nil
     }

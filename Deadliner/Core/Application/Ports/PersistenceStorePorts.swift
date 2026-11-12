@@ -24,6 +24,8 @@ protocol KMPTaskUIStore {
     func updateTask(_ task: DDLItem) async throws
     func performTaskAction(id: String, action: DDLStateAction) async throws -> DDLItem
     func deleteTask(id: String) async throws
+    func deleteSubTask(taskId: String, subTaskId: String) async throws -> DDLItem
+    func postponeTask(id: String, amount: Int, inHours: Bool) async throws -> DDLItem
 }
 
 protocol KMPHabitUIStore {

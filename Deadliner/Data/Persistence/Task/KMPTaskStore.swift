@@ -71,6 +71,28 @@ actor KMPTaskStore: KMPTaskPersistenceStore {
         return result
     }
 
+    // These adapt existing exported Core commands; no shared API or date rules change.
+    func deleteSubtask(taskUID: String, subtaskUID: String) async -> TaskActionResult {
+        let result = database.tasks.deleteSubtask(
+            taskUid: taskUID, subtaskUid: subtaskUID, updatedAt: Date().toLocalISOString())
+        if result.outcome == .applied {
+            await publishChange(resources: [.task, .taskSubtask])
+        }
+        return result
+    }
+
+    func postpone(taskUID: String, amount: Int32, inHours: Bool) async -> TaskDeadlineResult {
+        let result = database.tasks.postpone(
+            taskUid: taskUID,
+            delay: TaskDeadlineDelay(amount: amount, unit: inHours ? .hours : .days),
+            occurredAt: Date().toLocalISOString())
+        if result.outcome == .applied {
+            await publishChange(resources: [.task])
+            await KMPTaskReminderScheduler.shared.scheduleRefresh()
+        }
+        return result
+    }
+
     private func publishChange(resources: Set<PersistenceResourceKind>) async {
         await MainActor.run {
             PersistenceChangePublisher.publish(.init(resourceKinds: resources))
