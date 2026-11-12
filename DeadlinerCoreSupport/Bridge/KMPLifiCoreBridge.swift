@@ -47,7 +47,13 @@ final class KMPLifiCoreBridge {
 
     private var core: IosLifiCore?
     private var listener: KMPLifiEventListener?
-    private var eventHandler: ((KMPLifiCoreEvent) -> Void)?
+    private var eventHandlers: [UUID: (KMPLifiCoreEvent) -> Void] = [:]
+    private let legacySubscriber = UUID()
+    private var eventPump: _Concurrency.Task<Void, Never>?
+    private var eventCursor: Int64 = 0
+    private var consumerId = UUID().uuidString
+    private var lastDeliveredSeq: Int64 = 0
+    private var detachedEvents: [KMPLifiCoreEvent] = []
     private var pendingToolCalls: [String: ToolCall] = [:]
     private var generation = 0
     private var configurationFingerprint: String?
@@ -70,39 +76,33 @@ final class KMPLifiCoreBridge {
         closeCurrentSession()
         generation &+= 1
         let sessionGeneration = generation
-        guard let databasePath = KMPSharedDatabaseLocation.databasePath else {
+        guard KMPSharedDatabaseLocation.databasePath != nil else {
             throw KMPLifiBridgeError.missingSharedDatabasePath
         }
 
-        let newCore = IosLifiCore.companion.create(
+        let appDatabase = await KMPPersistenceRuntime.shared.coreDatabase()
+        let newCore = IosLifiCore.companion.createWithDatabase(
             apiKey: apiKey,
             baseUrl: normalizedURL,
             model: model,
             timezone: TimeZone.current.identifier,
-            databasePath: databasePath
+            database: appDatabase,
+            ownsDatabase: false
         )
-        let newListener = KMPLifiEventListener(handler: { [weak self] event in
-            _Concurrency.Task { @MainActor in
-                self?.handle(event: event, generation: sessionGeneration)
-            }
-        })
-        newCore.start(listener: newListener)
-
         core = newCore
-        listener = newListener
         configurationFingerprint = fingerprint
+        // Reattach from the current snapshot; never replay historical approval requests.
+        eventCursor = (try? await newCore.snapshotV2())?.lastSeq ?? 0
         isReady = true
+        startEventPump(core: newCore, generation: sessionGeneration)
         lastEventSummary = "KMP LiFi initialized"
     }
 
     func processInput(_ text: String) async {
-        guard let core else {
-            eventHandler?(.error("KMP LiFi 尚未初始化"))
-            return
-        }
-
         do {
-            try await core.processInput(text: text)
+            try await initializeIfNeeded()
+            guard let core else { throw KMPLifiBridgeError.unavailable }
+            _ = try await core.startRunV2(text: text)
         } catch {
             emitError("KMP LiFi 请求失败：\(error.localizedDescription)")
         }
@@ -156,30 +156,132 @@ final class KMPLifiCoreBridge {
 
     func submitToolResult(id: String, tool: String, resultJson: String) async {
         guard let core else {
-            eventHandler?(.error("KMP LiFi 尚未初始化"))
+            deliver(.error("KMP LiFi 尚未初始化"))
             return
         }
 
         do {
-            try await core.submitToolResult(toolCallId: id, tool: tool, payload: resultJson)
+            let expectedGeneration = generation
+            let accepted = try await core.submitToolResultV2(toolCallId: id, tool: tool, payload: resultJson)
+            guard generation == expectedGeneration else { return }
+            guard accepted.boolValue else { emitError("本次确认已失效，请重新发起请求。"); return }
+            pendingToolCalls.removeValue(forKey: id)
         } catch {
             emitError("KMP LiFi 工具结果回灌失败：\(error.localizedDescription)")
         }
     }
 
+    func cancelRun() async {
+        let expectedGeneration = generation
+        try? await core?.cancelRun()
+        guard expectedGeneration == generation else { return }
+        pendingToolCalls.removeAll()
+    }
+
     func executeToolRequest(_ request: AIToolRequest) async -> ToolCallExecutor.ToolExecutionResult {
-        guard let toolCall = pendingToolCalls.removeValue(forKey: request.id) else {
+        guard pendingToolCalls[request.id] != nil, let core else {
             return await ToolCallExecutor.shared.missingTypedToolCallResult(for: request.tool)
         }
-        return await ToolCallExecutor.shared.execute(toolCall: toolCall)
+        do {
+            let expectedGeneration = generation
+            // Configuration changes invalidate the previous core and all of its approvals.
+            try await initializeIfNeeded()
+            guard generation == expectedGeneration, pendingToolCalls[request.id] != nil else {
+                return await ToolCallExecutor.shared.missingTypedToolCallResult(for: request.tool)
+            }
+            let result = try await core.executeApprovedTool(actionId: request.id, confirmedArguments: request.argsJson)
+            if request.tool == "create_task" || request.tool == "update_deadline" {
+                PersistenceChangePublisher.publish(.init(resourceKinds: [.task, .taskSubtask]))
+                await KMPTaskReminderScheduler.shared.scheduleRefresh()
+            } else if request.tool == "create_habit" {
+                PersistenceChangePublisher.publish(.init(resourceKinds: [.habit, .habitRecord, .habitSchedule]))
+                await KMPHabitReminderScheduler.shared.scheduleRefresh()
+            }
+            return ToolCallExecutor.ToolExecutionResult(normalizedToolName: request.tool, resultJson: result, displayMessage: nil)
+        } catch {
+            return ToolCallExecutor.ToolExecutionResult(normalizedToolName: request.tool,
+                resultJson: "{\"ok\":false,\"errorCode\":\"TOOL_EXECUTION_FAILED\"}", displayMessage: "操作失败或确认已过期")
+        }
     }
 
     func setEventHandler(_ handler: @escaping (KMPLifiCoreEvent) -> Void) {
-        eventHandler = handler
+        eventHandlers[legacySubscriber] = handler
+        replayCurrentSnapshot(to: handler)
     }
 
-    func clearEventHandler() {
-        eventHandler = nil
+    @discardableResult
+    func subscribe(_ handler: @escaping (KMPLifiCoreEvent) -> Void) -> UUID {
+        let id = UUID()
+        eventHandlers[id] = handler
+        replayCurrentSnapshot(to: handler)
+        return id
+    }
+
+    func unsubscribe(_ id: UUID) { eventHandlers.removeValue(forKey: id) }
+    func clearEventHandler() { eventHandlers.removeValue(forKey: legacySubscriber) }
+
+    private func deliver(_ event: KMPLifiCoreEvent) {
+        if eventHandlers.isEmpty {
+            detachedEvents.append(event)
+            if detachedEvents.count > 64 { detachedEvents.removeFirst() }
+        } else {
+            for handler in Array(eventHandlers.values) { handler(event) }
+            lastDeliveredSeq = eventCursor
+        }
+    }
+
+    private func replayCurrentSnapshot(to handler: @escaping (KMPLifiCoreEvent) -> Void) {
+        let buffered = detachedEvents
+        detachedEvents.removeAll()
+        if !buffered.isEmpty { for event in buffered { handler(event) }; return }
+        let expectedGeneration = generation
+        _Concurrency.Task { @MainActor [weak self] in
+            guard let self, let core = self.core,
+                  let snapshot = try? await core.snapshotV2(), self.generation == expectedGeneration else { return }
+            guard snapshot.lastSeq > self.lastDeliveredSeq else { return }
+            if let terminal = snapshot.terminal, let event = terminal.compatibilityEvent {
+                self.handle(event: event, generation: expectedGeneration)
+            } else if let pending = snapshot.pending {
+                self.handle(event: pending, generation: expectedGeneration)
+            }
+        }
+    }
+
+    private func startEventPump(core: IosLifiCore, generation expectedGeneration: Int) {
+        eventPump?.cancel()
+        eventPump = _Concurrency.Task { @MainActor [weak self] in
+            while !_Concurrency.Task.isCancelled {
+                guard let self, self.generation == expectedGeneration else { return }
+                do {
+                    let batch = try await core.readEventsV2(consumerId: self.consumerId, afterSeq: self.eventCursor)
+                    guard self.generation == expectedGeneration else { return }
+                    guard batch.protocolVersion == 2 else { self.emitError("UNSUPPORTED_PROTOCOL"); return }
+                    if batch.resyncRequired {
+                        let snapshot = try await core.snapshotV2()
+                        self.eventCursor = snapshot.lastSeq
+                        self.pendingToolCalls.removeAll()
+                        if let terminal = snapshot.terminal, let event = terminal.compatibilityEvent {
+                            self.handle(event: event, generation: expectedGeneration)
+                        } else if let pending = snapshot.pending {
+                            self.handle(event: pending, generation: expectedGeneration)
+                        }
+                    } else {
+                        for record in batch.events {
+                            guard record.seq == self.eventCursor + 1 else { self.emitError("EVENT_GAP"); return }
+                            self.eventCursor = record.seq
+                            if let event = record.compatibilityEvent { self.handle(event: event, generation: expectedGeneration) }
+                        }
+                    }
+                    let ack = try await core.ackEventsV2(consumerId: self.consumerId, batchId: batch.batchId, lastSeq: batch.lastSeq)
+                    guard ack.boolValue else { self.emitError("ACK_REJECTED"); return }
+                    self.eventCursor = max(self.eventCursor, batch.lastSeq)
+                    try await _Concurrency.Task.sleep(for: .milliseconds(50))
+                } catch {
+                    if !_Concurrency.Task.isCancelled && self.generation == expectedGeneration { self.emitError("LIFI_EVENT_FAILED") }
+                    return
+                }
+            }
+        }
     }
 
     func getLastFinishJson() -> String? {
@@ -191,6 +293,12 @@ final class KMPLifiCoreBridge {
     }
 
     private func closeCurrentSession() {
+        eventPump?.cancel()
+        eventPump = nil
+        eventCursor = 0
+        consumerId = UUID().uuidString
+        lastDeliveredSeq = 0
+        detachedEvents.removeAll()
         core?.close()
         core = nil
         listener = nil
@@ -208,11 +316,11 @@ final class KMPLifiCoreBridge {
 
         case let event as CoreEvent.OnThinking:
             lastEventSummary = "Thinking: \(event.agentName) [\(event.phase)]"
-            eventHandler?(.thinking(agentName: event.agentName, phase: event.phase, message: event.message))
+            deliver(.thinking(agentName: event.agentName, phase: event.phase, message: event.message ?? (event.phase == "retrying" ? "网络暂时不可用，正在重试…" : nil)))
 
         case let event as CoreEvent.OnTextStream:
-            lastEventSummary = "Streaming: \(event.chunk.prefix(32))"
-            eventHandler?(.textStream(chunk: event.chunk))
+            lastEventSummary = "Streaming"
+            deliver(.textStream(chunk: event.chunk))
 
         case let event as CoreEvent.OnToolRequest:
             guard let request = makeToolRequest(id: event.id, toolCall: event.tool, executionMode: event.executionMode) else {
@@ -221,9 +329,10 @@ final class KMPLifiCoreBridge {
             }
             pendingToolCalls[event.id] = event.tool
             lastEventSummary = "Tool request \(request.tool) [\(event.id)]"
-            eventHandler?(.toolRequest(request))
+            deliver(.toolRequest(request))
 
         case let event as CoreEvent.OnFinish:
+            pendingToolCalls.removeAll()
             let result = event.result
             let payload = DeadlinerCoreFinishPayload(
                 primaryIntent: result.primaryIntent ?? "unknown",
@@ -244,7 +353,7 @@ final class KMPLifiCoreBridge {
                     newRevision: 0
                 )
             }
-            eventHandler?(.finish(payload))
+            deliver(.finish(payload))
 
         case let event as CoreEvent.OnMemoryCommitted:
             let revision = UInt64(max(0, event.newRevision))
@@ -262,10 +371,11 @@ final class KMPLifiCoreBridge {
                 notices: notices
             )
             lastMemorySyncJson = KMPBridgeFeedbackPayload(memory: payload).json
-            eventHandler?(.memoryCommitted(payload))
+            deliver(.memoryCommitted(payload))
 
         case let event as CoreEvent.OnError:
-            emitError(event.message)
+            pendingToolCalls.removeAll()
+            emitError(AgentErrorMessages.shared.describe(code: event.message))
 
         default:
             lastEventSummary = "Unhandled KMP event: \(String(describing: event))"
@@ -307,13 +417,19 @@ final class KMPLifiCoreBridge {
             ), reason: tool.reason, executionMode: mode)
 
         case let tool as ToolCall.CreateHabit:
-            return request(id: id, tool: "create_habit", args: CreateHabitArgs(
-                name: tool.name,
-                period: tool.period,
-                timesPerPeriod: Int(tool.timesPerPeriod),
-                goalType: tool.goalType,
-                totalTarget: tool.totalTarget.map { Int($0.intValue) }
-            ), reason: tool.reason, executionMode: mode)
+            // Preserve the V2 schedule/goal/tracking contract, including units and defaults.
+            // Legacy fields remain available to the existing card decoder.
+            let wire = ToolArgumentCodec.shared.encode(call: tool)
+            guard let data = wire.data(using: .utf8),
+                  var args = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+            args["period"] = tool.period
+            args["timesPerPeriod"] = Int(tool.timesPerPeriod)
+            args["goalType"] = tool.goalType
+            if let total = tool.totalTarget { args["totalTarget"] = Int(total.intValue) }
+            guard let encoded = try? JSONSerialization.data(withJSONObject: args, options: .sortedKeys),
+                  let json = String(data: encoded, encoding: .utf8) else { return nil }
+            return AIToolRequest(id: id, tool: "create_habit", argsJson: json,
+                reason: tool.reason, executionMode: mode)
 
         default:
             return nil
@@ -344,7 +460,7 @@ final class KMPLifiCoreBridge {
 
     private func emitError(_ message: String) {
         lastEventSummary = "Error: \(message)"
-        eventHandler?(.error(message))
+        deliver(.error(message))
     }
 }
 

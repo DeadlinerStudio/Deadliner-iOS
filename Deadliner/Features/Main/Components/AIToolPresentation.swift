@@ -127,6 +127,7 @@ enum AIToolPresentation {
             let keywords = (req.readHabitsArgs?.keywords ?? []).joined(separator: "、")
             return keywords.isEmpty ? "范围：全部习惯" : "关键词：\(keywords)"
         case "create_habit":
+            if let summary = LifiV2Presentation.habitSummary(req.argsJson) { return summary }
             let items = req.createHabitItems
             guard !items.isEmpty else { return nil }
             if items.count == 1 {
@@ -150,14 +151,7 @@ enum AIToolPresentation {
     }
 
     static func shouldAutoApproveToolRequest(_ req: AIToolRequest) -> Bool {
-        let mode = (req.executionMode ?? "").uppercased()
-        let normalized = ToolCallExecutor.shared.normalizeToolName(req.tool)
-        if mode == "AUTO" {
-            return true
-        }
-        // Keep the established LiFi interaction: create tools are executed
-        // immediately, while `silent_task_add` decides whether the proposals
-        // are persisted or merely shown as cards.
-        return normalized == "create_task" || normalized == "create_habit"
+        let tool = ToolCallExecutor.shared.normalizeToolName(req.tool)
+        return tool == "read_tasks" || tool == "read_habits"
     }
 }
