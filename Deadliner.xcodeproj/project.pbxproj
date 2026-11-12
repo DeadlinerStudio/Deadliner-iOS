@@ -140,6 +140,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C0D3A2103A19000100D34EAA /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Base.xcconfig; sourceTree = SOURCE_ROOT; };
 		C0D3A1033A19000100D34EAA /* KMPLifiCoreBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KMPLifiCoreBridge.swift; sourceTree = "<group>"; };
 		C0D3A10A3A19000100D34EAA /* ToolCallExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallExecutor.swift; sourceTree = "<group>"; };
 		C0D3A2013A19000100D34EAA /* Vendor/KMP/shared.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/KMP/shared.xcframework; sourceTree = "<group>"; };
@@ -195,7 +196,6 @@
 				Core/Domain/Models/DDLState.swift,
 				Core/Shared/DateParsing/DateExtension.swift,
 				Core/Shared/DateParsing/DeadlineDateParser.swift,
-				Shared/LiveActivity/FocusLiveActivityContract.swift,
 				Core/Shared/WatchSync/WatchBoardSyncModels.swift,
 				Shared/UI/AppNotifications.swift,
 			);
@@ -335,6 +335,7 @@
 		E52762D92F3F6189002162DF = {
 			isa = PBXGroup;
 			children = (
+				C0D3A2103A19000100D34EAA /* Base.xcconfig */,
 				C0D3A1063A19000100D34EAA /* DeadlinerCoreSupport */,
 				E53876322F5A5B9400E5D81A /* DeadlinerWidgetExtension.entitlements */,
 				E52762E42F3F6189002162DF /* Deadliner */,
@@ -836,6 +837,7 @@
 		};
 		E52763032F3F618B002162DF /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0D3A2103A19000100D34EAA /* Base.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -901,6 +903,7 @@
 		};
 		E52763042F3F618B002162DF /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0D3A2103A19000100D34EAA /* Base.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -974,12 +977,12 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Configuration/SyncBackground.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Deadliner;
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存月度复盘图片到图库";
 				INFOPLIST_KEY_CFBundleURLTypes = "({CFBundleURLName=top.aritxonly.deadliner;CFBundleURLSchemes=(deadliner);})";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Deadliner 需要访问你的日历，以便将任务与日历日程关联并提供相关提醒。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Deadliner 需要使用麦克风来进行语音输入。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存月度复盘图片到图库";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Deadliner 需要语音识别权限，将语音实时转换成文本输入。";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -991,7 +994,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 2.0.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -1029,12 +1032,12 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Configuration/SyncBackground.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Deadliner;
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存月度复盘图片到图库";
 				INFOPLIST_KEY_CFBundleURLTypes = "({CFBundleURLName=top.aritxonly.deadliner;CFBundleURLSchemes=(deadliner);})";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Deadliner 需要访问你的日历，以便将任务与日历日程关联并提供相关提醒。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Deadliner 需要使用麦克风来进行语音输入。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存月度复盘图片到图库";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Deadliner 需要语音识别权限，将语音实时转换成文本输入。";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -1046,7 +1049,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 2.0.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
