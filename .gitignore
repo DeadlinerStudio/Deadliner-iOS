@@ -67,3 +67,6 @@ fastlane/test_output
 .deadliner-core/
 .DS_Store
 __pycache__/
+
+# Local Xcode build products and package caches
+/build/
