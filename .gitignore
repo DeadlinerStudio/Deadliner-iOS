@@ -70,3 +70,6 @@ __pycache__/
 
 # Local Xcode build products and package caches
 /build/
+
+# Machine-specific Xcode build settings
+/Configuration/Local.xcconfig

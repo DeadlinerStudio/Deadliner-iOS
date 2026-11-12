@@ -1,0 +1,3 @@
+// Optional machine-specific overrides; missing Local.xcconfig is allowed.
+// Copy Local.xcconfig.example to Local.xcconfig and set your Core checkout path.
+#include? "Local.xcconfig"
