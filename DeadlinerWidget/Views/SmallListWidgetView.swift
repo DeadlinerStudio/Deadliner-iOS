@@ -195,6 +195,8 @@ private struct SmallListWidgetRippleDecor: View {
 }
 
 private struct HarmonyCompactTaskRow: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+
     let task: DDLItem
     let style: SmallListWidgetStyle
 
@@ -245,6 +247,13 @@ private struct HarmonyCompactTaskRow: View {
     }
 
     private var rowBaseColor: Color {
+        // Clear/tinted appearances map colors to system materials using alpha.
+        // An opaque dark semantic fill becomes an opaque white tile in that mode.
+        // Keep this independent of colorScheme (Clear can be light or dark).
+        if renderingMode == .accented {
+            return .white.opacity(0.07)
+        }
+
         switch rowStatus {
         case .overdue:
             return style.isDark
