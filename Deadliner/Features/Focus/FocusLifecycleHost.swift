@@ -6,7 +6,7 @@ private struct FocusLifecycleHost: ViewModifier {
     func body(content: Content) -> some View {
         content
             .task { await model.connect() }
-            .sheet(isPresented: $model.openRequested) { FocusTimerView() }
+            .sheet(isPresented: $model.openRequested, onDismiss: { model.clearNotificationRoute() }) { FocusTimerView() }
             .confirmationDialog("结束计时并" + (model.pendingChange?.operation ?? "处理目标") + "？",
                 isPresented: Binding(get: { model.pendingChange != nil }, set: { if !$0 { model.cancelTargetChange() } }), titleVisibility: .visible) {
                     Button("结束计时并" + (model.pendingChange?.operation ?? "确认"), role: model.pendingChange?.delete == true ? .destructive : nil) { model.applyTargetChange() }

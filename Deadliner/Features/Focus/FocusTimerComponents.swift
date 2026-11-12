@@ -15,7 +15,7 @@ struct FocusRoundAction: View {
             Button(action: action) {
                 Image(systemName: symbol)
                     .font(.system(size: primary ? 30 : 23, weight: .semibold))
-                    .frame(width: primary ? 80 : 56, height: primary ? 80 : 56)
+                    .frame(width: primary ? 64 : 56, height: primary ? 64 : 56)
                     .foregroundStyle(primary ? Color.white : Color.primary)
                     .contentShape(Circle())
             }
@@ -79,32 +79,44 @@ struct FocusSetupContent: View {
     @Binding var mode: Int
     @Binding var minutes: Int
     @State private var customDuration = false
+    @State private var customMinutes = ""
     let busy: Bool
+    @State private var choosing: Bool
+    init(model: FocusTimerPresentationModel, mode: Binding<Int>, minutes: Binding<Int>, busy: Bool, initiallyChoosing: Bool = false) {
+        self.model = model; self._mode = mode; self._minutes = minutes; self.busy = busy
+        self._choosing = State(initialValue: initiallyChoosing)
+    }
     var body: some View {
+        if choosing || !model.selectedTargetAvailable {
+            FocusTargetChooser(options: model.activeTasks.map { FocusPickerOption(uid: $0.id, title: $0.name, habit: false) } +
+                model.activeHabits.map { FocusPickerOption(uid: $0.id, title: $0.name, habit: true) },
+                selectedUID: model.state?.selectedTarget?.uid ?? "", selectedHabit: model.state?.selectedTarget?.kind == .habit, busy: busy) { option in
+                if option.habit { model.selectHabit(option.uid) } else { model.selectTask(option.uid) }
+                choosing = false
+            }
+        } else {
         VStack(spacing: 24) {
             VStack(spacing: 20) {
-                Menu {
-                    Section("任务") {
-                        ForEach(model.activeTasks) { task in Button(task.name) { model.selectTask(task.id) } }
-                    }
-                    Section("习惯") {
-                        ForEach(model.activeHabits) { habit in Button(habit.name) { model.selectHabit(habit.id) } }
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: model.state?.selectedTarget?.kind == .habit ? "leaf" : "timer")
-                        Text(model.selectedTitle.isEmpty ? "选择任务或习惯" : model.selectedTitle)
-                            .font(.headline).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                Button { choosing = true } label: {
+                    HStack {
+                        Text(model.selectedTitle.isEmpty ? "选择任务或习惯" : model.selectedTitle).font(.headline).lineLimit(2)
+                        Spacer()
                         Image(systemName: "chevron.down").font(.caption)
                     }.contentShape(Rectangle())
-                }.accessibilityIdentifier("focus.target")
+                }.buttonStyle(.plain).accessibilityIdentifier("focus.target")
                 Picker("计时模式", selection: $mode) {
                     Text("正计时").tag(0)
                     Text("倒计时").tag(1)
                 }.pickerStyle(.segmented).accessibilityIdentifier("focus.mode")
-                Text(mode == 0 ? "00:00" : FocusTimerFormatting.clock(Int64(minutes * 60)))
-                    .font(.system(size: 48, weight: .semibold, design: .rounded)).monospacedDigit()
-                    .padding(.vertical, 8)
+                ZStack {
+                    Circle().stroke(Color.accentColor.opacity(0.1), lineWidth: 4)
+                    VStack(spacing: 8) {
+                        Text(mode == 0 ? "正计时" : "倒计时").font(.caption).foregroundStyle(.secondary)
+                        Text(mode == 0 ? "00:00" : FocusTimerFormatting.clock(Int64(minutes * 60)))
+                            .font(.system(size: 44, weight: .semibold, design: .rounded)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                        Text("准备开始").font(.caption).foregroundStyle(Color.accentColor)
+                    }.padding(20)
+                }.frame(maxWidth: 220).aspectRatio(1, contentMode: .fit)
                 if mode == 1 {
                     HStack {
                         ForEach([15, 25, 45, 60], id: \.self) { value in
@@ -114,10 +126,9 @@ struct FocusSetupContent: View {
                                 .background(minutes == value ? Color.accentColor.opacity(0.12) : Color.clear, in: Capsule())
                         }
                     }.buttonStyle(.plain)
-                    DisclosureGroup("自定义 · \(minutes) 分钟", isExpanded: $customDuration) {
-                        Slider(value: Binding(get: { Double(minutes) }, set: { minutes = Int($0.rounded()) }), in: 1...180, step: 1)
-                            .accessibilityLabel("倒计时分钟数")
-                    }.font(.subheadline).foregroundStyle(.secondary)
+                    Button("自定义 · \(minutes) 分钟") { customMinutes = String(minutes); customDuration = true }
+                        .font(.subheadline).foregroundStyle(.secondary)
+
                 }
             }
             .padding(20)
@@ -129,6 +140,13 @@ struct FocusSetupContent: View {
                 mode == 0 ? model.startStopwatch() : model.startCountdown(minutes: minutes)
             }
         }.padding(.vertical, 16)
+        .alert("自定义倒计时", isPresented: $customDuration) {
+            TextField("1–180 分钟", text: $customMinutes).keyboardType(.numberPad)
+            Button("确定") { if let value = Int(customMinutes), (1...180).contains(value) { minutes = value } }
+                .disabled(Int(customMinutes).map { !(1...180).contains($0) } ?? true)
+            Button("取消", role: .cancel) {}
+        } message: { Text("请输入 1–180 的整数分钟数") }
+        }
     }
 }
 #endif

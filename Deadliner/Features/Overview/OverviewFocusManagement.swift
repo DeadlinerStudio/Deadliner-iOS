@@ -3,125 +3,76 @@ import Shared
 
 struct OverviewFocusManagement: View {
     @ObservedObject var model: OverviewViewModel
-    @State private var editing: FocusSession?
-    @State private var deleting: FocusSession?
+    private let timer = FocusTimerPresentationModel.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var phase
+    @State private var route: FocusManagementRoute?
+    @State private var expanded = false
+    @State private var category = false
+    @State private var showAll = false
+    @State private var limit: Int32 = 50
+
     var body: some View {
         List {
-            if model.managementLoading { ProgressView().frame(maxWidth: .infinity) }
-            if let error = model.managementError { OverviewFailureView(message: error, retry: model.loadData) }
-            Section("专注概况") {
-                if let error = model.focusError { OverviewFailureView(message: error, retry: model.loadData) }
-                else if let today = model.focus?.today {
-                    summary("今天", seconds: today.totalDurationSeconds, count: Int(today.sessionCount))
-                }
-                if let stats = model.focusManagementStatistics {
-                    summary("累计", seconds: stats.summary.totalDurationSeconds, count: Int(stats.summary.sessionCount))
-                    if let split = stats.summary.durationByTarget {
-                        LabeledContent("任务", value: FocusTimerFormatting.duration(split.taskDurationSeconds))
-                        LabeledContent("习惯", value: FocusTimerFormatting.duration(split.habitDurationSeconds))
-                    }
-                }
+            if model.managementLoading && model.focusManagement == nil { ProgressView().frame(maxWidth: .infinity) }
+            if let error = model.managementError {
+                OverviewFailureView(message: model.focusManagement == nil ? error : "更新失败，显示上次结果", retry: model.reloadFocusManagement)
             }
-            if let stats = model.focusManagementStatistics {
-                Section("目标分配") {
-                    if stats.targets.isEmpty { Text("暂无目标分配").foregroundStyle(.secondary) }
-                    ForEach(Array(stats.targets.enumerated()), id: \.offset) { _, target in
-                        distribution(target.title, seconds: target.durationSeconds, total: stats.summary.totalDurationSeconds)
+            if let data = model.focusManagement {
+                Section("专注概况") {
+                    FocusManagementDashboard(data: data)
+                }
+                Section("近 7 天") {
+                    FocusDurationChart(title: "近 7 天专注", points: data.recentSevenDays.daily, summary: data.recentSevenDays.summary)
+                }
+                Section {
+                    FocusManagementAllocationPreview(statistics: data.allTime)
+                    DisclosureGroup("时间投入", isExpanded: $expanded) {
+                        Picker("分配方式", selection: $category) { Text("按目标").tag(false); Text("按分类").tag(true) }
+                            .pickerStyle(.segmented)
+                        FocusManagementDistribution(statistics: data.allTime, category: category, showAll: showAll) { route = .history($0) }
+                        if (category ? data.allTime.categories.count : data.allTime.targets.count) > 5 {
+                            Button(showAll ? "收起" : "查看全部") { showAll.toggle() }
+                        }
                     }
                 }
-                Section("分类分配") {
-                    if stats.categories.isEmpty { Text("暂无分类分配").foregroundStyle(.secondary) }
-                    ForEach(Array(stats.categories.enumerated()), id: \.offset) { _, category in
-                        distribution(category.categoryTitle ?? "未分类", seconds: category.durationSeconds, total: stats.summary.totalDurationSeconds)
-                    }
-                }
-            }
-            Section("全部已保存记录 · \(model.focusSessions.count) 条") {
-                if !model.managementLoading && model.managementError == nil && model.focusSessions.isEmpty {
-                    ContentUnavailableView("暂无专注记录", systemImage: "timer", description: Text("结束并保存专注后，记录会显示在这里。"))
-                }
-                ForEach(model.focusSessions, id: \.uid) { session in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(session.taskTitleSnapshot).font(.headline)
-                        Text(startLabel(session.startedAt)).font(.caption).foregroundStyle(.secondary)
-                        Text(FocusTimerFormatting.duration(session.durationSeconds)).font(.subheadline).monospacedDigit()
-                        if let day = session.habitOccurredOn { Text("习惯日期 · \(day)").font(.caption).foregroundStyle(.secondary) }
-                        HStack {
-                            Button("更正时长") { editing = session }.disabled(Self.maximum(session) < 1)
-                            Spacer()
-                            Button("删除", role: .destructive) { deleting = session }
-                        }.font(.subheadline).buttonStyle(.borderless)
-                    }.padding(.vertical, 6)
-                    .swipeActions { Button("删除", role: .destructive) { deleting = session } }
-                }
+                FocusManagementHistory(data: data, target: nil, limit: $limit) { route = .record($0) }
             }
         }
+        .animation(reduceMotion ? nil : .smooth(duration: 0.28), value: expanded)
         .deadlinerScrollEdgeEffect()
-        .navigationTitle("专注管理").navigationSubtitle("全部已保存记录")
-        .sheet(isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
-            if let editing { FocusSessionMutationSheet(model: model, session: editing, deleting: false) }
+        .navigationTitle("专注管理")
+        .navigationSubtitle("开始专注 · 看板 · 历史")
+        .refreshable { model.reloadFocusManagement() }
+        .safeAreaInset(edge: .bottom) {
+            FocusManagementActionBar { route = timer.state?.timer == nil ? .choose : .timer(nil) }
         }
-        .sheet(isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
-            if let deleting { FocusSessionMutationSheet(model: model, session: deleting, deleting: true) }
+        .sheet(item: $route, onDismiss: { model.reloadFocusManagement() }) { destination in
+            switch destination {
+            case .choose:
+                FocusTimerView(startNew: true)
+            case .timer(let option):
+                FocusTimerView(taskUID: option?.target.kind == .task ? option?.target.uid ?? "" : "",
+                    taskTitle: option?.title ?? "", habitUID: option?.target.kind == .habit ? option?.target.uid ?? "" : "")
+            case .record(let uid): FocusManagementDetailSheet(model: model, uid: uid)
+            case .history(let target): FocusManagementTargetHistory(model: model, target: target)
+            }
         }
-    }
-    static func maximum(_ session: FocusSession) -> Int64 {
-        guard let start = DeadlineDateParser.safeParseOptional(session.startedAt), let end = DeadlineDateParser.safeParseOptional(session.endedAt) else { return 0 }
-        return max(0, min(session.durationSeconds, Int64(end.timeIntervalSince(start)), 86_400))
-    }
-    private func summary(_ title: String, seconds: Int64, count: Int) -> some View {
-        LabeledContent(title) { VStack(alignment: .trailing) { Text(FocusTimerFormatting.duration(seconds)); Text("\(count) 次").font(.caption).foregroundStyle(.secondary) } }
-    }
-    private func distribution(_ title: String, seconds: Int64, total: Int64) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabeledContent(title, value: FocusTimerFormatting.duration(seconds))
-            ProgressView(value: Double(seconds), total: Double(max(total, 1))).tint(.blue)
-        }.padding(.vertical, 4)
-    }
-    private func startLabel(_ value: String) -> String {
-        DeadlineDateParser.safeParseOptional(value)?.formatted(date: .abbreviated, time: .shortened) ?? value
+        .task { await timer.connect(); model.reloadFocusManagement() }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in model.reloadFocusManagement() }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in model.reloadFocusManagement() }
+        .onChange(of: phase) { _, next in if next == .active { model.reloadFocusManagement() } }
     }
 }
 
-private struct FocusSessionMutationSheet: View {
-    @ObservedObject var model: OverviewViewModel
-    let session: FocusSession
-    let deleting: Bool
-    @Environment(\.dismiss) private var dismiss
-    @State private var seconds = ""
-    @State private var error: String?
-    @State private var busy = false
-    private var maximum: Int64 { OverviewFocusManagement.maximum(session) }
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Text(session.taskTitleSnapshot)
-                    Text("原时长 · " + FocusTimerFormatting.duration(session.durationSeconds)).foregroundStyle(.secondary)
-                    if deleting { Text("删除后该记录会从统计中移除，不会撤销习惯打卡。") }
-                    else {
-                        TextField("时长（秒）", text: $seconds).keyboardType(.numberPad)
-                        Text("只允许调低，可输入 1–\(maximum) 秒").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                if let error { Section { Text(error).foregroundStyle(.red) } }
-                Section {
-                    Button(deleting ? "确认删除" : "保存更正", role: deleting ? .destructive : nil) { apply() }
-                        .disabled(busy || !deleting && (Int64(seconds).map { $0 < 1 || $0 > maximum } ?? true))
-                    if busy { ProgressView() }
-                }
-            }
-            .navigationTitle(deleting ? "删除专注记录" : "更正专注时长").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() }.disabled(busy) } }
-        }
-        .interactiveDismissDisabled(busy)
-        .onAppear { if seconds.isEmpty { seconds = "\(maximum)" } }
-    }
-    private func apply() {
-        busy = true; error = nil
-        model.mutateFocusSession(uid: session.uid, seconds: deleting ? nil : Int64(seconds)) { message in
-            busy = false
-            if let message { error = message } else { dismiss() }
+private enum FocusManagementRoute: Identifiable {
+    case choose, timer(FocusStartTargetOption?), record(String), history(FocusTargetRef)
+    var id: String {
+        switch self {
+        case .choose: "choose"
+        case .timer(let target): "timer-" + (target?.target.uid ?? "active")
+        case .record(let uid): "record-" + uid
+        case .history(let target): "history-\(target.kind)-\(target.uid)"
         }
     }
 }

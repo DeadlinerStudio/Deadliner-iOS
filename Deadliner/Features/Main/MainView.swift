@@ -436,6 +436,10 @@ struct FocusMainView: View {
 
     private func handleIncomingURL(_ url: URL) {
         guard url.scheme == "deadliner" else { return }
+        if let sessionUID = FocusLiveActivityAttributes.sessionUID(from: url) {
+            _Concurrency.Task { await FocusTimerPresentationModel.shared.openLiveActivity(sessionUID: sessionUID) }
+            return
+        }
         if url.host == "ai" {
             module = .taskManagement
             showAISheet = true

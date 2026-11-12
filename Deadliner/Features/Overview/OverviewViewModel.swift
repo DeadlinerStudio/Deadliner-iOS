@@ -99,6 +99,8 @@ final class OverviewViewModel: ObservableObject {
     @Published private(set) var taskError: String?
     @Published private(set) var focusError: String?
     @Published private(set) var focusLoading = true
+    @Published private(set) var focusManagement: FocusManagementSnapshot?
+    private var managementGeneration = 0
     @Published private(set) var focusSessions: [FocusSession] = []
     @Published private(set) var focusManagementStatistics: FocusStatisticsSnapshot?
     @Published private(set) var managementError: String?
@@ -142,6 +144,7 @@ final class OverviewViewModel: ObservableObject {
         guard let bridge else { completion("数据尚未就绪，请重试"); return }
         bridge.mutateFocusSession(uid: uid, seconds: seconds) { [weak self] outcome, error in
             guard error == nil, outcome == .applied || outcome == .noOp else {
+                self?.reloadFocusManagement()
                 completion(error ?? FocusTimerFormatting.outcomeMessage(outcome) ?? "操作失败，请重试")
                 return
             }
@@ -150,6 +153,26 @@ final class OverviewViewModel: ObservableObject {
             FocusTimerPresentationModel.shared.refresh()
             completion(nil)
         }
+    }
+    func reloadFocusManagement() {
+        guard let bridge else { return }
+        managementGeneration += 1
+        let generation = managementGeneration
+        managementLoading = true
+        managementError = nil
+        bridge.loadFocusManagement(onState: { [weak self] snapshot in
+            guard let self, self.managementGeneration == generation else { return }
+            self.focusManagement = snapshot
+            self.focusSessions = snapshot.records.map(\.session)
+            self.focusManagementStatistics = snapshot.allTime
+            self.focusDurationByDay = Dictionary(uniqueKeysWithValues:
+                snapshot.historyPage(limit: Int32.max, target: nil).days.map { ($0.date, $0.durationSeconds) })
+            self.managementLoading = false
+        }, onError: { [weak self] error in
+            guard let self, self.managementGeneration == generation else { return }
+            self.managementError = error
+            self.managementLoading = false
+        })
     }
     func focusSeconds(on date: String) -> Int64 { focusDurationByDay[date] ?? 0 }
     private func loadMonth() {
@@ -291,26 +314,7 @@ final class OverviewViewModel: ObservableObject {
             self?.focusError = error
             self?.focusLoading = false
         })
-        managementLoading = true
-        managementError = nil
-        bridge.loadFocusManagement(onState: { [weak self] sessions, statistics in
-            guard let self else { return }
-            self.focusSessions = sessions
-            var totals: [String: Int64] = [:]
-            for session in sessions {
-                guard let start = DeadlineDateParser.safeParseOptional(session.startedAt) else { continue }
-                totals[OverviewPeriod.key(start), default: 0] += session.durationSeconds
-            }
-            self.focusDurationByDay = totals
-            self.focusManagementStatistics = statistics
-            self.managementLoading = false
-        }, onError: { [weak self] error in
-            self?.focusSessions = []
-            self?.focusDurationByDay = [:]
-            self?.focusManagementStatistics = nil
-            self?.managementError = error
-            self?.managementLoading = false
-        })
+        reloadFocusManagement()
         bridge.load { [weak self] state in
             guard let self else { return }
             self.snapshotLoadInFlight = false

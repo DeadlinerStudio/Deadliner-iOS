@@ -260,6 +260,43 @@ final class FocusNativeUITests: XCTestCase {
     }
 
     @MainActor
+    func testLiveActivityIslandControlsAndDeepLink() throws {
+        guard ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == "DeadlinerFocusValidation" else {
+            throw XCTSkip("Requires isolated focus validation simulator")
+        }
+        let app = XCUIApplication()
+        app.launch()
+        openFocus(app, name: "Live Activity UI fixture", habit: false)
+        app.buttons["focus.start.stopwatch"].tap()
+        XCTAssertTrue(app.buttons["focus.pause"].waitForExistence(timeout: 10))
+        defer {
+            app.activate()
+            if app.buttons["focus.finish"].exists { app.buttons["focus.finish"].tap() }
+        }
+        XCUIDevice.shared.press(.home)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.028)).press(forDuration: 1.2)
+        let pause = springboard.buttons["暂停"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), springboard.debugDescription)
+        screenshot(springboard, "live-activity-expanded-running")
+        pause.tap()
+        let resume = springboard.buttons["继续"].firstMatch
+        XCTAssertTrue(resume.waitForExistence(timeout: 10))
+        screenshot(springboard, "live-activity-expanded-paused")
+        resume.tap()
+        XCTAssertTrue(pause.waitForExistence(timeout: 10))
+        // Tapping the compact presentation must return directly to this focus session.
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.028)).tap()
+        XCTAssertTrue(app.buttons["focus.finish"].waitForExistence(timeout: 10))
+        screenshot(app, "live-activity-deep-link-current-focus")
+        app.buttons["focus.finish"].tap()
+        XCTAssertTrue(app.staticTexts["本轮已结束"].waitForExistence(timeout: 10))
+        closeFocus(app)
+        XCTAssertFalse(app.buttons["focus.global.open"].exists)
+    }
+
+    @MainActor
     private func openFocus(_ app: XCUIApplication, name: String, habit: Bool) {
         let home = app.buttons["清单"].firstMatch
         XCTAssertTrue(home.waitForExistence(timeout: 30))
@@ -285,7 +322,15 @@ final class FocusNativeUITests: XCTestCase {
 
     @MainActor
     private func screenshot(_ app: XCUIApplication, _ name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        // Allow the system's remote-view transition to settle before visual evidence.
+        if name.hasPrefix("live-activity-") { Thread.sleep(forTimeInterval: 0.5) }
+        let capture = name.hasPrefix("live-activity-") ? XCUIScreen.main.screenshot() : app.screenshot()
+        if name.hasPrefix("live-activity-") {
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent(name + ".png")
+            try? capture.pngRepresentation.write(to: file)
+            print("LIVE_ACTIVITY_SCREENSHOT " + file.path)
+        }
+        let attachment = XCTAttachment(screenshot: capture)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

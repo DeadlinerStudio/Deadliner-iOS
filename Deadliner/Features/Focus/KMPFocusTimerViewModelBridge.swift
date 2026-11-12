@@ -42,6 +42,13 @@ final class KMPFocusTimerViewModelBridge {
     func pause() { bridge.pause() }
     func resume() { bridge.resume() }
     func finish() { bridge.finish() }
+    func executeLiveActivityAction(sessionUID: String, version: String, action: String) async -> FocusTimerUiState {
+        await withCheckedContinuation { continuation in
+            bridge.executeLiveActivityAction(action: action, sessionUid: sessionUID, version: version) { state in
+                continuation.resume(returning: state)
+            }
+        }
+    }
     func finishAndCompleteTask() { bridge.finishAndCompleteTask() }
     func completeSavedTask(_ uid: String) { bridge.completeSavedTask(sessionUid: uid) }
     func resolveConfirmedChange(uid: String, habit: Bool, delete: Bool, action: TaskAction?, sessionUID: String,

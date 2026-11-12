@@ -7,6 +7,7 @@
 
 #if canImport(Shared)
 import Shared
+import Foundation
 
 actor KMPPersistenceRuntime {
     static let shared = KMPPersistenceRuntime()
@@ -88,6 +89,10 @@ actor KMPPersistenceRuntime {
 
     func focusTimerStateBridge() -> IosFocusTimerStateBridge {
         IosFocusTimerStateBridge(database: database, alarmPort: focusAlarmPortInstance)
+    }
+
+    func focusLiveActivityInfo() -> FocusTimerResult {
+        database.focusTimerNotificationInfo(now: Kotlinx_datetimeInstant.companion.fromEpochMilliseconds(epochMilliseconds: Int64(Date().timeIntervalSince1970 * 1_000)))
     }
 
     func isAvailableFocusSession(uid: String) -> Bool {

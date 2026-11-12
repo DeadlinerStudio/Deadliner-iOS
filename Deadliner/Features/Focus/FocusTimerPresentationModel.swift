@@ -31,6 +31,7 @@ final class FocusTimerPresentationModel: ObservableObject {
                 guard let self else { return }
                 self.bridge?.reconcile()
                 self.startTicking()
+                FocusLiveActivityCoordinator.shared.requestSync()
                 _Concurrency.Task { await self.loadTargets() }
             }.store(in: &cancellables)
         NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
@@ -39,6 +40,7 @@ final class FocusTimerPresentationModel: ObservableObject {
         NotificationCenter.default.publisher(for: .persistenceDataChanged)
             .receive(on: RunLoop.main).sink { [weak self] _ in
                 self?.bridge?.reconcile()
+                FocusLiveActivityCoordinator.shared.requestSync()
                 _Concurrency.Task { await self?.loadTargets() }
             }.store(in: &cancellables)
         NotificationCenter.default.publisher(for: .focusNotificationOpened)
@@ -101,6 +103,35 @@ final class FocusTimerPresentationModel: ObservableObject {
         if target.kind == .habit { bridge?.startHabitCountdown(habitUID: target.uid, durationSeconds: Int64(minutes * 60)) }
         else { bridge?.startCountdown(taskUID: target.uid, durationSeconds: Int64(minutes * 60)) }
     }
+    func clearNotificationRoute() {
+        invalidNotificationRoute = false
+        notificationSessionUID = nil
+    }
+
+    func openLiveActivity(sessionUID: String) async {
+        await connect()
+        let info = await KMPPersistenceRuntime.shared.focusLiveActivityInfo()
+        guard info.activeTimer?.sessionUid == sessionUID, info.snapshot != nil else {
+            invalidNotificationRoute = true
+            notificationSessionUID = sessionUID
+            message = "这次专注已结束，请在最近记录中查看"
+            openRequested = true
+            return
+        }
+        invalidNotificationRoute = false
+        notificationSessionUID = nil
+        bridge?.reconcile()
+        openRequested = true
+    }
+
+    func performLiveActivityAction(sessionUID: String, version: String, action: String) async {
+        await connect()
+        guard let bridge else { return }
+        let next = await bridge.executeLiveActivityAction(sessionUID: sessionUID, version: version, action: action)
+        receive(next)
+        await FocusLiveActivityCoordinator.shared.synchronize()
+    }
+
     func pause() { bridge?.pause() }
     func resume() { bridge?.resume() }
     func finish() { bridge?.finish() }
@@ -171,6 +202,15 @@ final class FocusTimerPresentationModel: ObservableObject {
         let old = state
         state = next
         if !next.isLoading {
+            let signature: (FocusTimerUiState) -> String = { value in
+                guard let timer = value.timer else { return "none" }
+                return "\(timer.sessionUid)|\(timer.state)|\(timer.mode)|\(timer.taskTitle)|\(String(describing: timer.warning))|\(String(describing: timer.plannedDurationSeconds))|\(timer.canPause)|\(timer.canResume)|\(timer.canFinish)"
+            }
+            if old == nil || signature(next) != signature(old!) {
+                FocusLiveActivityCoordinator.shared.requestSync()
+            }
+        }
+        if !next.isLoading {
             let waiters = stateWaiters
             stateWaiters.removeAll()
             waiters.forEach { $0.resume() }
@@ -197,7 +237,7 @@ final class FocusTimerPresentationModel: ObservableObject {
     }
 
     private func startTicking() {
-        guard tickTask == nil else { return }
+        guard tickTask == nil, UIApplication.shared.applicationState == .active else { return }
         tickTask = _Concurrency.Task { [weak self] in
             while !_Concurrency.Task.isCancelled {
                 try? await _Concurrency.Task.sleep(for: .seconds(1))

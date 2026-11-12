@@ -49,10 +49,10 @@ final class KMPOverviewViewModelBridge {
                                onError: { error in _Concurrency.Task { @MainActor in onError(error) } })
     }
 
-    func loadFocusManagement(onState: @escaping @MainActor ([FocusSession], FocusStatisticsSnapshot) -> Void,
+    func loadFocusManagement(onState: @escaping @MainActor (FocusManagementSnapshot) -> Void,
                              onError: @escaping @MainActor (String) -> Void) {
-        bridge.loadFocusManagement(onState: { sessions, statistics in
-            _Concurrency.Task { @MainActor in onState(sessions, statistics) }
+        bridge.loadFocusManagementSnapshot(onState: { snapshot in
+            _Concurrency.Task { @MainActor in onState(snapshot) }
         }, onError: { error in _Concurrency.Task { @MainActor in onError(error) } })
     }
 

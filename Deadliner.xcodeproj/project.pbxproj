@@ -183,6 +183,7 @@
 				Core/Domain/Models/DDLState.swift,
 				Core/Domain/Models/InnerTodo.swift,
 				Core/Shared/DateParsing/DeadlineDateParser.swift,
+				Shared/LiveActivity/FocusLiveActivityContract.swift,
 				Shared/UI/Components/LinearProgressView.swift,
 			);
 			target = E53876152F5A5AC200E5D81A /* DeadlinerWidgetExtension */;
@@ -194,6 +195,7 @@
 				Core/Domain/Models/DDLState.swift,
 				Core/Shared/DateParsing/DateExtension.swift,
 				Core/Shared/DateParsing/DeadlineDateParser.swift,
+				Shared/LiveActivity/FocusLiveActivityContract.swift,
 				Core/Shared/WatchSync/WatchBoardSyncModels.swift,
 				Shared/UI/AppNotifications.swift,
 			);
@@ -979,6 +981,7 @@
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Deadliner 需要访问你的日历，以便将任务与日历日程关联并提供相关提醒。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Deadliner 需要使用麦克风来进行语音输入。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Deadliner 需要语音识别权限，将语音实时转换成文本输入。";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -999,7 +1002,7 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = artix;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG PAYWALL_FORCE_FREE $(inherited)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG PAYWALL_FORCE_FREE DEADLINER_APP $(inherited)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1033,6 +1036,7 @@
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Deadliner 需要访问你的日历，以便将任务与日历日程关联并提供相关提醒。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Deadliner 需要使用麦克风来进行语音输入。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Deadliner 需要语音识别权限，将语音实时转换成文本输入。";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1053,6 +1057,7 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = artix;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEADLINER_APP $(inherited)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;

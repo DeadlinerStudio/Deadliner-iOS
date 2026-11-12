@@ -6,25 +6,31 @@ struct FocusTimerView: View {
     let taskUID: String
     let habitUID: String
     let taskTitle: String
+    let startNew: Bool
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var model = FocusTimerPresentationModel.shared
     @State private var countdownMinutes = 25
     @State private var mode = 0
     @State private var enteredTimer = false
+    @State private var prepared = false
     @State private var showDiscardConfirmation = false
     @State private var editingSession: FocusSession?
     @State private var deletingSession: FocusSession?
+    @State private var detailSession: FocusSession?
+    @State private var pendingEdit: FocusSession?
+    @State private var pendingDelete: FocusSession?
     @State private var adjustedSeconds = ""
     @State private var recordRequest: FocusHabitRecordRequest?
     @State private var amount = ""
 
-    init(taskUID: String = "", taskTitle: String = "", habitUID: String = "") {
+    init(taskUID: String = "", taskTitle: String = "", habitUID: String = "", startNew: Bool = false) {
         self.taskUID = taskUID
         self.taskTitle = taskTitle
         self.habitUID = habitUID
+        self.startNew = startNew
     }
 
-    private var timer: FocusTimerSnapshot? { model.state?.timer }
+    private var timer: FocusTimerSnapshot? { model.invalidNotificationRoute ? nil : model.state?.timer }
     private var busy: Bool { model.state?.isBusy == true || model.state?.isLoading == true }
 
     var body: some View {
@@ -37,8 +43,9 @@ struct FocusTimerView: View {
                             .padding(16).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
                             .accessibilityIdentifier("focus.warning")
                     }
-                    if !enteredTimer && timer == nil {
-                        FocusSetupContent(model: model, mode: $mode, minutes: $countdownMinutes, busy: busy)
+                    if !prepared { ProgressView().frame(maxWidth: .infinity, minHeight: 160) }
+                    else if !enteredTimer && timer == nil {
+                        FocusSetupContent(model: model, mode: $mode, minutes: $countdownMinutes, busy: busy, initiallyChoosing: startNew)
                     } else {
                         if let timer { activeContent(timer) } else { resultContent }
                         summaryContent
@@ -50,8 +57,9 @@ struct FocusTimerView: View {
                     Button("返回清单") { dismiss() }
                         .accessibilityIdentifier("focus.done")
                         .font(.subheadline).padding(.vertical, 8)
-                }.padding(20).frame(maxWidth: 560).frame(maxWidth: .infinity)
+                }.padding(20).frame(maxWidth: 1100).frame(maxWidth: .infinity)
             }
+            .deadlinerScrollEdgeEffect()
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle(enteredTimer ? "专注" : "开始专注")
             .navigationBarTitleDisplayMode(.inline)
@@ -59,7 +67,8 @@ struct FocusTimerView: View {
         .task {
             await model.connect(selectedTaskUID: taskUID.isEmpty ? nil : taskUID,
                                 selectedHabitUID: habitUID.isEmpty ? nil : habitUID)
-            if timer != nil || taskUID.isEmpty && habitUID.isEmpty { enteredTimer = true }
+            if timer != nil || !startNew && taskUID.isEmpty && habitUID.isEmpty { enteredTimer = true }
+            prepared = true
         }
         .onReceive(model.$state) { state in if state?.timer != nil { enteredTimer = true } }
         .confirmationDialog("放弃本轮计时？", isPresented: $showDiscardConfirmation, titleVisibility: .visible) {
@@ -89,6 +98,28 @@ struct FocusTimerView: View {
             }
             Button("取消", role: .cancel) { deletingSession = nil }
         } message: { Text("仅删除时间记录，不撤销任务完成或习惯打卡。") }
+        .sheet(isPresented: Binding(get: { detailSession != nil }, set: { if !$0 { detailSession = nil } }), onDismiss: {
+            if let session = pendingEdit { adjustedSeconds = String(session.durationSeconds); editingSession = session; pendingEdit = nil }
+            if let session = pendingDelete { deletingSession = session; pendingDelete = nil }
+        }) {
+            if let session = detailSession {
+                NavigationStack {
+                    Form {
+                        Section(session.targetTitleSnapshot) {
+                            Text(FocusTimerFormatting.clock(session.durationSeconds)).font(.largeTitle).monospacedDigit()
+                            LabeledContent("开始", value: FocusTimerFormatting.historyDate(session.startedAt))
+                            LabeledContent("结束", value: FocusTimerFormatting.historyDate(session.endedAt))
+                            LabeledContent("计时方式", value: session.mode == .countdown ? "倒计时" : "正计时")
+                        }
+                        Section {
+                            Button("更正时长") { pendingEdit = session; detailSession = nil }
+                            Button("删除记录", role: .destructive) { pendingDelete = session; detailSession = nil }
+                        }
+                    }.navigationTitle("专注记录").navigationBarTitleDisplayMode(.inline)
+                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("完成") { detailSession = nil } } }
+                }
+            }
+        }
         .sheet(item: $recordRequest) { request in
             NavigationStack {
                 Form {
@@ -186,14 +217,12 @@ struct FocusTimerView: View {
 
     private var summaryContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(model.selectedTitle.isEmpty ? taskTitle : model.selectedTitle).font(.headline).lineLimit(2)
             HStack {
                 metric("今日", seconds: model.state?.selectedTaskTodayDurationSeconds ?? 0)
                 Spacer()
                 metric("累计", seconds: model.state?.selectedTaskTotalDurationSeconds ?? 0)
             }
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(18)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
     }
 
     private func metric(_ title: String, seconds: Int64) -> some View {
@@ -206,32 +235,34 @@ struct FocusTimerView: View {
     private var historySection: some View {
         let sessions = model.state?.selectedTarget == nil
             ? model.state?.recentSessions ?? [] : model.state?.selectedTaskRecentSessions ?? []
-        return VStack(alignment: .leading, spacing: 16) {
+        let visible = Array(sessions.prefix(5))
+        return VStack(alignment: .leading, spacing: 12) {
             Text("最近记录").font(.headline)
-            if sessions.isEmpty { Text("还没有专注记录").foregroundStyle(.secondary) }
-            ForEach(Array(sessions.prefix(5)), id: \.uid) { session in
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack {
-                        Label(session.targetTitleSnapshot, systemImage: session.boundTarget.kind == .habit ? "leaf" : "checklist")
-                            .font(.subheadline).lineLimit(2)
-                        Spacer()
-                        Text(FocusTimerFormatting.duration(session.durationSeconds)).monospacedDigit()
+            if visible.isEmpty { Text("还没有专注记录").foregroundStyle(.secondary) }
+            else {
+                VStack(spacing: 0) {
+                    ForEach(visible, id: \.uid) { session in
+                        Button { detailSession = session } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(model.state?.selectedTarget == nil ? session.targetTitleSnapshot : FocusTimerFormatting.historyDate(session.startedAt))
+                                        .font(.subheadline).lineLimit(2)
+                                    Text((session.mode == .countdown ? "倒计时" : "正计时") +
+                                        (model.state?.selectedTarget == nil ? " · " + FocusTimerFormatting.historyDate(session.startedAt) : ""))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(FocusTimerFormatting.duration(session.durationSeconds)).monospacedDigit().font(.subheadline)
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                            }.padding(16).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityIdentifier("focus.history." + session.uid)
+                            .contextMenu {
+                                Button("更正时长") { adjustedSeconds = String(session.durationSeconds); editingSession = session }
+                                Button("删除记录", role: .destructive) { deletingSession = session }
+                            }
+                        if session.uid != visible.last?.uid { Divider().padding(.horizontal, 16) }
                     }
-                    Text(FocusTimerFormatting.historyDate(session.startedAt))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("focus.history." + session.uid)
-                .contextMenu {
-                    Button("更正时长") { adjustedSeconds = String(session.durationSeconds); editingSession = session }
-                    Button("删除记录", role: .destructive) { deletingSession = session }
-                }
-                .swipeActions {
-                    Button("删除", role: .destructive) { deletingSession = session }
-                    Button("更正") { adjustedSeconds = String(session.durationSeconds); editingSession = session }.tint(.blue)
-                }
+                }.background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
             }
         }.disabled(busy)
     }
