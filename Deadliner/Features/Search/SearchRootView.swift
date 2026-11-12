@@ -251,22 +251,15 @@ struct RichSearchTabView: View {
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
-            .background {
-                ZStack(alignment: .top) {
-                    Color(uiColor: .systemGroupedBackground)
-                        .ignoresSafeArea()
-
-                    DeadlinerTopAtmosphereBackdrop(
-                        progress: overlayProgress,
-                        isAIConfigured: isAIConfigured,
-                        semanticTone: .accent,
-                        semanticAccentColor: RichMainTab.search.atmosphereAccentColor(
-                            for: themeStore.accentOption
-                        )
-                    )
-                    .opacity(usesLocalAtmosphere ? 0 : 1)
-                }
-            }
+            .deadlinerTopAtmosphereSceneBackground(
+                progress: overlayProgress,
+                isAIConfigured: isAIConfigured,
+                semanticTone: .accent,
+                semanticAccentColor: RichMainTab.search.atmosphereAccentColor(
+                    for: themeStore.accentOption
+                ),
+                overlayOpacity: usesLocalAtmosphere ? 0 : 1
+            )
             .task {
                 await startKMPHabitListBridgeIfNeeded()
                 await reload(showLoading: true)

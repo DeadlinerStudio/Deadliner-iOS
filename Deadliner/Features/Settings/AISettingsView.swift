@@ -16,6 +16,8 @@ struct AISettingsView: View {
     @AppStorage("settings.ai.silent_task_add") private var silentTaskAdd: Bool = true
     @AppStorage("settings.ai.hide_thinking_process") private var hideThinkingProcess: Bool = false
     
+    @AppStorage(QuickAddBackend.settingKey) private var quickAddBackendRaw = QuickAddBackend.kivo.rawValue
+
     @State private var apiKey = ""
     @State private var baseUrl = ""
     @State private var model = ""
@@ -27,6 +29,21 @@ struct AISettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                Picker("识别方式", selection: Binding(
+                    get: { QuickAddBackend(rawValue: quickAddBackendRaw) ?? .kivo },
+                    set: { quickAddBackendRaw = $0.rawValue }
+                )) {
+                    ForEach(QuickAddBackend.allCases) { backend in
+                        Text(backend.title).tag(backend)
+                    }
+                }
+                .accessibilityIdentifier("quickAdd.backend")
+            } header: {
+                Text("快速添加")
+            } footer: {
+                Text((QuickAddBackend(rawValue: quickAddBackendRaw) ?? .kivo).description)
+            }
             if userTier == .free {
                 PlusUpsellSection(showPaywall: $showPaywall)
             }

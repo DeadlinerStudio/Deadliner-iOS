@@ -36,34 +36,21 @@ struct CaptureInboxView: View {
     }
 
     var body: some View {
-        List {
-            composerSection
-
-            if visibleItems.isEmpty {
-                emptyRow
-            } else {
-                notesHeaderRow
-
-                ForEach(visibleItems) { item in
-                    noteRow(item)
-                }
-            }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .deadlinerScrollEdgeEffect(forceImmersive: false)
+        CaptureResponsiveLayout(
+            items: visibleItems,
+            selectionMode: selectionMode,
+            composer: composerSection,
+            header: notesHeaderRow,
+            empty: emptyRow,
+            note: noteRow,
+            onScrollProgressChange: onScrollProgressChange
+        )
         .background(.clear)
         .toolbar {
             captureToolbar
         }
         .animation(.smooth(duration: 0.26, extraBounce: 0), value: selectionMode)
         .animation(.smooth(duration: 0.22, extraBounce: 0), value: selectedIDs.count)
-        .onScrollGeometryChange(for: CGFloat.self) { geo in
-            max(0, geo.contentOffset.y + geo.contentInsets.top)
-        } action: { _, newValue in
-            let progress = min(max(newValue / 120, 0), 1)
-            onScrollProgressChange?(progress)
-        }
         .sheet(item: $selectedItem) { item in
             CaptureItemDetailSheet(
                 item: item,
@@ -257,6 +244,19 @@ struct CaptureInboxView: View {
                 }
             }
         )
+        .contextMenu {
+            if !selectionMode {
+                Button("AI 任务", systemImage: "sparkles") {
+                    conversionRequest = singleConversionRequest(kind: .aiTask, item: item)
+                }
+                Button("AI 习惯", systemImage: "leaf") {
+                    conversionRequest = singleConversionRequest(kind: .aiHabit, item: item)
+                }
+                Button("删除", systemImage: "trash", role: .destructive) {
+                    requestDelete(items: [item])
+                }
+            }
+        }
         .swipeActions(edge: .trailing, allowsFullSwipe: !selectionMode) {
             if !selectionMode {
                 Button(role: .destructive) {

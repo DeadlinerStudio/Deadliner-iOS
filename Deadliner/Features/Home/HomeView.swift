@@ -69,6 +69,7 @@ struct HomeBoardCoreView: View {
     
     @State private var selection = HomeBoardSelectionState()
     @State private var scrollProgress: CGFloat = 0
+    @State private var usesMultipleColumns = false
 
     private var viewState: HomeBoardDerivedState {
         HomeBoardDerivedState(
@@ -95,7 +96,7 @@ struct HomeBoardCoreView: View {
     }
 
     private var showsToolbarSegmentPicker: Bool {
-        presentationStyle == .classic && !selectionMode
+        presentationStyle == .classic && !selectionMode && !usesMultipleColumns
     }
 
     private var selectedTasks: [DDLItem] {
@@ -133,30 +134,36 @@ struct HomeBoardCoreView: View {
 
     private func homeLayout(state: HomeBoardDerivedState) -> some View {
         GeometryReader { proxy in
-            let isWide = proxy.size.width >= 840
+            let isWide = AppLayoutBreakpoint(width: proxy.size.width).isWide
             
             Group {
                 if experimentalLayoutActive {
                     experimentalDashboardLayout(state: state)
+                        .onScrollGeometryChange(for: CGFloat.self) {
+                            max(0, $0.contentOffset.y + $0.contentInsets.top)
+                        } action: { _, offset in
+                            updateScrollProgress(offset: offset)
+                        }
                 } else if isWide {
                     twoColumnLayout(state: state)
                 } else {
                     classicSingleColumnLayout(state: state)
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: listAnimToken)
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                max(0, geo.contentOffset.y + geo.contentInsets.top)
-            } action: { _, newValue in
-                scrollProgress = min(max(newValue / 120, 0), 1)
-                let p = min(max(newValue / 120, 0), 1)
-                onScrollProgressChange?(p)
+            .onChange(of: isWide && !experimentalLayoutActive, initial: true) { _, isSplit in
+                usesMultipleColumns = isSplit
             }
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: listAnimToken)
         }
         .background(.clear)
         .toolbar {
             homeToolbar
         }
+    }
+
+    private func updateScrollProgress(offset: CGFloat) {
+        scrollProgress = min(max(offset / 120, 0), 1)
+        onScrollProgressChange?(scrollProgress)
     }
 
     private func dataLoadingModifiers<Content: View>(_ content: Content) -> some View {
@@ -331,6 +338,11 @@ struct HomeBoardCoreView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .deadlinerScrollEdgeEffect()
+        .onScrollGeometryChange(for: CGFloat.self) {
+            max(0, $0.contentOffset.y + $0.contentInsets.top)
+        } action: { _, offset in
+            updateScrollProgress(offset: offset)
+        }
     }
 
     @ViewBuilder
@@ -357,30 +369,22 @@ struct HomeBoardCoreView: View {
     private func twoColumnLayout(state: HomeBoardDerivedState) -> some View {
         HStack(spacing: 0) {
             List {
-                Section {
-                    tasksSectionContent(state: state)
-                } header: {
-                    Text("任务")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .padding(.bottom, 8)
-                }
+                tasksSectionContent(state: state)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .deadlinerScrollEdgeEffect(forceImmersive: true)
+            // Only the task list drives the shared atmosphere in split layout.
+            .onScrollGeometryChange(for: CGFloat.self) {
+                max(0, $0.contentOffset.y + $0.contentInsets.top)
+            } action: { _, offset in
+                updateScrollProgress(offset: offset)
+            }
 
             Divider()
 
             List {
-                Section {
-                    habitsSectionContent(state: state)
-                } header: {
-                    Text("习惯")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .padding(.bottom, 8)
-                }
+                habitsSectionContent(state: state)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)

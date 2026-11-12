@@ -23,10 +23,19 @@ struct RichHomeTabView: View {
     let showsHomeFilterToolbarItem: Bool
     let onHomeFilterTapped: () -> Void
     let onSettingsTapped: () -> Void
+    @Environment(\.tabBarPlacement) private var tabBarPlacement
+    var showsAddToolbarItem = false
+    var usesBottomAddToolbarItem = false
+    var onAddTapped: () -> Void = {}
+    var onTabBarPlacementChange: (TabBarPlacement?) -> Void = { _ in }
+    var onComposerBottomChange: (CGFloat) -> Void = { _ in }
 
     var body: some View {
         NavigationStack {
             homeContent
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                ComposerBottomBoundary(onChange: onComposerBottomChange)
+            }
             .richCompactNavigationTitle(
                 homeNavigationTitle,
                 inlineWhenCompact: selectionMode
@@ -38,6 +47,19 @@ struct RichHomeTabView: View {
                 if showsHomeFilterToolbarItem && !selectionMode {
                     ToolbarItem(placement: .topBarLeading) {
                         homeFilterButton
+                    }
+                }
+
+                if showsAddToolbarItem && tabBarPlacement != .sidebar && !selectionMode {
+                    ToolbarItem(placement: usesBottomAddToolbarItem ? .bottomBar : .topBarTrailing) {
+                        Button(action: onAddTapped) {
+                            Image(systemName: "plus")
+                        }
+                        .buttonStyle(.glassProminent)
+                        .buttonBorderShape(.circle)
+                        .tint(themeStore.fabColor)
+                        .accessibilityLabel("添加")
+                        .accessibilityIdentifier("home.toolbar.add")
                     }
                 }
 
@@ -55,6 +77,9 @@ struct RichHomeTabView: View {
             )
         }
         .deadlinerNavigationBarMinimizeOnScrollDown()
+        .onChange(of: tabBarPlacement, initial: true) { _, placement in
+            onTabBarPlacementChange(placement)
+        }
     }
 
     @ViewBuilder
@@ -238,7 +263,7 @@ struct RichAITabView: View {
             DeadlinerAIPanel(
                 showsDismissButton: false,
                 embedInNavigationStack: false,
-                bottomAccessoryInset: 16,
+                bottomAccessoryInset: FloatingComposerStyle.tabAccessoryInset,
                 useSheetDetents: false,
                 onScrollProgressChange: { overlayProgress = $0 }
             )

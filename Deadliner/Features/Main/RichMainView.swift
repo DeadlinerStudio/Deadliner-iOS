@@ -26,6 +26,10 @@ struct MainView: View {
 
 struct RichMainView: View {
     @EnvironmentObject private var themeStore: ThemeStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var availableWidth: CGFloat = 0
+    @State private var hasDeviceHinge = false
+    @State private var homeTabBarPlacement: TabBarPlacement?
     @AppStorage("settings.ai.is_configured") private var isAIConfigured: Bool = false
     @AppStorage(RichTabBarTitles.settingKey) private var richTabBarTitlesVisible: Bool = RichTabBarTitles.defaultValue
     @AppStorage(SeperateSearchBar.settingKey) private var seperateSearchBarVisible: Bool = SeperateSearchBar.defaultValue
@@ -44,6 +48,7 @@ struct RichMainView: View {
     @State private var navGradientProgress: CGFloat = 0
 
     @State private var showAddEntrySheet = false
+    @State private var composerBottom: CGFloat?
     @State private var addEntrySelection: TaskSegment = .tasks
     @State private var showSettingsSheet = false
     @State private var showQuickInspirationSheet = false
@@ -84,6 +89,16 @@ struct RichMainView: View {
                     }
                 }
             }
+            .tabViewSidebarBottomBar {
+                if selectedTab == .home {
+                    HStack {
+                        Spacer(minLength: 0)
+                        addButton
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
             .focusTabAccessory(model: focusModel) { focusModel.openRequested = true }
             .background {
                 RichTabBarTapObserver(
@@ -93,11 +108,10 @@ struct RichMainView: View {
                 )
             }
 
-            if selectedTab == .home {
-                floatingAddButton
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+        .background { HingedDeviceObserver(hasHinge: $hasDeviceHinge) }
         .focusLifecycleHost()
         .tabBarMinimizeBehavior(.onScrollDown)
         .animation(.smooth(duration: 0.28, extraBounce: 0), value: selectedTab)
@@ -110,13 +124,13 @@ struct RichMainView: View {
                 searchResetToken += 1
             }
         }
-        .sheet(isPresented: $showAddEntrySheet) {
-            AddEntrySheetView(
-                repository: PersistenceStores.tasks,
-                initialSelection: addEntrySelection
-            )
-            .presentationDetents([.large])
-        }
+        .addEntryPresentation(
+            isPresented: $showAddEntrySheet, selection: addEntrySelection, bottomBoundary: composerBottom,
+            floatingAction: selectedTab == .home && !usesToolbarAddButton && homeTabBarPlacement != .sidebar
+                ? QuickAddFloatingAction(tint: themeStore.fabColor,
+                                         bottomInset: focusModel.state?.timer == nil ? 68 : 128,
+                                         onTap: { presentAddSheet(selection: homeTaskSegment) }) : nil
+        )
         .sheet(isPresented: $showQuickInspirationSheet) {
             QuickInspirationCaptureSheet { text in
                 CaptureStore.shared.addItem(text: text)
@@ -334,7 +348,12 @@ struct RichMainView: View {
             },
             onSettingsTapped: {
                 showSettingsSheet = true
-            }
+            },
+            showsAddToolbarItem: usesToolbarAddButton,
+            usesBottomAddToolbarItem: hasDeviceHinge,
+            onAddTapped: { presentAddSheet(selection: homeTaskSegment) },
+            onTabBarPlacementChange: { homeTabBarPlacement = $0 },
+            onComposerBottomChange: { composerBottom = $0 }
         )
         .id(homeResetToken)
     }
@@ -383,7 +402,14 @@ struct RichMainView: View {
         dashboardHomeLayoutEnabled ? "今日" : "清单"
     }
 
-    private var floatingAddButton: some View {
+    private var usesToolbarAddButton: Bool {
+        hasDeviceHinge
+            || UIDevice.current.userInterfaceIdiom == .pad
+            || horizontalSizeClass == .regular
+            || AppLayoutBreakpoint(width: availableWidth) != .small
+    }
+
+    private var addButton: some View {
         Button {
             presentAddSheet(selection: homeTaskSegment)
         } label: {
@@ -394,8 +420,8 @@ struct RichMainView: View {
         .buttonStyle(.glassProminent)
         .buttonBorderShape(.circle)
         .tint(themeStore.fabColor)
-        .padding(.bottom, focusModel.state?.timer == nil ? 68 : 128)
         .accessibilityLabel("添加")
+        .accessibilityIdentifier("home.add")
     }
 
     private func presentAddSheet(selection: TaskSegment) {

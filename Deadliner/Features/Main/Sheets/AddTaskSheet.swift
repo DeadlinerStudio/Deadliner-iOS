@@ -30,7 +30,6 @@ struct AddTaskSheetView: View {
 }
 
 struct AddEntrySheetView: View {
-    @AppStorage("quick_add_enabled") private var quickAddEnabled = false
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var themeStore: ThemeStore
 
@@ -66,11 +65,7 @@ struct AddEntrySheetView: View {
     }
 
     var body: some View {
-        if quickAddEnabled {
-            QuickAddEntrySheetView(repository: repository, initialKind: selection == .habits ? "HABIT" : "TASK", onDone: onDone)
-        } else {
-            traditionalBody
-        }
+        traditionalBody
     }
 
     private var traditionalBody: some View {

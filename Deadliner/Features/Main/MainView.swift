@@ -35,6 +35,7 @@ struct FocusMainView: View {
     @AppStorage(DashboardHomeLayout.settingKey) private var dashboardHomeLayoutEnabled: Bool = DashboardHomeLayout.defaultValue
     
     @State private var showAddEntrySheet = false
+    @State private var composerBottom: CGFloat?
     @State private var addEntrySelection: TaskSegment = .tasks
     
     @State private var showArchiveSheet = false
@@ -54,6 +55,9 @@ struct FocusMainView: View {
     var body: some View {
         NavigationStack {
             contentView
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    ComposerBottomBoundary { composerBottom = $0 }
+                }
                 .safeAreaInset(edge: .bottom) {
                     if focusModel.state?.timer != nil {
                         FocusTimerGlobalBar(model: focusModel) { focusModel.openRequested = true }
@@ -90,13 +94,6 @@ struct FocusMainView: View {
                     DeadlinerAIPanel()
                         .presentationDetents([.medium, .large])
                 }
-                .sheet(isPresented: $showAddEntrySheet) {
-                    AddEntrySheetView(
-                        repository: PersistenceStores.tasks,
-                        initialSelection: addEntrySelection
-                    )
-                    .presentationDetents([.large])
-                }
                 .sheet(isPresented: $showQuickInspirationSheet) {
                     QuickInspirationCaptureSheet { text in
                         CaptureStore.shared.addItem(text: text)
@@ -126,6 +123,7 @@ struct FocusMainView: View {
                     handleIncomingURL(url)
                 }
         }
+        .addEntryPresentation(isPresented: $showAddEntrySheet, selection: addEntrySelection, bottomBoundary: composerBottom)
         .focusLifecycleHost()
     }
 
@@ -297,6 +295,12 @@ struct FocusMainView: View {
         .sharedBackgroundVisibility(.hidden)
     }
 
+    private var usesToolbarAddButton: Bool {
+        // On iPhone, the system can move bottomBar items into a vertical bar
+        // (including Duo). A regular size class must not move + out of that bar.
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+
     // MARK: - Bottom Toolbar
 
     @ToolbarContentBuilder
@@ -330,7 +334,7 @@ struct FocusMainView: View {
             .matchedTransitionSource(id: "main-toolbar-bottom-center", in: toolbarTransition)
         ToolbarSpacer(.fixed, placement: .bottomBar)
 
-        ToolbarItem(placement: .bottomBar) {
+        ToolbarItem(placement: usesToolbarAddButton ? .topBarTrailing : .bottomBar) {
             Button {
                 presentAddSheet(selection: taskSegment)
             } label: {

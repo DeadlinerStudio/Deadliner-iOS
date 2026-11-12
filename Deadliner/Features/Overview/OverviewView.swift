@@ -11,36 +11,33 @@ struct OverviewView: View {
     @State private var archiveQuery = ""
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                OverviewMonthCalendar(model: viewModel)
-                managementCards
-                NavigationLink { OverviewTaskDetail(model: viewModel) } label: { OverviewTaskResultCard(model: viewModel) }
-                    .buttonStyle(.plain)
-                if let error = viewModel.monthError { OverviewFailureView(message: error, retry: viewModel.loadData) }
-                NavigationLink { OverviewTrendDetail(model: viewModel) } label: { OverviewTrendPreview(model: viewModel) }
-                    .buttonStyle(.plain)
-                OverviewSurface {
-                    if viewModel.monthlyAnalysis != nil {
-                        NavigationLink { OverviewReviewDetail(model: viewModel) } label: {
-                            VStack(alignment: .leading, spacing: 12) {
-                                reviewHeading
-                                OverviewInsightContent(model: viewModel)
-                                reviewFooter
-                            }
-                        }.buttonStyle(.plain)
-                    } else {
-                        NavigationLink { OverviewReviewDetail(model: viewModel) } label: { reviewHeading }.buttonStyle(.plain)
-                        OverviewInsightContent(model: viewModel)
-                        NavigationLink { OverviewReviewDetail(model: viewModel) } label: { reviewFooter }.buttonStyle(.plain)
+        GeometryReader { proxy in
+            let breakpoint = AppLayoutBreakpoint(width: proxy.size.width)
+            let usesColumns = breakpoint.isWide && !typeSize.isAccessibilitySize
+            Group {
+                if usesColumns {
+                    wideLayout(breakpoint: breakpoint)
+                } else {
+                    overviewColumn {
+                        calendarCards
+                        taskCard
+                        trendCard
+                        reviewCard
+                    }
+                    .onScrollGeometryChange(for: CGFloat.self) {
+                        max(0, $0.contentOffset.y + $0.contentInsets.top)
+                    } action: { _, offset in
+                        onScrollProgressChange?(min(max(offset / 120, 0), 1))
                     }
                 }
             }
-            .frame(maxWidth: 760)
-            .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
-            .frame(maxWidth: .infinity)
+            .onAppear {
+                if usesColumns { onScrollProgressChange?(0) }
+            }
+            .onChange(of: usesColumns) { _, _ in
+                onScrollProgressChange?(0)
+            }
         }
-        .deadlinerScrollEdgeEffect()
         .navigationTitle(viewModel.monthTitle)
         .navigationSubtitle(viewModel.monthSubtitle)
         .navigationBarTitleDisplayMode(.large)
@@ -52,9 +49,6 @@ struct OverviewView: View {
                     .accessibilityLabel("下个月").disabled(!viewModel.canGoForward)
             }
         }
-        .onScrollGeometryChange(for: CGFloat.self) { max(0, $0.contentOffset.y + $0.contentInsets.top) } action: { _, offset in
-            onScrollProgressChange?(min(max(offset / 120, 0), 1))
-        }
         .onAppear { onMonthTitleChange?(viewModel.monthTitle, viewModel.monthSubtitle) }
         .onChange(of: viewModel.selectedMonth) { onMonthTitleChange?(viewModel.monthTitle, viewModel.monthSubtitle) }
         .onChange(of: scenePhase) { if scenePhase == .active { viewModel.refreshForClockChange() } }
@@ -62,6 +56,78 @@ struct OverviewView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in viewModel.refreshForClockChange() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in viewModel.refreshForClockChange() }
     }
+    private func wideLayout(breakpoint: AppLayoutBreakpoint) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            overviewColumn(horizontalPadding: 0) { calendarCards }
+            overviewColumn(horizontalPadding: 0) {
+                taskCard
+                trendCard
+                if breakpoint != .extraLarge { reviewCard }
+            }
+            if breakpoint == .extraLarge {
+                overviewColumn(horizontalPadding: 0) { reviewCard }
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private func overviewColumn<Content: View>(horizontalPadding: CGFloat = 16, @ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            VStack(spacing: 16, content: content)
+                .frame(maxWidth: 760)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .deadlinerScrollEdgeEffect()
+    }
+
+    private var calendarCards: some View {
+        VStack(spacing: 16) {
+            OverviewMonthCalendar(model: viewModel)
+            managementCards
+        }
+    }
+
+    private var taskCard: some View {
+        VStack(spacing: 16) {
+            NavigationLink { OverviewTaskDetail(model: viewModel) } label: {
+                OverviewTaskResultCard(model: viewModel)
+            }
+            .buttonStyle(.plain)
+            if let error = viewModel.monthError {
+                OverviewFailureView(message: error, retry: viewModel.loadData)
+            }
+        }
+    }
+
+    private var trendCard: some View {
+        NavigationLink { OverviewTrendDetail(model: viewModel) } label: {
+            OverviewTrendPreview(model: viewModel)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var reviewCard: some View {
+        OverviewSurface {
+            if viewModel.monthlyAnalysis != nil {
+                NavigationLink { OverviewReviewDetail(model: viewModel) } label: {
+                    VStack(alignment: .leading, spacing: 12) {
+                        reviewHeading
+                        OverviewInsightContent(model: viewModel)
+                        reviewFooter
+                    }
+                }.buttonStyle(.plain)
+            } else {
+                NavigationLink { OverviewReviewDetail(model: viewModel) } label: { reviewHeading }.buttonStyle(.plain)
+                OverviewInsightContent(model: viewModel)
+                NavigationLink { OverviewReviewDetail(model: viewModel) } label: { reviewFooter }.buttonStyle(.plain)
+            }
+        }
+    }
+
     private var reviewHeading: some View {
         VStack(alignment: .leading, spacing: 8) {
             OverviewCardHeading(title: "月度复盘", disclosure: true)
