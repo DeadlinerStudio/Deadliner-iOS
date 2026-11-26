@@ -1,3 +1,3 @@
-// Copy to Local.xcconfig (ignored by Git). Use an absolute checkout path.
-// Applies to Debug and Release, including the Sync KMP Core build phase.
+// Optional local source build. Package builds use core-package.lock.json.
+DEADLINER_CORE_SOURCE = local
 DEADLINER_CORE_DIR = /path/to/DeadlinerCore
