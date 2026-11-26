@@ -7,6 +7,21 @@
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       buildArchitectures = "Automatic">
+      <PreActions>
+         <ExecutionAction ActionType="Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent title="Prepare pinned Core XCFramework" scriptText="&quot;$SRCROOT/scripts/sync-core-package.sh&quot;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "E53876152F5A5AC200E5D81A"
+               BuildableName = "DeadlinerWidgetExtension.appex"
+               BlueprintName = "DeadlinerWidgetExtension"
+               ReferencedContainer = "container:Deadliner.xcodeproj">
+            </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"

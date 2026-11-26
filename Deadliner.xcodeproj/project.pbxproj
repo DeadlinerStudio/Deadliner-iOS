@@ -709,7 +709,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../../ProjectDeadliner/DeadlinerCore",
+				"$(SRCROOT)/core-package.lock.json",
 			);
 			name = "Sync KMP Core";
 			outputFileListPaths = (
@@ -719,7 +719,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\nCORE_DIR=\"${DEADLINER_CORE_DIR:-$SRCROOT/../DeadlinerCore}\"\nSYNC_SCRIPT=\"$CORE_DIR/runscript/buildAndDeploy.sh\"\nif [ ! -x \"$SYNC_SCRIPT\" ]; then\n  echo \"error: Deadliner Core was not found at $CORE_DIR. Set DEADLINER_CORE_DIR to its checkout.\" >&2\n  exit 1\nfi\n\"$SYNC_SCRIPT\" --configuration \"$CONFIGURATION\" --lifi-mode \"${DEADLINER_LIFI_MODE:-private}\" --skip-android --skip-harmony --ios-repo \"$SRCROOT\"\n";
+
+			shellScript = "\"$SRCROOT/scripts/sync-core-package.sh\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 

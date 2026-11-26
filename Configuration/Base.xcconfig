@@ -1,3 +1,6 @@
 // Optional machine-specific overrides; missing Local.xcconfig is allowed.
-// Copy Local.xcconfig.example to Local.xcconfig and set your Core checkout path.
+// First build: gh auth login -h github.com -s read:packages
+// Existing account: gh auth refresh -h github.com -s read:packages
+// The default build installs the XCFramework pinned in core-package.lock.json.
+// For a source build, copy Local.xcconfig.example to Local.xcconfig and set the checkout path.
 #include? "Local.xcconfig"
